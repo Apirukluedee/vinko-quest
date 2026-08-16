@@ -2728,3 +2728,135 @@ body {
   .vk-ef-grid { grid-template-columns:1fr; }
   .vk-ef-card h3 { font-size:19px; }
 }
+
+/* ============================================================
+   VINKO — หน้าใบประกาศนักวิทย์น้อย
+   ============================================================ */
+
+.vk-cert-grid {
+  display:grid; grid-template-columns:minmax(320px, 400px) 1fr; gap:26px;
+  align-items:start; max-width:1120px; margin:0 auto;
+}
+
+.vk-cert-missions { display:grid; gap:2px; margin-bottom:14px; }
+.vk-cert-mission { margin-bottom:0; padding:5px 0; }
+.vk-cert-mission span { font-size:14px; line-height:1.5; }
+.vk-cert-mission b { color:var(--orange); }
+.vk-cert-quickpick { display:flex; gap:10px; margin-bottom:20px; }
+.vk-cert-quickpick .btn { flex:1; padding:9px 12px; font-size:14px; }
+
+.vk-cert-privacy {
+  margin:16px 0 0; padding:13px 15px; border-radius:14px;
+  background:var(--cream2); color:var(--muted);
+  font-size:13px; line-height:1.65;
+}
+.vk-cert-privacy b { color:var(--navy); }
+
+.vk-cert-preview-label {
+  margin:0 0 10px; font-size:13px; font-weight:900;
+  color:var(--muted); letter-spacing:.5px; text-transform:uppercase;
+}
+
+/* ---- ตัวใบประกาศ : สัดส่วน A4 แนวนอน ---- */
+.vk-cert {
+  aspect-ratio:297 / 210;
+  background:#fff; border-radius:20px; box-shadow:var(--premium-shadow);
+  padding:14px; container-type:inline-size;
+}
+.vk-cert-inner {
+  height:100%; border:3px double var(--orange);
+  border-radius:12px; padding:4cqw 5cqw;
+  display:flex; flex-direction:column; align-items:center; text-align:center;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(245,154,35,.07), transparent 26%),
+    radial-gradient(circle at 88% 88%, rgba(23,58,138,.06), transparent 26%),
+    #fff;
+}
+.vk-cert-logo { width:7cqw; height:auto; margin-bottom:1cqw; }
+.vk-cert-kicker {
+  margin:0 0 .6cqw; font-size:1.7cqw; font-weight:950;
+  letter-spacing:.28cqw; color:var(--orange);
+}
+.vk-cert-title {
+  margin:0 0 .8cqw; font-size:4.6cqw; line-height:1.12; color:var(--navy);
+  font-family:"Mali","Anuphan",sans-serif;
+}
+.vk-cert-sub { margin:0 0 1cqw; font-size:1.9cqw; color:var(--muted); }
+
+.vk-cert-name {
+  margin:0 0 1.2cqw; font-size:5.4cqw; line-height:1.15; font-weight:950;
+  color:var(--navy); font-family:"Mali","Anuphan",sans-serif;
+  border-bottom:.35cqw solid rgba(245,154,35,.35);
+  padding:0 3cqw .8cqw; max-width:88%;
+  overflow-wrap:anywhere;
+}
+.vk-cert-name.is-placeholder { color:#C8CEDA; }
+
+.vk-cert-body { margin:0 0 1.4cqw; font-size:1.85cqw; line-height:1.75; color:#4A5162; }
+
+.vk-cert-missions-out { width:100%; margin-bottom:auto; }
+.vk-cert-missions-out[hidden] { display:none; }
+.vk-cert-missions-head {
+  margin:0 0 .7cqw; font-size:1.6cqw; font-weight:950; color:var(--orange);
+}
+.vk-cert-missions-out ul {
+  list-style:none; margin:0; padding:0;
+  display:grid; grid-template-columns:1fr 1fr; gap:.35cqw 2.4cqw;
+  text-align:left;
+}
+.vk-cert-missions-out li {
+  font-size:1.55cqw; line-height:1.5; color:#4A5162;
+  padding-left:1.7cqw; position:relative;
+}
+.vk-cert-missions-out li:before {
+  content:"✓"; position:absolute; left:0; color:var(--orange); font-weight:950;
+}
+.vk-cert-missions-out.is-dense li { font-size:1.35cqw; }
+.vk-cert-missions-out.is-dense .vk-cert-missions-head { font-size:1.45cqw; }
+
+.vk-cert-foot {
+  width:100%; margin-top:auto; padding-top:1.6cqw;
+  display:flex; justify-content:space-between; gap:4cqw;
+}
+.vk-cert-foot > div {
+  flex:1; display:flex; flex-direction:column; align-items:center;
+  border-top:.2cqw solid var(--soft-line); padding-top:.7cqw;
+}
+.vk-cert-foot span { font-size:1.75cqw; color:var(--navy); font-weight:800; min-height:1.2em; }
+.vk-cert-foot small { font-size:1.3cqw; color:var(--muted); margin-top:.2cqw; }
+.vk-cert-sign { font-family:"Mali","Anuphan",sans-serif; color:var(--orange) !important; }
+
+@media (max-width:960px) {
+  .vk-cert-grid { grid-template-columns:1fr; }
+}
+
+/* ---- ตอนสั่งพิมพ์: เหลือเฉพาะใบประกาศเต็มหน้า A4 แนวนอน ---- */
+@page { size:A4 landscape; margin:8mm; }
+
+@media print {
+  .vk-no-print, .vk-cert-preview-label { display:none !important; }
+  body { background:#fff !important; }
+  .vk-cert-stage, .vk-cert-stage .wrap { padding:0 !important; margin:0 !important; max-width:none !important; }
+  .vk-cert-grid { display:block !important; max-width:none !important; gap:0 !important; }
+  .vk-cert {
+    box-shadow:none !important; border-radius:0 !important; padding:0 !important;
+    width:100%; aspect-ratio:auto; height:calc(210mm - 16mm);
+    break-inside:avoid; page-break-inside:avoid;
+    container-type:normal;
+  }
+  /* ตอนพิมพ์ใช้หน่วยคงที่แทน cqw เพราะ container query ไม่แน่นอนบนหน้ากระดาษ */
+  .vk-cert-inner { padding:10mm 14mm; border-width:2pt; }
+  .vk-cert-logo { width:20mm; margin-bottom:3mm; }
+  .vk-cert-kicker { font-size:10pt; letter-spacing:1pt; margin-bottom:2mm; }
+  .vk-cert-title { font-size:28pt; margin-bottom:3mm; }
+  .vk-cert-sub { font-size:11pt; margin-bottom:3mm; }
+  .vk-cert-name { font-size:32pt; margin-bottom:4mm; padding-bottom:3mm; border-bottom-width:1pt; }
+  .vk-cert-body { font-size:11pt; margin-bottom:5mm; }
+  .vk-cert-missions-head { font-size:10pt; margin-bottom:2mm; }
+  .vk-cert-missions-out li { font-size:9.5pt; padding-left:5mm; }
+  .vk-cert-missions-out.is-dense li { font-size:8.5pt; }
+  .vk-cert-foot { padding-top:5mm; }
+  .vk-cert-foot span { font-size:11pt; }
+  .vk-cert-foot small { font-size:8pt; }
+  .vk-cert-inner { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
