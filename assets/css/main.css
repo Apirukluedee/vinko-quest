@@ -2674,3 +2674,57 @@ body {
   .vk-consent-actions { width:100%; }
   .vk-consent .btn { flex:1; }
 }
+
+/* ============================================================
+   VINKO — section EF/EQ (งาน 2.2.5) ใช้ token ชุดเดิมทั้งหมด
+   ============================================================ */
+
+.vk-ef-section { background:linear-gradient(180deg,#FFFFFF 0%, var(--cream2) 100%); }
+
+.vk-ef-intro {
+  display:grid; grid-template-columns:1fr 1fr; gap:18px;
+  max-width:860px; margin:0 auto 30px;
+}
+.vk-ef-intro > div {
+  background:#fff; border:1px solid var(--soft-line); border-radius:22px;
+  padding:20px 22px; box-shadow:var(--premium-shadow-sm);
+}
+.vk-ef-intro h3 { margin:0 0 8px; font-size:18px; color:var(--orange); }
+.vk-ef-intro p { margin:0; color:#555b6d; line-height:1.75; font-size:15px; }
+
+.vk-ef-grid {
+  display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:18px;
+}
+.vk-ef-card {
+  background:#fff; border:1px solid var(--soft-line); border-radius:26px;
+  padding:22px; box-shadow:var(--premium-shadow-sm);
+}
+.vk-ef-card h3 {
+  margin:0 0 14px; font-size:20px; color:var(--navy); line-height:1.28;
+}
+.vk-ef-no {
+  display:block; font-size:12px; font-weight:950; letter-spacing:.6px;
+  color:var(--orange); margin-bottom:4px;
+}
+.vk-ef-skill { display:grid; grid-template-columns:44px 1fr; gap:12px; align-items:start; }
+.vk-ef-skill + .vk-ef-skill { margin-top:12px; padding-top:12px; border-top:1px dashed var(--soft-line); }
+.vk-ef-skill p { margin:0; color:#575c6c; line-height:1.7; font-size:14.5px; }
+.vk-ef-skill b { color:var(--navy); display:block; }
+.vk-ef-tag {
+  display:grid; place-items:center; width:44px; height:26px; border-radius:9px;
+  font-size:12px; font-weight:950; letter-spacing:.5px;
+}
+.vk-ef-tag.ef { background:rgba(245,154,35,.14); color:var(--orange); }
+.vk-ef-tag.eq { background:rgba(23,58,138,.10); color:var(--blue); }
+
+.vk-ef-closing {
+  max-width:860px; margin:26px auto 0; text-align:center;
+  color:#555b6d; line-height:1.8; font-size:16px;
+}
+.vk-ef-closing b { color:var(--navy); }
+
+@media (max-width:760px) {
+  .vk-ef-intro { grid-template-columns:1fr; }
+  .vk-ef-grid { grid-template-columns:1fr; }
+  .vk-ef-card h3 { font-size:19px; }
+}
