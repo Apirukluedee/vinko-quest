@@ -5,3 +5,9 @@ node_modules/
 
 # Local Netlify folder
 .netlify
+
+# Environment / secrets — ห้าม commit ค่าจริงเด็ดขาด
+.env
+.env.local
+.env.*.local
+.vercel
