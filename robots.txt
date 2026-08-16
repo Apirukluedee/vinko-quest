@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# หน้าที่ไม่ควรขึ้นผลค้นหา
+Disallow: /checkout
+Disallow: /thank-you
+
+Sitemap: https://vinko.quest/sitemap.xml
