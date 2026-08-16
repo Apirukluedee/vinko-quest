@@ -11,3 +11,6 @@ node_modules/
 .env.local
 .env.*.local
 .vercel
+
+# ไฟล์ชั่วคราวจากชุดทดสอบ
+.tmp/

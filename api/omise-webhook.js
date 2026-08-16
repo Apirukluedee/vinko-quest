@@ -78,12 +78,39 @@ module.exports = async function handler(req, res) {
   // รองรับทั้งสำเร็จ ล้มเหลว และหมดอายุ (QR PromptPay มีอายุจำกัด)
   try {
     const result = await orders.applyChargeResult(charge);
+
+    // จ่ายสำเร็จ: สั่งส่งมอบไฟล์ แต่ไม่รอผล เพื่อให้ตอบ 200 กลับ Omise ทันที
+    // ถ้าตอบช้า Omise จะ retry แล้วจะยุ่ง
+    if (result && result.needs_delivery) triggerDelivery(result.order_ref);
+
     return json(res, 200, { ok: true, result: result });
   } catch (e) {
     console.error('[vinko][webhook] อัปเดตออเดอร์ไม่สำเร็จ', e.message);
     return json(res, 500, { ok: false });
   }
 };
+
+/**
+ * ยิงไปที่ /api/deliver-order แบบไม่รอผล
+ *
+ * ถ้าส่งอีเมลล้มเหลว ห้ามให้ออเดอร์กลายเป็น failed เด็ดขาด — ลูกค้าจ่ายเงินแล้ว
+ * ความล้มเหลวถูกบันทึกไว้ใน email_events และกดส่งซ้ำได้ที่ /api/admin/resend-email
+ */
+function triggerDelivery(orderRef) {
+  const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
+  const secret = process.env.INTERNAL_TASK_SECRET;
+  if (!base || !secret) {
+    console.error('[vinko][webhook] ยังไม่ได้ตั้ง APP_BASE_URL หรือ INTERNAL_TASK_SECRET — ข้ามการส่งอีเมล', orderRef);
+    return;
+  }
+  fetch(base + '/api/deliver-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-vinko-task': secret },
+    body: JSON.stringify({ order_ref: orderRef })
+  }).catch(function (e) {
+    console.error('[vinko][webhook] เรียก deliver-order ไม่สำเร็จ', orderRef, e.message);
+  });
+}
 
 /**
  * ดึง charge id ออกจาก payload — เอาแค่ "ตัวชี้" เท่านั้น

@@ -41,10 +41,20 @@
 <p class="lead" style="margin:0 auto">เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว ใบเสร็จและลิงก์ดาวน์โหลดถูกส่งไปที่อีเมลที่คุณกรอกไว้</p>
 
 <div class="vk-download-box">
-<h3 style="margin:0 0 10px;color:var(--navy);font-size:19px">ดาวน์โหลด VINKO WOW LAB</h3>
-<!-- TODO: ลิงก์ดาวน์โหลดจริงจะถูกใส่หลังเชื่อมระบบชำระเงิน -->
-<p style="margin:0 0 14px;color:var(--muted)">ลิงก์ดาวน์โหลดของคุณจะแสดงตรงนี้</p>
-<code>รอเชื่อมต่อระบบชำระเงิน</code>
+<h3 style="margin:0 0 10px;color:var(--navy);font-size:19px">ดาวน์โหลดไฟล์ของคุณ</h3>
+
+<div data-vk-ty-loading>
+<p style="margin:0;color:var(--muted)"><span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:var(--orange)"></span> กำลังเตรียมไฟล์ให้คุณ…</p>
+</div>
+
+<div data-vk-ty-ready hidden>
+<a class="btn" data-vk-ty-link href="#">เปิดหน้าดาวน์โหลด</a>
+<p style="margin:12px 0 0;color:var(--muted);font-size:13.5px">ลิงก์ใช้ได้ถึง <b data-vk-ty-expires></b></p>
+</div>
+
+<div data-vk-ty-email hidden>
+<p style="margin:0;color:var(--muted)">เราส่งลิงก์ดาวน์โหลดไปที่อีเมลของคุณแล้ว กรุณาตรวจกล่องจดหมายและโฟลเดอร์ junk ด้วยนะครับ</p>
+</div>
 </div>
 
 <div class="vk-callout" style="text-align:left">
@@ -81,5 +91,6 @@
 </footer>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/site.js"></script>
+<script src="/assets/js/thank-you.js"></script>
 </body>
 </html>

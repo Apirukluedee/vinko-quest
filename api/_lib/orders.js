@@ -69,10 +69,14 @@ async function applyChargeResult(charge) {
   const upd = await db.update('orders', 'id=eq.' + order.id + '&status=eq.pending', patch);
   const changed = Array.isArray(upd.body) && upd.body.length > 0;
 
-  // TODO: round 3B — ตรงนี้คือจุดที่จะสั่งทำ watermark และส่งอีเมลลิงก์ดาวน์โหลด
-  //                  ต้องยิงเป็น request แยก ห้ามทำในคำขอนี้เพราะ Omise จะ timeout แล้ว retry
+  // ออก token + ส่งอีเมล ทำที่ /api/deliver-order ซึ่งถูกยิงจาก webhook แบบไม่รอผล
+  // (ดู triggerDelivery ใน api/omise-webhook.js)
 
-  return { handled: true, changed: changed, order_ref: order.order_ref, status: next };
+  return {
+    handled: true, changed: changed,
+    order_ref: order.order_ref, status: next,
+    needs_delivery: next === 'paid' && changed
+  };
 }
 
 module.exports = { applyChargeResult };

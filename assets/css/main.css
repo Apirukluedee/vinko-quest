@@ -2741,3 +2741,38 @@ body {
   .vk-field-row { grid-template-columns:1fr; gap:0; }
   .vk-qr-box img { width:232px; height:232px; }
 }
+
+/* ============================================================
+   VINKO — หน้าดาวน์โหลด (รอบ 3B)
+   ============================================================ */
+
+.vk-dl-list { display:grid; gap:12px; }
+
+.vk-dl-item {
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  background:#fff; border:1px solid var(--soft-line); border-radius:18px;
+  padding:16px 18px; box-shadow:var(--premium-shadow-sm);
+}
+.vk-dl-item.is-locked { background:var(--cream2); box-shadow:none; opacity:.72; }
+
+.vk-dl-info { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1 1 220px; }
+.vk-dl-info b { color:var(--navy); font-size:16px; line-height:1.35; }
+.vk-dl-info span { color:var(--muted); font-size:13.5px; line-height:1.5; }
+
+.vk-dl-item .btn { padding:11px 22px; font-size:15px; flex:none; }
+
+.vk-dl-badge {
+  flex:none; padding:8px 16px; border-radius:999px;
+  background:rgba(7,27,93,.07); color:var(--muted);
+  font-size:13px; font-weight:900; white-space:nowrap;
+}
+
+.vk-dl-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:22px; }
+.vk-dl-actions .btn { flex:1 1 200px; }
+
+.vk-download-box .btn { text-decoration:none; }
+
+@media (max-width:600px) {
+  .vk-dl-item { flex-direction:column; align-items:stretch; }
+  .vk-dl-item .btn, .vk-dl-badge { width:100%; text-align:center; }
+}

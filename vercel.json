@@ -3,36 +3,76 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/lab01", "destination": "/", "permanent": true },
-    { "source": "/lab01/:path*", "destination": "/", "permanent": true }
+    {
+      "source": "/lab01",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/lab01/:path*",
+      "destination": "/",
+      "permanent": true
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/img/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/assets/css/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=600, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600, must-revalidate"
+        }
       ]
     },
     {
       "source": "/assets/js/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=600, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600, must-revalidate"
+        }
       ]
     }
-  ]
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/deliver-preorders",
+      "schedule": "0 2 * * *"
+    }
+  ],
+  "functions": {
+    "api/download.js": {
+      "maxDuration": 60
+    }
+  }
 }

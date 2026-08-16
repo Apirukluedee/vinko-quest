@@ -257,6 +257,14 @@
       var d = r.data || {};
       if (!d.ok) throw new Error(d.error || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
 
+      // เก็บไว้ให้หน้า thank-you ยืนยันตัวตนเพื่อขอลิงก์ดาวน์โหลดทันที
+      // โดยไม่ต้องรออีเมล (ดู /api/claim-download)
+      try {
+        sessionStorage.setItem("vinko_last_order", JSON.stringify({
+          ref: d.order_ref, rid: clientRequestId
+        }));
+      } catch (e) {}
+
       if (d.payment_method === "promptpay") {
         if (!d.qr_image_url) throw new Error("ไม่สามารถสร้าง QR ได้ กรุณาลองใหม่อีกครั้ง");
         showQrStage(d);
