@@ -3,8 +3,11 @@
    ตั้งใจไม่ใช้ @supabase/supabase-js เพื่อให้ repo นี้ไม่ต้องมี
    package.json / node_modules / ขั้นตอน build เลย
 
-   service_role key ใช้ได้เฉพาะในไฟล์ใต้ /api เท่านั้น
+   กุญแจฝั่ง server ใช้ได้เฉพาะในไฟล์ใต้ /api เท่านั้น
    ห้ามนำ module นี้ไป import ฝั่ง browser เด็ดขาด
+
+   รองรับทั้ง sb_secret_ (แบบใหม่) และ service_role JWT (แบบเดิม)
+   สลับได้โดยเปลี่ยนแค่ค่า env ไม่ต้องแก้โค้ดในไฟล์นี้
    ============================================================ */
 
 'use strict';
@@ -15,15 +18,69 @@ function base() {
   return url.replace(/\/+$/, '');
 }
 
+/**
+ * ตรวจ key ที่ใส่มาว่าเป็น "กุญแจฝั่ง server" จริงไหม แล้วคืนชนิดของมัน
+ *
+ * รองรับทั้ง 2 รูปแบบ:
+ *   - แบบใหม่  sb_secret_...        (แนะนำ เพิกถอนทีละใบได้)
+ *   - แบบเดิม  JWT ที่มี role=service_role  (Supabase จะเลิกใช้ภายในสิ้นปี 2026)
+ *
+ * จุดประสงค์คือ "ผิดแล้วดังทันที" ถ้าเผลอเอา publishable/anon key มาใส่
+ * ถ้าไม่ตรวจ มันจะไม่ error ตอนตั้งค่า แต่จะไปเงียบตายตอน RLS บล็อกทุก query
+ * ซึ่งอ่านไม่ออกเลยว่าเกิดอะไรขึ้น
+ */
+let keyKindCache = null;
+
+function assertServerKey(key) {
+  if (keyKindCache) return keyKindCache;
+
+  if (key.startsWith('sb_publishable_')) {
+    throw new Error('BAD_KEY: SUPABASE_SERVICE_ROLE_KEY เป็น publishable key (sb_publishable_) ' +
+                    'ต้องใช้ secret key (sb_secret_) เท่านั้น');
+  }
+  if (key.startsWith('sb_secret_')) {
+    keyKindCache = 'secret';
+    return keyKindCache;
+  }
+  if (key.startsWith('eyJ')) {
+    // key แบบเดิมเป็น JWT อ่าน claim "role" ออกมาดูได้เลยว่าใช่ service_role ไหม
+    let role = null;
+    try {
+      const part = key.split('.')[1];
+      role = JSON.parse(Buffer.from(part, 'base64').toString('utf8')).role;
+    } catch (e) { /* ถอดไม่ออกก็ปล่อยผ่าน ให้ Supabase เป็นคนปฏิเสธเอง */ }
+
+    if (role === 'anon') {
+      throw new Error('BAD_KEY: SUPABASE_SERVICE_ROLE_KEY เป็น anon key ' +
+                      'ซึ่งอ่านตารางไม่ได้เลยเพราะ RLS ต้องใช้ service_role หรือ sb_secret_');
+    }
+    console.warn('[vinko] กำลังใช้ Supabase key แบบเดิม (legacy JWT) — ' +
+                 'Supabase จะเลิกรองรับภายในสิ้นปี 2026 ควรย้ายไป sb_secret_ ก่อนเปิดขายจริง');
+    keyKindCache = 'legacy';
+    return keyKindCache;
+  }
+
+  console.warn('[vinko] รูปแบบ SUPABASE_SERVICE_ROLE_KEY ไม่คุ้นเคย ส่งไปให้ Supabase ตัดสินเอง');
+  keyKindCache = 'unknown';
+  return keyKindCache;
+}
+
 function headers(extra) {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!key) throw new Error('ENV_MISSING: SUPABASE_SERVICE_ROLE_KEY');
+  assertServerKey(key);
+
+  // ส่งทั้ง apikey และ Authorization — รูปแบบเดียวกันนี้ใช้ได้ทั้ง key เก่าและใหม่
+  // จึงสลับ key ได้โดยไม่ต้องแตะโค้ดตรงนี้เลย
   return Object.assign({
     'apikey': key,
     'Authorization': 'Bearer ' + key,
     'Content-Type': 'application/json'
   }, extra || {});
 }
+
+/** ให้เทสต์ล้าง cache ได้ */
+function _resetKeyCache() { keyKindCache = null; }
 
 async function call(path, options) {
   const res = await fetch(base() + '/rest/v1' + path, options);
@@ -94,4 +151,7 @@ function isUniqueViolation(r) {
   return r.status === 409 || (r.body && r.body.code === '23505');
 }
 
-module.exports = { insert, insertMany, update, select, count, rpc, isUniqueViolation };
+module.exports = {
+  insert, insertMany, update, select, count, rpc, isUniqueViolation,
+  assertServerKey, _resetKeyCache
+};

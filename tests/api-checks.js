@@ -437,8 +437,40 @@ const BASE = {
   }
   check('ไม่มีออเดอร์ขยะถูกสร้าง', DB.orders.length === 0, 'ได้ ' + DB.orders.length);
 
-  /* ---- 15. public-config ---- */
-  section('15. /api/public-config ต้องไม่รั่ว secret');
+  /* ---- 15. รูปแบบ Supabase key ---- */
+  section('15. รับ Supabase key ได้ทั้งแบบใหม่และแบบเดิม');
+  const sb = require(path.join(REPO, 'api', '_lib', 'supabase.js'));
+
+  const mkJwt = (role) => 'eyJhbGciOiJIUzI1NiJ9.' +
+    Buffer.from(JSON.stringify({ role: role, iss: 'supabase' })).toString('base64url') + '.sig';
+
+  sb._resetKeyCache();
+  check('รับ sb_secret_ (แบบใหม่)', sb.assertServerKey('sb_secret_abc123') === 'secret');
+  sb._resetKeyCache();
+  check('รับ service_role JWT (แบบเดิม)', sb.assertServerKey(mkJwt('service_role')) === 'legacy');
+
+  sb._resetKeyCache();
+  let threw = '';
+  try { sb.assertServerKey('sb_publishable_abc123'); } catch (e) { threw = e.message; }
+  check('ปฏิเสธ sb_publishable_ ทันที', /BAD_KEY/.test(threw) && /publishable/.test(threw), threw || 'ไม่ throw');
+
+  sb._resetKeyCache();
+  threw = '';
+  try { sb.assertServerKey(mkJwt('anon')); } catch (e) { threw = e.message; }
+  check('ปฏิเสธ anon key ไม่ปล่อยให้ไปตายเงียบที่ RLS', /BAD_KEY/.test(threw) && /anon/.test(threw), threw || 'ไม่ throw');
+
+  sb._resetKeyCache();
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'sb_secret_switch_test';
+  resetAll();
+  h = load('create-charge.js'); r = mockRes();
+  await h(post(Object.assign({}, BASE, { package_code: 'LAB', payment_method: 'promptpay' })), r);
+  check('สลับไป key แบบใหม่แล้วสร้างออเดอร์ได้ตามปกติ', r.body.ok === true && DB.orders.length === 1,
+        JSON.stringify(r.body).slice(0, 120));
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'service_FAKE';
+  sb._resetKeyCache();
+
+  /* ---- 16. public-config ---- */
+  section('16. /api/public-config ต้องไม่รั่ว secret');
   const pc = load('public-config.js');
   let pr = mockRes();
   await pc(get('/api/public-config'), pr);
