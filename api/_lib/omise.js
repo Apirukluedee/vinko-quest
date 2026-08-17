@@ -1,11 +1,13 @@
 /* ============================================================
    Omise (Opn Payments) API ผ่าน fetch ตรงๆ ไม่ต้องลง dependency
 
-   secret key อ่านจาก process.env.OMISE_SECRET_KEY เท่านั้น
+   secret key อ่านผ่าน config.js เท่านั้น (มาจาก OMISE_SECRET_KEY)
    ห้ามส่ง secret key ออกไปฝั่ง client ไม่ว่ากรณีใด
    ============================================================ */
 
 'use strict';
+
+const config = require('./config');
 
 const API_MAIN = 'https://api.omise.co';
 const VAULT    = 'https://vault.omise.co';
@@ -15,9 +17,7 @@ function auth(key) {
 }
 
 function secretKey() {
-  const k = process.env.OMISE_SECRET_KEY;
-  if (!k) throw new Error('ENV_MISSING: OMISE_SECRET_KEY');
-  return k;
+  return config.omiseSecretKey();
 }
 
 async function request(baseUrl, path, method, key, params) {

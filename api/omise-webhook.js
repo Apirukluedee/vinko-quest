@@ -20,6 +20,7 @@ const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
 const { json, requireEnv } = require('./_lib/util');
+const config = require('./_lib/config');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false });
@@ -97,8 +98,8 @@ module.exports = async function handler(req, res) {
  * ความล้มเหลวถูกบันทึกไว้ใน email_events และกดส่งซ้ำได้ที่ /api/admin/resend-email
  */
 function triggerDelivery(orderRef) {
-  const base = (process.env.APP_BASE_URL || '').replace(/\/+$/, '');
-  const secret = process.env.INTERNAL_TASK_SECRET;
+  const base = config.appBaseUrl();
+  const secret = config.internalTaskSecret();
   if (!base || !secret) {
     console.error('[vinko][webhook] ยังไม่ได้ตั้ง APP_BASE_URL หรือ INTERNAL_TASK_SECRET — ข้ามการส่งอีเมล', orderRef);
     return;

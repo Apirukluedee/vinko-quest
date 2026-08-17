@@ -13,6 +13,7 @@ const omise   = require('./_lib/omise');
 const db      = require('./_lib/supabase');
 const orders  = require('./_lib/orders');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
+const config  = require('./_lib/config');
 
 const RATE_WINDOW_MIN = 10;
 const RATE_MAX_ORDERS = 8;      // ต่อ ip_hash ต่อ 10 นาที
@@ -132,7 +133,7 @@ module.exports = async function handler(req, res) {
   /* ---------- 6. เรียก Omise ---------- */
 
   const meta = { order_ref: orderRef, package_code: pkg.code };
-  const returnUri = process.env.APP_BASE_URL.replace(/\/+$/, '') +
+  const returnUri = config.appBaseUrl() +
                     '/thank-you?ref=' + encodeURIComponent(orderRef);
 
   let charge;

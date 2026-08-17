@@ -14,10 +14,11 @@ const tokens  = require('./../_lib/tokens');
 const storage = require('./../_lib/storage');
 const email   = require('./../_lib/email');
 const { json, safeEqual } = require('./../_lib/util');
+const config  = require('./../_lib/config');
 
 module.exports = async function handler(req, res) {
   // Vercel Cron ส่ง Authorization: Bearer <CRON_SECRET> มาให้
-  const secret = process.env.CRON_SECRET;
+  const secret = config.cronSecret();
   const auth = String(req.headers.authorization || '');
   const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
   if (!secret || !given || !safeEqual(given, secret)) {

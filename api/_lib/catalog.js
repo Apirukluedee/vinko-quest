@@ -5,6 +5,8 @@
 
 'use strict';
 
+const config = require('./config');
+
 // ราคาเป็นสตางค์เสมอ (199 บาท = 19900) ห้ามใช้ทศนิยมกับเงิน
 const CATALOG = {
   LAB: {
@@ -45,7 +47,7 @@ function getPackage(code) {
  * ไม่ตั้ง LAUNCH_PROMO_END = ถือว่ายังอยู่ในช่วงเปิดตัว
  */
 function isLaunchPriceActive(now = Date.now()) {
-  const raw = process.env.LAUNCH_PROMO_END;
+  const raw = config.launchPromoEnd();
   if (!raw) return true;
   const end = new Date(raw).getTime();
   if (Number.isNaN(end)) return true;   // ค่าเพี้ยน = ไม่ขึ้นราคาใส่ลูกค้าเงียบๆ
@@ -64,7 +66,7 @@ function priceSatang(code, now = Date.now()) {
  * ยังไม่ตั้ง = คืน null ทุกช่อง (order_items จะมี scheduled_delivery_date เป็น null)
  */
 function storyDates() {
-  const raw = (process.env.STORY_DELIVERY_DATES || '').trim();
+  const raw = config.storyDeliveryDates();
   if (!raw) return [];
   return raw.split(',').map(s => s.trim()).filter(s => /^\d{4}-\d{2}-\d{2}$/.test(s));
 }

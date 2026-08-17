@@ -9,11 +9,12 @@
 
 const { deliver } = require('../deliver-order');
 const { json, safeEqual } = require('../_lib/util');
+const config = require('../_lib/config');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false });
 
-  const secret = process.env.ADMIN_SECRET;
+  const secret = config.adminSecret();
   const given = req.headers['x-vinko-admin'];
   if (!secret || secret.length < 16 || !given || !safeEqual(given, secret)) {
     return json(res, 401, { ok: false, error: 'ไม่ได้รับอนุญาต' });

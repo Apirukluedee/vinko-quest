@@ -11,20 +11,22 @@
 'use strict';
 
 const db = require('./supabase');
+const config = require('./config');
 
 const FROM = 'VINKO <hello@vinko.quest>';
 const BRAND_ORANGE = '#F59A23';
 const BRAND_NAVY = '#071B5D';
 
 function baseUrl() {
-  return (process.env.APP_BASE_URL || 'https://vinko.quest').replace(/\/+$/, '');
+  // อีเมลต้องมีลิงก์เสมอ ยอมใช้โดเมนจริงเป็นค่าสำรองดีกว่าส่งอีเมลที่ลิงก์เป็น /download เปล่าๆ
+  return config.appBaseUrl() || 'https://vinko.quest';
 }
 
 function seller() {
   return {
-    name: process.env.SELLER_NAME || 'VINKO WOW LAB',
-    email: process.env.CONTACT_EMAIL || '',
-    line: process.env.LINE_URL || 'https://lin.ee/8F08BYJ'
+    name: config.sellerName(),
+    email: config.contactEmail(),
+    line: config.lineUrl()
   };
 }
 
@@ -196,7 +198,7 @@ function resendEmail(o) {
 /* ---------------- ส่งจริง ---------------- */
 
 async function send(kind, toEmail, payload, meta) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = config.resendApiKey();
   const rec = {
     order_id: (meta && meta.orderId) || null,
     order_item_id: (meta && meta.orderItemId) || null,

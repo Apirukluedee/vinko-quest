@@ -16,11 +16,12 @@ const tokens  = require('./_lib/tokens');
 const email   = require('./_lib/email');
 const catalog = require('./_lib/catalog');
 const { json, safeEqual } = require('./_lib/util');
+const config  = require('./_lib/config');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false });
 
-  const secret = process.env.INTERNAL_TASK_SECRET;
+  const secret = config.internalTaskSecret();
   const given = req.headers['x-vinko-task'];
   if (!secret || !given || !safeEqual(given, secret)) {
     return json(res, 401, { ok: false });

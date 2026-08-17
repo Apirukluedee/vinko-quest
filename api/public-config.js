@@ -16,11 +16,12 @@
 
 const catalog = require('./_lib/catalog');
 const { json } = require('./_lib/util');
+const config = require('./_lib/config');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { ok: false });
 
-  const key = process.env.OMISE_PUBLIC_KEY || '';
+  const key = config.omisePublicKey();
 
   // กันพลาดแบบหยาบๆ: ถ้ามีคนเผลอเอา secret key มาใส่ช่อง public key
   // ห้ามส่งออกไปเด็ดขาด

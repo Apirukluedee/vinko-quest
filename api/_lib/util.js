@@ -5,6 +5,7 @@
 'use strict';
 
 const crypto = require('crypto');
+const config = require('./config');
 
 /** ตอบ JSON พร้อมปิด cache (ข้อมูลออเดอร์ห้ามถูก cache) */
 function json(res, status, body) {
@@ -29,7 +30,7 @@ function hashIp(req) {
     || req.headers['x-real-ip']
     || (req.socket && req.socket.remoteAddress)
     || 'unknown';
-  const salt = process.env.IP_HASH_SALT || 'vinko-default-salt';
+  const salt = config.ipHashSalt();
   return crypto.createHash('sha256').update(salt + '|' + ip).digest('hex').slice(0, 32);
 }
 
@@ -44,11 +45,11 @@ function clean(v, max) {
   return v.trim().slice(0, max);
 }
 
-/** ตรวจว่า env ที่จำเป็นถูกตั้งครบ ถ้าขาดให้ล้มตั้งแต่ต้นพร้อมบอกว่าขาดตัวไหน */
-function requireEnv(names) {
-  const missing = names.filter(n => !process.env[n]);
-  if (missing.length) throw new Error('ENV_MISSING: ' + missing.join(', '));
-}
+/**
+ * ตรวจว่า env ที่จำเป็นถูกตั้งครบ ถ้าขาดให้ล้มตั้งแต่ต้นพร้อมบอกว่าขาดตัวไหน
+ * ตัวจริงอยู่ที่ config.js — ส่งต่อมาที่นี่เพื่อไม่ต้องแก้ import ของ endpoint ทั้ง 8 ไฟล์
+ */
+const requireEnv = config.requireEnv;
 
 /** เทียบสตริงแบบเวลาคงที่ กันการเดาทีละตัวอักษร */
 function safeEqual(a, b) {

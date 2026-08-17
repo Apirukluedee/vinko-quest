@@ -12,10 +12,10 @@
 
 'use strict';
 
+const config = require('./config');
+
 function base() {
-  const url = process.env.SUPABASE_URL;
-  if (!url) throw new Error('ENV_MISSING: SUPABASE_URL');
-  return url.replace(/\/+$/, '');
+  return config.supabaseUrl();
 }
 
 /**
@@ -34,40 +34,22 @@ let keyKindCache = null;
 function assertServerKey(key) {
   if (keyKindCache) return keyKindCache;
 
-  if (key.startsWith('sb_publishable_')) {
-    throw new Error('BAD_KEY: SUPABASE_SERVICE_ROLE_KEY เป็น publishable key (sb_publishable_) ' +
-                    'ต้องใช้ secret key (sb_secret_) เท่านั้น');
-  }
-  if (key.startsWith('sb_secret_')) {
-    keyKindCache = 'secret';
-    return keyKindCache;
-  }
-  if (key.startsWith('eyJ')) {
-    // key แบบเดิมเป็น JWT อ่าน claim "role" ออกมาดูได้เลยว่าใช่ service_role ไหม
-    let role = null;
-    try {
-      const part = key.split('.')[1];
-      role = JSON.parse(Buffer.from(part, 'base64').toString('utf8')).role;
-    } catch (e) { /* ถอดไม่ออกก็ปล่อยผ่าน ให้ Supabase เป็นคนปฏิเสธเอง */ }
+  // ตรรกะการตรวจอยู่ที่ config.js ที่เดียว ตรงนี้แค่แปลงผลให้เข้ากับ
+  // สัญญาเดิมของฟังก์ชันนี้ (คืนชนิดของ key / throw ด้วยรหัส BAD_KEY)
+  const r = config.validate({ SUPABASE_SERVICE_ROLE_KEY: key });
+  const bad = r.errors.find(e => e.startsWith('SUPABASE_SERVICE_ROLE_KEY:'));
+  if (bad) throw new Error('BAD_KEY: ' + bad.replace(/^SUPABASE_SERVICE_ROLE_KEY:\s*/, ''));
 
-    if (role === 'anon') {
-      throw new Error('BAD_KEY: SUPABASE_SERVICE_ROLE_KEY เป็น anon key ' +
-                      'ซึ่งอ่านตารางไม่ได้เลยเพราะ RLS ต้องใช้ service_role หรือ sb_secret_');
-    }
-    console.warn('[vinko] กำลังใช้ Supabase key แบบเดิม (legacy JWT) — ' +
-                 'Supabase จะเลิกรองรับภายในสิ้นปี 2026 ควรย้ายไป sb_secret_ ก่อนเปิดขายจริง');
-    keyKindCache = 'legacy';
-    return keyKindCache;
+  for (const w of r.warnings) {
+    if (w.startsWith('SUPABASE_SERVICE_ROLE_KEY:')) console.warn('[vinko] ' + w);
   }
 
-  console.warn('[vinko] รูปแบบ SUPABASE_SERVICE_ROLE_KEY ไม่คุ้นเคย ส่งไปให้ Supabase ตัดสินเอง');
-  keyKindCache = 'unknown';
+  keyKindCache = r.supabaseKeyKind || 'unknown';
   return keyKindCache;
 }
 
 function headers(extra) {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) throw new Error('ENV_MISSING: SUPABASE_SERVICE_ROLE_KEY');
+  const key = config.supabaseKey();
   assertServerKey(key);
 
   // ส่งทั้ง apikey และ Authorization — รูปแบบเดียวกันนี้ใช้ได้ทั้ง key เก่าและใหม่
@@ -137,6 +119,31 @@ async function count(table, query) {
   return Number.isNaN(n) ? 0 : n;
 }
 
+/**
+ * ยิง query เบาที่สุดเท่าที่ทำได้เพื่อพิสูจน์ว่า key ใช้ได้จริง ไม่ใช่แค่รูปแบบถูก
+ * ต่างจาก count() ตรงที่บอกได้ว่า "ล้มเหลว" กับ "มี 0 แถว" คนละเรื่องกัน
+ * ห้ามคืนข้อมูลในตารางออกมา — เอาแค่จำนวนกับสถานะ
+ */
+async function ping() {
+  const started = Date.now();
+  try {
+    const res = await fetch(base() + '/rest/v1/orders?select=id&limit=1', {
+      method: 'HEAD',
+      headers: headers({ Prefer: 'count=exact', Range: '0-0' })
+    });
+    const cr = res.headers.get('content-range') || '';
+    const n = parseInt(cr.split('/')[1], 10);
+    return {
+      ok: res.ok,
+      status: res.status,
+      orders: Number.isNaN(n) ? null : n,
+      latency_ms: Date.now() - started
+    };
+  } catch (e) {
+    return { ok: false, status: 0, orders: null, latency_ms: Date.now() - started, error: e.message };
+  }
+}
+
 /** เรียก SQL function เช่น next_order_ref() */
 async function rpc(fn, args) {
   return call('/rpc/' + fn, {
@@ -152,6 +159,6 @@ function isUniqueViolation(r) {
 }
 
 module.exports = {
-  insert, insertMany, update, select, count, rpc, isUniqueViolation,
+  insert, insertMany, update, select, count, ping, rpc, isUniqueViolation,
   assertServerKey, _resetKeyCache
 };

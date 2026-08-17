@@ -7,18 +7,16 @@
 
 'use strict';
 
+const config = require('./config');
+
 const BUCKET = 'masters';
 
 function base() {
-  const url = process.env.SUPABASE_URL;
-  if (!url) throw new Error('ENV_MISSING: SUPABASE_URL');
-  return url.replace(/\/+$/, '');
+  return config.supabaseUrl();
 }
 
 function key() {
-  const k = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!k) throw new Error('ENV_MISSING: SUPABASE_SERVICE_ROLE_KEY');
-  return k;
+  return config.supabaseKey();
 }
 
 /** ชื่อไฟล์ต้นฉบับใน bucket ตั้งตาม product_code เช่น LAB.pdf, STORY-01.pdf */
