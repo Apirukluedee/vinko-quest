@@ -1,0 +1,20 @@
+{
+  "name": "vinko-quest",
+  "version": "1.0.0",
+  "private": true,
+  "description": "VINKO WOW LAB — landing page + serverless API",
+  "scripts": {
+    "test": "node tests/api-checks.js",
+    "test:supabase": "node tests/supabase-smoke.js",
+    "test:watermark": "node tests/watermark-check.js",
+    "test:delivery": "node tests/delivery-checks.js",
+    "test:all": "node tests/api-checks.js && node tests/delivery-checks.js && node tests/watermark-check.js"
+  },
+  "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
+    "pdf-lib": "^1.17.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

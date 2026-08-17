@@ -83,7 +83,44 @@
 <div data-vk-timeline hidden></div>
 </div>
 
-<h3>3. ยืนยันเงื่อนไข</h3>
+<h3>3. วิธีชำระเงิน</h3>
+<div class="vk-choice vk-pay-methods">
+<label>
+<input checked name="payment_method" type="radio" value="promptpay"/>
+<span class="vk-choice-name">PromptPay<small>สแกน QR ด้วยแอปธนาคาร</small></span>
+<span class="vk-choice-price" aria-hidden="true">📱</span>
+</label>
+<label>
+<input name="payment_method" type="radio" value="card"/>
+<span class="vk-choice-name">บัตรเครดิต / เดบิต<small>Visa · Mastercard · JCB</small></span>
+<span class="vk-choice-price" aria-hidden="true">💳</span>
+</label>
+</div>
+
+<div class="vk-card-fields" data-vk-card-fields hidden>
+<div class="vk-field">
+<label for="vk-card-number">หมายเลขบัตร <span class="vk-req">*</span></label>
+<input autocomplete="cc-number" id="vk-card-number" inputmode="numeric" maxlength="23" placeholder="4242 4242 4242 4242" type="text"/>
+</div>
+<div class="vk-field">
+<label for="vk-card-name">ชื่อบนบัตร <span class="vk-req">*</span></label>
+<input autocomplete="cc-name" id="vk-card-name" type="text"/>
+</div>
+<div class="vk-field-row">
+<div class="vk-field">
+<label for="vk-card-exp">วันหมดอายุ <span class="vk-req">*</span></label>
+<input autocomplete="cc-exp" id="vk-card-exp" inputmode="numeric" maxlength="5" placeholder="MM/YY" type="text"/>
+</div>
+<div class="vk-field">
+<label for="vk-card-cvc">CVC <span class="vk-req">*</span></label>
+<input autocomplete="cc-csc" id="vk-card-cvc" inputmode="numeric" maxlength="4" placeholder="123" type="text"/>
+</div>
+</div>
+<span class="vk-error" data-vk-error-for="card"></span>
+<p class="vk-form-note" style="text-align:left">ข้อมูลบัตรถูกส่งตรงไปยัง Omise ผู้ให้บริการรับชำระเงิน ไม่ผ่านเซิร์ฟเวอร์ของเรา</p>
+</div>
+
+<h3>4. ยืนยันเงื่อนไข</h3>
 <label class="vk-check">
 <input name="agree_terms" required type="checkbox"/>
 <span>ข้าพเจ้ายอมรับ <a href="/terms" target="_blank">เงื่อนไขการซื้อและนโยบายคืนเงิน</a></span>
@@ -98,9 +135,16 @@
 </label>
 <span class="vk-error" data-vk-error-for="checks"></span>
 
-<!-- TODO: Omise integration -->
-<button class="btn vk-submit" disabled id="vk-submit" type="submit">ชำระเงิน</button>
-<p class="vk-form-note" id="vk-submit-note">ระบบชำระเงินจะเปิดใช้งานเร็วๆ นี้ · ระหว่างนี้สั่งซื้อทาง <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">LINE</a> ได้</p>
+<div class="vk-alert" data-vk-alert hidden role="alert">
+<p data-vk-alert-msg></p>
+<button class="btn light" data-vk-retry type="button">ลองใหม่อีกครั้ง</button>
+</div>
+
+<button class="btn vk-submit" id="vk-submit" type="submit">
+<span data-vk-submit-label>ชำระเงิน <span data-vk-submit-amount>199</span> บาท</span>
+<span class="vk-spinner" data-vk-spinner hidden></span>
+</button>
+<p class="vk-form-note" id="vk-submit-note">ชำระเงินอย่างปลอดภัยผ่าน Omise · มีคำถาม <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">ทักไลน์ได้</a></p>
 </div>
 
 <aside class="vk-panel">
@@ -126,6 +170,34 @@
 </div>
 </section>
 
+<section class="section vk-qr-stage" data-vk-qr-stage hidden>
+<div class="wrap">
+<div class="vk-panel" style="max-width:560px;margin:0 auto;text-align:center">
+<h2>สแกนเพื่อชำระเงิน</h2>
+<p class="lead" style="margin:0 auto 6px">เปิดแอปธนาคารของคุณ แล้วสแกน QR ด้านล่างเพื่อจ่าย <b><span data-vk-qr-amount></span> บาท</b></p>
+<p class="vk-order-ref">เลขที่คำสั่งซื้อ <b data-vk-qr-ref></b></p>
+
+<div class="vk-qr-box">
+<img alt="QR Code PromptPay สำหรับชำระเงิน" data-vk-qr-img height="320" width="320"/>
+</div>
+
+<p class="vk-qr-expire" data-vk-qr-expire hidden>QR หมดอายุใน <b data-vk-qr-countdown>--:--</b></p>
+
+<div class="vk-qr-waiting" data-vk-qr-waiting>
+<span class="vk-spinner"></span>
+<span>กำลังรอการชำระเงิน… หน้านี้จะเปลี่ยนเองอัตโนมัติเมื่อจ่ายสำเร็จ</span>
+</div>
+
+<div class="vk-alert" data-vk-qr-alert hidden role="alert">
+<p data-vk-qr-alert-msg></p>
+</div>
+
+<button class="btn light" data-vk-qr-cancel type="button">ย้อนกลับไปแก้ไขข้อมูล</button>
+<p class="vk-form-note">อย่าปิดหน้านี้จนกว่าจะชำระเงินเสร็จ · ถ้ามีปัญหา <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">ทักไลน์หาเราได้</a></p>
+</div>
+</div>
+</section>
+
 <footer class="footer">
 <div class="wrap footer-inner">
 <div>© VINKO WOW LAB · 30 Missions Science Series</div>
@@ -133,6 +205,7 @@
 <div>Little Kitchen. Big Discoveries.</div>
 </div>
 </footer>
+<script src="https://cdn.omise.co/omise.js"></script>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/site.js"></script>
 <script src="/assets/js/checkout.js"></script>

@@ -2859,4 +2859,104 @@ body {
   .vk-cert-foot span { font-size:11pt; }
   .vk-cert-foot small { font-size:8pt; }
   .vk-cert-inner { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+
+   VINKO — คอมโพเนนต์รอบที่ 3A (ระบบชำระเงิน)
+   ============================================================ */
+
+.vk-field-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+.vk-card-fields[hidden] { display:none; }
+.vk-card-fields {
+  background:var(--cream2); border:1px solid var(--soft-line); border-radius:18px;
+  padding:18px 18px 6px; margin-bottom:18px;
+}
+
+.vk-pay-methods label { grid-template-columns:22px 1fr auto; }
+.vk-pay-methods .vk-choice-price { font-size:20px; }
+
+/* ---- ปุ่มระหว่างประมวลผล ---- */
+.vk-submit { display:inline-flex; align-items:center; justify-content:center; gap:10px; }
+.vk-spinner {
+  display:inline-block; width:17px; height:17px; flex:none;
+  border:2.5px solid rgba(255,255,255,.45); border-top-color:#fff; border-radius:50%;
+  animation:vk-spin .7s linear infinite;
+}
+.vk-spinner[hidden] { display:none; }
+.vk-qr-waiting .vk-spinner { border-color:rgba(7,27,93,.2); border-top-color:var(--orange); }
+@keyframes vk-spin { to { transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce) { .vk-spinner { animation-duration:2.4s; } }
+
+.is-busy { opacity:.75; }
+.is-busy input, .is-busy label { pointer-events:none; }
+
+/* ---- กล่องแจ้งข้อผิดพลาด ---- */
+.vk-alert {
+  background:rgba(217,45,32,.06); border:1px solid rgba(217,45,32,.35);
+  border-radius:18px; padding:16px 18px; margin-bottom:16px;
+}
+.vk-alert[hidden] { display:none; }
+.vk-alert p { margin:0 0 12px; color:#9A2018; font-weight:800; line-height:1.6; font-size:15px; }
+.vk-alert .btn { padding:10px 18px; font-size:15px; }
+
+/* ---- หน้าจอ QR PromptPay ---- */
+.vk-qr-stage[hidden] { display:none; }
+.vk-order-ref { margin:0 0 18px; color:var(--muted); font-size:14px; font-weight:800; }
+.vk-order-ref b { color:var(--navy); letter-spacing:.5px; }
+
+.vk-qr-box {
+  display:inline-block; padding:14px; background:#fff; border-radius:22px;
+  border:1px solid var(--soft-line); box-shadow:var(--premium-shadow-sm);
+}
+.vk-qr-box img { display:block; width:280px; height:280px; max-width:100%; }
+
+.vk-qr-expire { margin:16px 0 0; font-size:15px; color:var(--muted); font-weight:800; }
+.vk-qr-expire[hidden] { display:none; }
+.vk-qr-expire b { color:var(--orange); font-size:18px; }
+
+.vk-qr-waiting {
+  display:flex; align-items:center; justify-content:center; gap:11px;
+  margin:20px 0; padding:14px 16px; background:var(--cream2); border-radius:16px;
+  color:var(--navy); font-weight:800; font-size:14px; line-height:1.55; text-align:left;
+}
+.vk-qr-waiting[hidden] { display:none; }
+
+.vk-qr-stage .vk-alert { text-align:left; }
+
+@media (max-width:760px) {
+  .vk-field-row { grid-template-columns:1fr; gap:0; }
+  .vk-qr-box img { width:232px; height:232px; }
+}
+
+/* ============================================================
+   VINKO — หน้าดาวน์โหลด (รอบ 3B)
+   ============================================================ */
+
+.vk-dl-list { display:grid; gap:12px; }
+
+.vk-dl-item {
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  background:#fff; border:1px solid var(--soft-line); border-radius:18px;
+  padding:16px 18px; box-shadow:var(--premium-shadow-sm);
+}
+.vk-dl-item.is-locked { background:var(--cream2); box-shadow:none; opacity:.72; }
+
+.vk-dl-info { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1 1 220px; }
+.vk-dl-info b { color:var(--navy); font-size:16px; line-height:1.35; }
+.vk-dl-info span { color:var(--muted); font-size:13.5px; line-height:1.5; }
+
+.vk-dl-item .btn { padding:11px 22px; font-size:15px; flex:none; }
+
+.vk-dl-badge {
+  flex:none; padding:8px 16px; border-radius:999px;
+  background:rgba(7,27,93,.07); color:var(--muted);
+  font-size:13px; font-weight:900; white-space:nowrap;
+}
+
+.vk-dl-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:22px; }
+.vk-dl-actions .btn { flex:1 1 200px; }
+
+.vk-download-box .btn { text-decoration:none; }
+
+@media (max-width:600px) {
+  .vk-dl-item { flex-direction:column; align-items:stretch; }
+  .vk-dl-item .btn, .vk-dl-badge { width:100%; text-align:center; }
 }
