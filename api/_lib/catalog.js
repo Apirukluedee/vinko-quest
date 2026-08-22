@@ -27,11 +27,11 @@ const CATALOG = {
     requires_preorder_consent: true,
     items: [
       { product_code: 'LAB-MAIN',  title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
-      { product_code: 'STORY-01', title: 'นิทานเรื่องที่ 1', delivery_type: 'preorder', schedule_index: 0 },
-      { product_code: 'STORY-02', title: 'นิทานเรื่องที่ 2', delivery_type: 'preorder', schedule_index: 1 },
-      { product_code: 'STORY-03', title: 'นิทานเรื่องที่ 3', delivery_type: 'preorder', schedule_index: 2 },
-      { product_code: 'STORY-04', title: 'นิทานเรื่องที่ 4', delivery_type: 'preorder', schedule_index: 3 },
-      { product_code: 'STORY-05', title: 'นิทานเรื่องที่ 5', delivery_type: 'preorder', schedule_index: 4 }
+      { product_code: 'STORY-01', title: 'เมื่อแรงโน้มถ่วงลางาน', delivery_type: 'instant' },
+      { product_code: 'STORY-02', title: 'นิทานเรื่องที่ 2', delivery_type: 'preorder', schedule_index: 0 },
+      { product_code: 'STORY-03', title: 'นิทานเรื่องที่ 3', delivery_type: 'preorder', schedule_index: 1 },
+      { product_code: 'STORY-04', title: 'นิทานเรื่องที่ 4', delivery_type: 'preorder', schedule_index: 2 },
+      { product_code: 'STORY-05', title: 'นิทานเรื่องที่ 5', delivery_type: 'preorder', schedule_index: 3 }
     ]
   }
 };

@@ -124,7 +124,7 @@ function purchaseEmail(o) {
               'กดขอลิงก์ใหม่ได้ที่หน้าดาวน์โหลด หรือทักมาหาเราได้เลย');
 
   if (isBundle && preorders.length) {
-    inner += '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">กำหนดส่งนิทาน 5 เรื่อง</p>' +
+    inner += '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">กำหนดส่งนิทานเล่มถัดไป</p>' +
       '<p style="margin:0;color:#6B7285;font-size:13.5px;">เราจะส่งอีเมลพร้อมลิงก์ให้ทุกครั้งที่มีเรื่องใหม่ ไม่ต้องเข้ามาเช็กเอง</p>' +
       timelineTable(preorders);
   }

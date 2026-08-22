@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
   }
   // BUNDLE มีสินค้า pre-order จึงต้องมีหลักฐานว่าลูกค้ารับทราบก่อนจ่ายเงิน
   if (pkg.requires_preorder_consent && !body.consent_preorder) {
-    return fail(res, 400, 'กรุณายืนยันว่ารับทราบเงื่อนไขสินค้า pre-order ของนิทาน 5 เรื่อง');
+    return fail(res, 400, 'กรุณายืนยันว่ารับทราบเงื่อนไขสินค้า pre-order ของนิทานเล่ม 2–5');
   }
 
   const ipHash = hashIp(req);
