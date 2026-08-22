@@ -1413,6 +1413,85 @@ body.premium .hero-mockup-card .premium-badge {
   }
 }
 
+/* VINKO Stories — page-sample gallery */
+.stories-gallery {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  max-width: 1120px;
+  margin: 0 auto 28px;
+}
+
+.stories-page {
+  margin: 0;
+  background: #fff;
+  border: 1px solid var(--soft-line, #E6EAF2);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 14px 34px rgba(7,27,93,.12);
+}
+
+.stories-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1055 / 1491;
+  object-fit: cover;
+}
+
+.stories-page figcaption {
+  padding: 14px 16px 18px;
+}
+
+.stories-page .thai {
+  margin: 0 0 4px;
+  color: var(--navy, #071B5D);
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+
+.stories-page .english {
+  margin: 0;
+  color: var(--muted, #5B6475);
+  font-size: 12.5px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.stories-teaser {
+  max-width: 640px;
+  margin: 0 auto 22px;
+  text-align: center;
+  color: var(--muted, #5B6475);
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+@media (max-width: 920px) {
+  .stories-gallery { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+  .stories-gallery {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 78%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 6px;
+    margin: 0 -4px 24px;
+  }
+
+  .stories-page {
+    scroll-snap-align: center;
+  }
+
+  .stories-teaser {
+    font-size: 16px;
+  }
+}
+
 
 /* LINE contact card */
 .line-card {
