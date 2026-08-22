@@ -1414,6 +1414,10 @@ body.premium .hero-mockup-card .premium-badge {
 }
 
 /* VINKO Stories — page-sample gallery */
+.stories-sample-title {
+  font-size: clamp(40px, 7vw, 72px);
+}
+
 .stories-gallery {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
