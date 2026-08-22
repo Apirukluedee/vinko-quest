@@ -2526,7 +2526,9 @@ body {
   display:grid; place-items:center; width:26px; height:26px; border-radius:9px;
   background:rgba(245,154,35,.14); color:var(--orange); font-weight:950; font-size:13px;
 }
+.vk-tl-text { display:grid; gap:2px; }
 .vk-tl-title { color:var(--navy); font-weight:800; }
+.vk-tl-title-en { color:var(--muted); font-weight:600; font-size:12.5px; font-style:italic; }
 .vk-tl-date { color:var(--muted); font-weight:800; white-space:nowrap; }
 
 /* ---- หัวหน้าเพจย่อย ---- */

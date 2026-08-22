@@ -61,7 +61,9 @@
   function timelineHTML() {
     return '<ol class="vk-timeline">' + (C.STORY_DELIVERY || []).map(function (s) {
       return '<li><span class="vk-tl-no">' + s.no + '</span>' +
-             '<span class="vk-tl-title">' + s.title + '</span>' +
+             '<span class="vk-tl-text"><span class="vk-tl-title">' + s.title + '</span>' +
+             (s.title_en ? '<span class="vk-tl-title-en">' + s.title_en + '</span>' : '') +
+             '</span>' +
              '<span class="vk-tl-date">' + storyDateLabel(s) + '</span></li>';
     }).join("") + '</ol>';
   }

@@ -25,16 +25,16 @@ window.VINKO_CONFIG = {
   PREORDER_LIMIT: null,
   PREORDER_SOLD:  null,
 
-  /* ---- กำหนดส่งนิทาน 5 เรื่อง ----------------------------
+  /* ---- กำหนดส่ง VINKO Stories: เอ๊ะ!...จนว้าว (5 เล่ม) ----
      date รูปแบบ "2026-10-15" (วันที่จริงที่ทำได้ ไม่ใช่วันที่หวัง)
      ถ้ายังไม่ครบทั้ง 5 วัน ระบบจะซ่อนไทม์ไลน์ทั้งบล็อก
      และซ่อนแพ็กเกจ BUNDLE ออกจากหน้าเว็บโดยอัตโนมัติ           */
   STORY_DELIVERY: [
-    { no: 1, title: "เมื่อแรงโน้มถ่วงลางาน", date: "instant" },
-    { no: 2, title: "นิทานเรื่องที่ 2", date: "2026-09-01" },
-    { no: 3, title: "นิทานเรื่องที่ 3", date: "2026-09-01" },
-    { no: 4, title: "นิทานเรื่องที่ 4", date: "2026-09-01" },
-    { no: 5, title: "นิทานเรื่องที่ 5", date: "" }
+    { no: 1, title: "วันที่แรงโน้มถ่วงลางาน", title_en: "The Day Gravity Took a Day Off", date: "instant" },
+    { no: 2, title: "คดีสีสันที่หายไป", title_en: "The Case of the Missing Colors", date: "2026-09-01" },
+    { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "2026-09-01" },
+    { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "2026-09-01" },
+    { no: 5, title: "ขุมทรัพย์ในน้ำแข็ง", title_en: "Treasure in the Ice", date: "" }
   ],
 
   /* ---- ชื่อภารกิจทั้ง 10 บท ------------------------------

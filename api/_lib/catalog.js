@@ -21,17 +21,17 @@ const CATALOG = {
   },
   BUNDLE: {
     code: 'BUNDLE',
-    title: 'BUNDLE: VINKO WOW LAB + นิทาน 5 เรื่อง',
+    title: 'BUNDLE: VINKO WOW LAB + VINKO Stories (5 เล่ม)',
     launch_satang: 39900,
     normal_satang: 89000,
     requires_preorder_consent: true,
     items: [
       { product_code: 'LAB-MAIN',  title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
-      { product_code: 'STORY-01', title: 'เมื่อแรงโน้มถ่วงลางาน', delivery_type: 'instant' },
-      { product_code: 'STORY-02', title: 'นิทานเรื่องที่ 2', delivery_type: 'preorder', schedule_index: 0 },
-      { product_code: 'STORY-03', title: 'นิทานเรื่องที่ 3', delivery_type: 'preorder', schedule_index: 1 },
-      { product_code: 'STORY-04', title: 'นิทานเรื่องที่ 4', delivery_type: 'preorder', schedule_index: 2 },
-      { product_code: 'STORY-05', title: 'นิทานเรื่องที่ 5', delivery_type: 'preorder', schedule_index: 3 }
+      { product_code: 'STORY-01', title: 'วันที่แรงโน้มถ่วงลางาน (The Day Gravity Took a Day Off)', delivery_type: 'instant' },
+      { product_code: 'STORY-02', title: 'คดีสีสันที่หายไป (The Case of the Missing Colors)', delivery_type: 'preorder', schedule_index: 0 },
+      { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'preorder', schedule_index: 1 },
+      { product_code: 'STORY-04', title: 'แม่เหล็กป่วนปาร์ตี้! (Magnet Party Mayhem!)', delivery_type: 'preorder', schedule_index: 2 },
+      { product_code: 'STORY-05', title: 'ขุมทรัพย์ในน้ำแข็ง (Treasure in the Ice)', delivery_type: 'preorder', schedule_index: 3 }
     ]
   }
 };
