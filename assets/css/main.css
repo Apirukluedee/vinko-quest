@@ -110,6 +110,15 @@
     .card .num { display:inline-grid; place-items:center; width:42px; height:42px; border-radius:14px; background:var(--yellow); border:2px solid var(--line); font-weight:950; margin-bottom:16px; }
     .card h3 { margin:0 0 10px; font-size:22px; color:var(--navy); line-height:1.25; }
     .card p { margin:0; color:#575c6c; line-height:1.7; }
+    .mid-cta-wrap { padding:0; }
+    .mid-cta {
+      max-width:600px; margin:0 auto; padding:30px 32px; text-align:center;
+      background:#fff; border:3px solid var(--line); border-radius:26px; box-shadow:7px 7px 0 var(--line);
+    }
+    .mid-cta-kicker { color:var(--orange); font-weight:950; font-size:13px; text-transform:uppercase; letter-spacing:.7px; margin:0 0 8px; }
+    .mid-cta-text { margin:0; font-size:19px; font-weight:850; color:var(--navy); line-height:1.45; }
+    .mid-cta .cta-row { margin:18px 0 0; justify-content:center; }
+    .mid-cta .btn.light { background:#fff !important; color:var(--navy) !important; border:1px solid var(--soft-line) !important; box-shadow:var(--premium-shadow-sm) !important; }
     .missions { background:linear-gradient(180deg, #f3f8ff, #ffffff); }
     .mission-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:22px; }
     .mission {
@@ -549,7 +558,7 @@ body.premium .floating-kit { margin-top:40px; }
 body.premium .kit-item { border:1px solid var(--soft-line); box-shadow:var(--premium-shadow-sm); background:#fff; }
 
 body.premium .cards, body.premium .mission-grid, body.premium .audience-grid, body.premium .sample-wrap, body.premium .price-grid { gap:24px; }
-body.premium .card, body.premium .mission, body.premium .audience, body.premium .sample, body.premium .price-box, body.premium .parent-card, body.premium details {
+body.premium .card, body.premium .mission, body.premium .audience, body.premium .sample, body.premium .price-box, body.premium .parent-card, body.premium details, body.premium .mid-cta {
   border:1px solid var(--soft-line) !important; box-shadow:var(--premium-shadow-sm) !important; border-radius:28px; background:#fff;
 }
 body.premium .card { min-height:190px; padding:26px; }
