@@ -2812,6 +2812,7 @@ body.premium .vk-page-head h1 { font-size:38px; margin:0 0 10px; color:var(--nav
 }
 .vk-ef-tag.ef { background:rgba(245,154,35,.14); color:var(--orange); }
 .vk-ef-tag.eq { background:rgba(23,58,138,.10); color:var(--blue); }
+.vk-ef-tag.lang { background:rgba(14,159,110,.14); color:#0E9F6E; }
 
 .vk-ef-closing {
   max-width:860px; margin:26px auto 0; text-align:center;
