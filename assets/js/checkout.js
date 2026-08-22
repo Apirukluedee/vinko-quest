@@ -16,10 +16,11 @@
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 
   var NAMES = {
-    lab:    "VINKO WOW LAB",
-    bundle: "BUNDLE: LAB + VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow!"
+    lab:     "VINKO WOW LAB",
+    stories: "VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow! (5 เล่ม)",
+    bundle:  "BUNDLE: LAB + VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow!"
   };
-  var PKG_CODE = { lab: "LAB", bundle: "BUNDLE" };
+  var PKG_CODE = { lab: "LAB", stories: "STORIES", bundle: "BUNDLE" };
 
   var busy = false;              // กันกดซ้ำระหว่างรอ API
   var clientRequestId = null;    // 1 ครั้งที่กดจ่าย = 1 id ยิงซ้ำได้ไม่เกิด charge ใหม่
@@ -56,7 +57,7 @@
   function selectedPkg() {
     var r = $('input[name="pkg"]:checked', form);
     var v = r ? r.value : "lab";
-    return (v === "bundle" && !V.storiesReady()) ? "lab" : v;
+    return ((v === "bundle" || v === "stories") && !V.storiesReady()) ? "lab" : v;
   }
 
   function selectedMethod() {
@@ -66,7 +67,7 @@
 
   function applyPackage() {
     var pkg = selectedPkg();
-    var isBundle = pkg === "bundle";
+    var needsPreorder = pkg === "bundle" || pkg === "stories";
     var cfg = V.cfg.PRICES && V.cfg.PRICES[pkg];
     if (!cfg) return;
 
@@ -80,13 +81,13 @@
     set("[data-vk-qr-amount]",     V.baht(now));
 
     $$("[data-vk-preorder-notice], [data-vk-check-preorder], [data-vk-sum-preorder]").forEach(function (el) {
-      el.hidden = !isBundle;
+      el.hidden = !needsPreorder;
     });
 
     var pre = $('input[name="agree_preorder"]');
     if (pre) {
-      pre.required = isBundle;
-      if (!isBundle) pre.checked = false;
+      pre.required = needsPreorder;
+      if (!needsPreorder) pre.checked = false;
     }
   }
 
@@ -102,7 +103,7 @@
     var m = /[?&]pkg=([a-z]+)/i.exec(window.location.search);
     if (!m) return;
     var want = m[1].toLowerCase();
-    if (want === "bundle" && !V.storiesReady()) return;
+    if ((want === "bundle" || want === "stories") && !V.storiesReady()) return;
     var radio = $('input[name="pkg"][value="' + want + '"]', form);
     if (radio) radio.checked = true;
   }

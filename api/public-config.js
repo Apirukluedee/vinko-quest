@@ -36,8 +36,9 @@ module.exports = async function handler(req, res) {
     omise_public_key: key,
     launch_price_active: catalog.isLaunchPriceActive(),
     prices_satang: {
-      LAB:    catalog.priceSatang('LAB'),
-      BUNDLE: catalog.priceSatang('BUNDLE')
+      LAB:     catalog.priceSatang('LAB'),
+      STORIES: catalog.priceSatang('STORIES'),
+      BUNDLE:  catalog.priceSatang('BUNDLE')
     }
   });
 };

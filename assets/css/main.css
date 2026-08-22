@@ -2489,8 +2489,11 @@ body {
 
 /* ---- การ์ดเลือกแพ็กเกจ ---- */
 .vk-packages {
-  display:grid; grid-template-columns:1fr 1fr; gap:20px;
-  max-width:860px; margin:0 auto;
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:20px;
+  max-width:1120px; margin:0 auto;
+}
+@media (max-width:920px) {
+  .vk-packages { grid-template-columns:1fr 1fr; max-width:640px; }
 }
 .vk-pkg {
   position:relative; display:flex; flex-direction:column;

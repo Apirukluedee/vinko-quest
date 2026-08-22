@@ -110,7 +110,7 @@ function timelineTable(items) {
 
 function purchaseEmail(o) {
   const url = baseUrl() + '/download?token=' + encodeURIComponent(o.token);
-  const isBundle = o.packageCode === 'BUNDLE';
+  const hasPreorderStories = o.packageCode === 'BUNDLE' || o.packageCode === 'STORIES';
   const preorders = (o.items || []).filter(function (i) { return i.delivery_type === 'preorder'; });
 
   let inner =
@@ -123,7 +123,7 @@ function purchaseEmail(o) {
               'กรุณาดาวน์โหลดแล้ว<b>บันทึกไฟล์เก็บไว้ในเครื่อง</b> ถ้าลิงก์หมดอายุก่อน ' +
               'กดขอลิงก์ใหม่ได้ที่หน้าดาวน์โหลด หรือทักมาหาเราได้เลย');
 
-  if (isBundle && preorders.length) {
+  if (hasPreorderStories && preorders.length) {
     inner += '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">กำหนดส่งนิทานเล่มถัดไป</p>' +
       '<p style="margin:0;color:#6B7285;font-size:13.5px;">เราจะส่งอีเมลพร้อมลิงก์ให้ทุกครั้งที่มีเรื่องใหม่ ไม่ต้องเข้ามาเช็กเอง</p>' +
       timelineTable(preorders);
@@ -140,7 +140,7 @@ function purchaseEmail(o) {
     'รายการ: ' + o.packageTitle + '\n\n' +
     'ดาวน์โหลดไฟล์: ' + url + '\n\n' +
     'ลิงก์ใช้ได้ถึง ' + thaiDateTime(o.expiresAt) + ' กรุณาบันทึกไฟล์เก็บไว้ในเครื่อง\n\n' +
-    (isBundle && preorders.length
+    (hasPreorderStories && preorders.length
       ? 'กำหนดส่งนิทาน:\n' + preorders.map(function (i) {
           return '  - ' + i.title + ' : ' + (thaiDate(i.scheduled_delivery_date) || 'รอกำหนด');
         }).join('\n') + '\n\n'

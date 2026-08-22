@@ -14,8 +14,9 @@ window.VINKO_CONFIG = {
 
   /* ---- ราคา (บาท) ---------------------------------------- */
   PRICES: {
-    lab:    { normal: 390, launch: 199 },
-    bundle: { normal: 890, launch: 399 }
+    lab:     { normal: 390, launch: 199 },
+    stories: { normal: 590, launch: 299 },
+    bundle:  { normal: 890, launch: 399 }
   },
   UPGRADE_PRICE: 249,          // อัปเกรด LAB -> BUNDLE ภายหลัง
 
