@@ -17,7 +17,7 @@
 
   var NAMES = {
     lab:    "VINKO WOW LAB",
-    bundle: "BUNDLE: LAB + VINKO Stories: เอ๊ะ!...จนว้าว"
+    bundle: "BUNDLE: LAB + VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow!"
   };
   var PKG_CODE = { lab: "LAB", bundle: "BUNDLE" };
 
