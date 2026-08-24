@@ -242,19 +242,23 @@ function seedOrder(over) {
   check('ไฟล์ยังไม่มีใน storage -> 503 ไม่ใช่ 500', r.statusCode === 503);
   STORAGE.add('LAB-MAIN');
 
-  /* ---- 4. จำกัดจำนวนครั้ง ---- */
-  section('4. จำกัดดาวน์โหลด 10 ครั้งต่อไฟล์');
+  /* ---- 4. จำกัดจำนวนครั้ง ----
+     อ่านเพดานจาก tokens.MAX_DOWNLOADS_PER_ITEM ไม่ฝังตัวเลขไว้ในเทสต์
+     เพราะค่านี้เป็นเรื่องนโยบายที่ปรับได้ ไม่ใช่พฤติกรรมที่ต้องล็อก
+     สิ่งที่เทสต์นี้ต้องยืนยันคือ "หยุดตรงเพดาน" กับ "บอกทางออกให้ลูกค้า" */
+  const CAP = tk.MAX_DOWNLOADS_PER_ITEM;
+  section('4. จำกัดดาวน์โหลด ' + CAP + ' ครั้งต่อไฟล์');
   reset(); const o3 = seedOrder(); const tok3 = await tk.issue(o3.id); STORAGE.add('LAB-MAIN');
   dl = load('download.js');
   let okCount = 0, blocked = 0, blockMsg = '';
-  for (let i = 0; i < 11; i++) {
+  for (let i = 0; i < CAP + 1; i++) {
     const rr = mockRes();
     await dl(get('/api/download?token=' + tok3 + '&item=it-lab'), rr);
     if (rr.statusCode === 200) okCount++;
     else { blocked++; blockMsg = (rr.body && rr.body.error) || ''; }
   }
-  check('โหลดได้ 10 ครั้ง', okCount === 10, 'ได้ ' + okCount);
-  check('ครั้งที่ 11 ถูกปฏิเสธ', blocked === 1);
+  check('โหลดได้ ' + CAP + ' ครั้ง', okCount === CAP, 'ได้ ' + okCount);
+  check('ครั้งที่ ' + (CAP + 1) + ' ถูกปฏิเสธ', blocked === 1);
   check('บอกให้ติดต่อ ไม่ใช่บล็อกเงียบ', /ทักหาเรา|LINE|ติดต่อ/.test(blockMsg), blockMsg);
 
   /* ---- 5. deliver-order + อีเมล ---- */
