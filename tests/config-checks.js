@@ -159,6 +159,15 @@ check('env ว่างเปล่า -> รายงานว่าขาด�
 check('ไม่ตั้ง IP_HASH_SALT -> เตือน',
       r.warnings.some(w => /IP_HASH_SALT/.test(w)), r.warnings.join(' | '));
 
+r = config.validate(Object.assign({}, GOOD, { LINE_CHANNEL_ACCESS_TOKEN: 'abc' }));
+check('ตั้ง LINE_CHANNEL_ACCESS_TOKEN แต่ไม่ตั้ง LINE_ADMIN_USER_ID -> เตือน',
+      r.warnings.some(w => /LINE_CHANNEL_ACCESS_TOKEN/.test(w)), r.warnings.join(' | '));
+
+r = config.validate(Object.assign({}, GOOD,
+      { LINE_CHANNEL_ACCESS_TOKEN: 'abc', LINE_ADMIN_USER_ID: 'Uxxxx' }));
+check('ตั้งครบทั้งคู่ -> ไม่เตือนเรื่อง LINE',
+      !r.warnings.some(w => /LINE_CHANNEL_ACCESS_TOKEN/.test(w)), r.warnings.join(' | '));
+
 /* ============================================================
    4. รวมทุกข้อในครั้งเดียว ไม่ใช่บอกทีละข้อ
    ============================================================ */

@@ -184,6 +184,12 @@ function validate(env) {
                   'ซึ่งทำให้ hash IP ย้อนกลับได้ง่าย ตั้งเป็นค่าสุ่มยาวๆ แล้วอย่าเปลี่ยนอีก');
   }
 
+  /* ---------------- แจ้งเตือน LINE (ตั้งครึ่งเดียว = ไม่ทำงานเงียบๆ ไม่ error) ---------------- */
+  if (has('LINE_CHANNEL_ACCESS_TOKEN') !== has('LINE_ADMIN_USER_ID')) {
+    warnings.push('ตั้ง LINE_CHANNEL_ACCESS_TOKEN กับ LINE_ADMIN_USER_ID ไว้แค่ตัวเดียว ' +
+                  'ต้องมีทั้งคู่ถึงจะแจ้งเตือนออเดอร์ทาง LINE ได้ ตอนนี้จะไม่ส่งอะไรเลย');
+  }
+
   return { errors, warnings, missing, supabaseKeyKind };
 }
 
@@ -294,6 +300,10 @@ module.exports = {
   internalTaskSecret: () => opt('INTERNAL_TASK_SECRET', ''),
   adminSecret:        () => opt('ADMIN_SECRET', ''),
   cronSecret:         () => opt('CRON_SECRET', ''),
+
+  /* --- แจ้งเตือนออเดอร์ทาง LINE (ไม่บังคับ — ไม่ตั้งก็แค่ไม่มีแจ้งเตือน) --- */
+  lineChannelToken:   () => opt('LINE_CHANNEL_ACCESS_TOKEN', ''),
+  lineAdminUserId:    () => opt('LINE_ADMIN_USER_ID', ''),
 
   /* HEALTH_TOKEN เป็นตัวเดียวที่อ่านได้โดยไม่ต้องผ่าน assertValid()
      เพราะ /api/health ต้องตรวจสิทธิ์ให้ได้แม้ตอนที่ config ตัวอื่นผิด

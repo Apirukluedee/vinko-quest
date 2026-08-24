@@ -19,6 +19,7 @@
 const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
+const line   = require('./_lib/line');
 const { json, requireEnv } = require('./_lib/util');
 const config = require('./_lib/config');
 
@@ -80,9 +81,12 @@ module.exports = async function handler(req, res) {
   try {
     const result = await orders.applyChargeResult(charge);
 
-    // จ่ายสำเร็จ: สั่งส่งมอบไฟล์ แต่ไม่รอผล เพื่อให้ตอบ 200 กลับ Omise ทันที
+    // จ่ายสำเร็จ: สั่งส่งมอบไฟล์ + แจ้งเตือน LINE แต่ไม่รอผล เพื่อให้ตอบ 200 กลับ Omise ทันที
     // ถ้าตอบช้า Omise จะ retry แล้วจะยุ่ง
-    if (result && result.needs_delivery) triggerDelivery(result.order_ref);
+    if (result && result.needs_delivery) {
+      triggerDelivery(result.order_ref);
+      line.notifyOrder(result.order_ref).catch(function () {});
+    }
 
     return json(res, 200, { ok: true, result: result });
   } catch (e) {
