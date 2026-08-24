@@ -87,9 +87,20 @@
       } else if (it.downloads_left <= 0) {
         note.textContent = "ดาวน์โหลดครบจำนวนแล้ว ทักไลน์มาได้เลยครับ";
       } else {
-        note.textContent = "ดาวน์โหลดได้อีก " + it.downloads_left + " ครั้ง";
+        note.textContent = "ดาวน์โหลดได้อีก " + it.downloads_left + " ครั้ง" +
+          (it.approx_mb ? " · ขนาดไฟล์ " + it.approx_mb + " MB" : "");
       }
       info.appendChild(note);
+
+      // ไฟล์ใหญ่บนเน็ตมือถือใช้เวลาหลายสิบวินาที ถ้าไม่บอกไว้ก่อน
+      // ลูกค้าจะนึกว่าค้างแล้วปิดหน้าจอทิ้ง ซึ่งทำให้โหลดไม่สำเร็จจริงๆ
+      if (it.released && it.downloads_left > 0 && it.is_large) {
+        var warn = document.createElement("span");
+        warn.className = "vk-dl-warn";
+        warn.textContent = "ไฟล์นี้ใหญ่ อาจใช้เวลาโหลดสักครู่ กรุณาเปิดหน้านี้ค้างไว้จนกว่าจะโหลดเสร็จ";
+        info.appendChild(warn);
+      }
+
       row.appendChild(info);
 
       if (it.released && it.downloads_left > 0) {

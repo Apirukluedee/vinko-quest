@@ -3091,6 +3091,11 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 .vk-dl-info { display:flex; flex-direction:column; gap:3px; min-width:0; flex:1 1 220px; }
 .vk-dl-info b { color:var(--navy); font-size:16px; line-height:1.35; }
 .vk-dl-info span { color:var(--muted); font-size:13.5px; line-height:1.5; }
+.vk-dl-info span.vk-dl-warn {
+  color:#8a5a00; background:rgba(245,154,35,.12);
+  border-radius:8px; padding:5px 9px; margin-top:3px;
+  font-size:13px; font-weight:700;
+}
 
 .vk-dl-item .btn { padding:11px 22px; font-size:15px; flex:none; }
 

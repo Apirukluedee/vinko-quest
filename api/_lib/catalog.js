@@ -7,6 +7,18 @@
 
 const config = require('./config');
 
+/* ขนาดไฟล์โดยประมาณหลังใส่ลายน้ำแล้ว (MB) — ใช้บอกลูกค้าก่อนกดโหลด
+   คนใช้เน็ตมือถือควรรู้ก่อนว่ากำลังจะโหลดอะไรใหญ่แค่ไหน จะได้ไม่กดแล้วปิดหนี
+   วัดจากไฟล์จริงที่ส่งออกไป ถ้าเปลี่ยนไฟล์ต้นฉบับต้องมาแก้ตรงนี้ด้วย */
+const APPROX_MB = {
+  'LAB-MAIN': 13.3,
+  'STORY-01': 6.2,
+  'STORY-02': 5.7
+};
+
+/** ไฟล์ใหญ่พอที่ต้องเตือนเรื่องเวลาโหลดไหม */
+const LARGE_MB = 10;
+
 // ราคาเป็นสตางค์เสมอ (199 บาท = 19900) ห้ามใช้ทศนิยมกับเงิน
 const CATALOG = {
   LAB: {
@@ -100,11 +112,26 @@ function buildItems(code, orderId) {
   }));
 }
 
+/** ขนาดโดยประมาณของไฟล์นี้ (MB) — null ถ้ายังไม่ได้บันทึกไว้ */
+function approxMb(productCode) {
+  const v = APPROX_MB[String(productCode).toUpperCase()];
+  return typeof v === 'number' ? v : null;
+}
+
+/** ไฟล์นี้ใหญ่พอที่ต้องเตือนลูกค้าก่อนกดโหลดไหม */
+function isLarge(productCode) {
+  const mb = approxMb(productCode);
+  return mb !== null && mb >= LARGE_MB;
+}
+
 module.exports = {
   CATALOG,
+  LARGE_MB,
   getPackage,
   isLaunchPriceActive,
   priceSatang,
   storyDates,
-  buildItems
+  buildItems,
+  approxMb,
+  isLarge
 };

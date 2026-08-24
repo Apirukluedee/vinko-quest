@@ -8,6 +8,7 @@
 'use strict';
 
 const tokens = require('./_lib/tokens');
+const catalog = require('./_lib/catalog');
 const { json, fail, requireEnv } = require('./_lib/util');
 
 module.exports = async function handler(req, res) {
@@ -47,7 +48,9 @@ module.exports = async function handler(req, res) {
       scheduled_delivery_date: it.scheduled_delivery_date,
       released: released,
       downloads_used: used,
-      downloads_left: Math.max(0, tokens.MAX_DOWNLOADS_PER_ITEM - used)
+      downloads_left: Math.max(0, tokens.MAX_DOWNLOADS_PER_ITEM - used),
+      approx_mb: catalog.approxMb(it.product_code),
+      is_large: catalog.isLarge(it.product_code)
     });
   }
 
