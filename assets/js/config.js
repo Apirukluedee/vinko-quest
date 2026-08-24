@@ -33,9 +33,9 @@ window.VINKO_CONFIG = {
   STORY_DELIVERY: [
     { no: 1, title: "วันที่แรงโน้มถ่วงลางาน", title_en: "The Day Gravity Took a Day Off", date: "instant" },
     { no: 2, title: "คดีสีสันที่หายไป", title_en: "The Case of the Missing Colors", date: "2026-09-01" },
-    { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "2026-09-01" },
-    { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "2026-09-01" },
-    { no: 5, title: "ขุมทรัพย์ในน้ำแข็ง", title_en: "Treasure in the Ice", date: "2026-09-05" }
+    { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "2026-09-10" },
+    { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "2026-09-10" },
+    { no: 5, title: "ขุมทรัพย์ในน้ำแข็ง", title_en: "Treasure in the Ice", date: "2026-09-10" }
   ],
 
   /* ---- ชื่อภารกิจทั้ง 10 บท ------------------------------
