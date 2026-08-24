@@ -13,7 +13,7 @@
 const db = require('./supabase');
 const config = require('./config');
 
-const FROM = 'VINKO <hello@vinko.quest>';
+const FROM = 'VINKO <hello@mail.vinko.quest>';
 const BRAND_ORANGE = '#F59A23';
 const BRAND_NAVY = '#071B5D';
 
