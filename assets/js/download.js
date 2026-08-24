@@ -30,6 +30,37 @@
     }) + " น.";
   }
 
+  /* ---------- บอกลูกค้าว่าไฟล์จะไปอยู่ที่ไหน ----------
+     เบราว์เซอร์ในแอป (LINE, Facebook, Instagram) เปิด PDF ให้ดูเฉยๆ
+     ไม่ผ่านตัวจัดการดาวน์โหลด พอปิดหน้าไฟล์ก็หายไปด้วย ลูกค้าจะงงว่า
+     "โหลดแล้วแต่หาไฟล์ไม่เจอ" ทั้งที่ไม่เคยได้ไฟล์เลย ต้องบอกให้เปิด
+     ในเบราว์เซอร์จริงก่อน                                              */
+  function detectPlatform() {
+    var ua = navigator.userAgent || "";
+    var iOS = /iPad|iPhone|iPod/.test(ua) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    return {
+      ios: iOS,
+      android: /Android/.test(ua),
+      inApp: /\bLine\/|FBAN|FBAV|FB_IAB|Instagram|MicroMessenger/i.test(ua)
+    };
+  }
+
+  function tellWhereFilesGo() {
+    var p = detectPlatform();
+    var box = $("[data-vk-dl-inapp]");
+    if (box && p.inApp) box.hidden = false;
+
+    var el = $("[data-vk-dl-where-text]");
+    if (!el) return;
+    if (p.ios) {
+      el.textContent = "บน iPhone/iPad ไฟล์จะไปอยู่ในแอป “ไฟล์ (Files)” โฟลเดอร์ “ดาวน์โหลด” " +
+        "ถ้าไฟล์เปิดขึ้นมาให้ดูเฉยๆ ให้กดปุ่มแชร์แล้วเลือก “บันทึกลงในไฟล์” จึงจะเก็บไว้จริง";
+    } else if (p.android) {
+      el.textContent = "บน Android ไฟล์จะไปอยู่ในแอป “ไฟล์ / My Files” โฟลเดอร์ “Download”";
+    }
+  }
+
   function showError(msg, canResend) {
     $("[data-vk-dl-loading]").hidden = true;
     $("[data-vk-dl-main]").hidden = true;
@@ -40,6 +71,8 @@
   }
 
   /* ---------- โหลดรายการไฟล์ ---------- */
+
+  tellWhereFilesGo();
 
   if (!token) {
     showError("ลิงก์ไม่ถูกต้อง กรุณาเปิดจากลิงก์ในอีเมลที่เราส่งให้", false);

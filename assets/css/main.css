@@ -2731,6 +2731,17 @@ body.premium .vk-page-head h1 { font-size:38px; margin:0 0 10px; color:var(--nav
 .vk-callout p:last-child { margin-bottom:0; }
 .vk-callout strong { color:var(--navy); }
 
+/* ---- เตือนตอนเปิดในเบราว์เซอร์ของแอป (LINE / Facebook) ----
+   ต้องเด่นกว่า vk-callout สีส้ม เพราะถ้าไม่ทำตามนี้ลูกค้าจะกดโหลดแล้ว
+   ไม่ได้ไฟล์เลย ใช้สีแดงอ่อนให้รู้ว่าเป็นเรื่องที่ต้องจัดการก่อน */
+.vk-inapp {
+  background:rgba(214,54,54,.07); border:1px solid rgba(214,54,54,.4);
+  border-radius:18px; padding:18px 20px; margin:0 0 18px;
+}
+.vk-inapp p { margin:0 0 10px; }
+.vk-inapp p:last-child { margin-bottom:0; }
+.vk-inapp b { color:#9c2020; }
+
 /* ---- หัวข้อบนหน้าธุรกรรม (thank-you / download / checkout) ----
    ค่า line-height .94 กับ letter-spacing -2.2px ของ body.premium h1
    ออกแบบมาสำหรับหัวข้อใหญ่หน้าแรก พอเอามาใช้กับหัวข้อขนาดปกติที่ขึ้น
