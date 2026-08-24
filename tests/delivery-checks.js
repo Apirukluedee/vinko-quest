@@ -299,16 +299,23 @@ function seedOrder(over) {
   check('ไม่มี token หลุดใน response', !/download_token|token=/.test(JSON.stringify(r.body)));
 
   /* ---- 8. admin resend ---- */
-  section('8. /api/admin/resend-email');
+  section('8. /api/admin action=resend-email');
   reset(); const o7 = seedOrder(); await tk.issue(o7.id);
-  let admin = load('admin/resend-email.js');
+  let admin = load('admin.js');
+  const ADM = { 'x-vinko-admin': process.env.ADMIN_SECRET };
   r = mockRes();
-  await admin(post({ order_ref: o7.order_ref }, { 'x-vinko-admin': process.env.ADMIN_SECRET }), r);
+  await admin(post({ action: 'resend-email', order_ref: o7.order_ref }, ADM), r);
   check('มี secret -> ส่งซ้ำได้', r.statusCode === 200 && SENT.length === 1, JSON.stringify(r.body));
-  r = mockRes(); await admin(post({ order_ref: o7.order_ref }, { 'x-vinko-admin': 'nope' }), r);
+  r = mockRes();
+  await admin(post({ action: 'resend-email', order_ref: o7.order_ref }, { 'x-vinko-admin': 'nope' }), r);
   check('secret ผิด -> 401', r.statusCode === 401);
-  r = mockRes(); await admin(post({ order_ref: 'VK-9999-9999' }, { 'x-vinko-admin': process.env.ADMIN_SECRET }), r);
+  r = mockRes();
+  await admin(post({ action: 'resend-email', order_ref: 'VK-9999-9999' }, ADM), r);
   check('ออเดอร์ไม่มีจริง -> ไม่ 500', r.statusCode === 400 && !r.body.ok, String(r.statusCode));
+  r = mockRes(); await admin(post({ action: 'ลบทุกอย่าง' }, ADM), r);
+  check('action ที่ไม่รู้จัก -> 400 ไม่ใช่ 500', r.statusCode === 400, String(r.statusCode));
+  r = mockRes(); await admin(post({ action: 'test-line' }, { 'x-vinko-admin': 'nope' }), r);
+  check('test-line ก็ต้องผ่าน secret เหมือนกัน', r.statusCode === 401, String(r.statusCode));
 
   /* ---- 9. cron ส่งนิทาน ---- */
   section('9. cron ส่งนิทานตามกำหนด');
