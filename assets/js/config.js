@@ -35,7 +35,7 @@ window.VINKO_CONFIG = {
     { no: 2, title: "คดีสีสันที่หายไป", title_en: "The Case of the Missing Colors", date: "2026-09-01" },
     { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "2026-09-01" },
     { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "2026-09-01" },
-    { no: 5, title: "ขุมทรัพย์ในน้ำแข็ง", title_en: "Treasure in the Ice", date: "" }
+    { no: 5, title: "ขุมทรัพย์ในน้ำแข็ง", title_en: "Treasure in the Ice", date: "2026-09-05" }
   ],
 
   /* ---- ชื่อภารกิจทั้ง 10 บท ------------------------------
@@ -58,7 +58,7 @@ window.VINKO_CONFIG = {
      ต้องเติมให้ครบก่อนเปิดขายจริง หน้า Terms และ Privacy
      ตามกฎหมายไทยต้องระบุตัวตนผู้ขายและช่องทางติดต่อ            */
   LINE_URL: "https://lin.ee/8F08BYJ",
-  CONTACT_EMAIL: "",
+  CONTACT_EMAIL: "admin@vinko.quest",
   SELLER: { name: "VINKO", address: "88/112 ถนนเลียบคลองสอง บางชัน คลองสามวา กรุงเทพฯ 10510" },
 
   /* ---- Tracking (เติม ID แล้วสคริปต์จะทำงานเอง) -----------
