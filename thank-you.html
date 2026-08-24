@@ -41,10 +41,20 @@
 <p class="lead" style="margin:0 auto">เราได้รับคำสั่งซื้อของคุณเรียบร้อยแล้ว ใบเสร็จและลิงก์ดาวน์โหลดถูกส่งไปที่อีเมลที่คุณกรอกไว้</p>
 
 <div class="vk-download-box">
-<h3 style="margin:0 0 10px;color:var(--navy);font-size:19px">ดาวน์โหลด VINKO WOW LAB</h3>
-<!-- TODO: ลิงก์ดาวน์โหลดจริงจะถูกใส่หลังเชื่อมระบบชำระเงิน -->
-<p style="margin:0 0 14px;color:var(--muted)">ลิงก์ดาวน์โหลดของคุณจะแสดงตรงนี้</p>
-<code>รอเชื่อมต่อระบบชำระเงิน</code>
+<h3 style="margin:0 0 10px;color:var(--navy);font-size:19px">ดาวน์โหลดไฟล์ของคุณ</h3>
+
+<div data-vk-ty-loading>
+<p style="margin:0;color:var(--muted)"><span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:var(--orange)"></span> กำลังเตรียมไฟล์ให้คุณ…</p>
+</div>
+
+<div data-vk-ty-ready hidden>
+<a class="btn" data-vk-ty-link href="#">เปิดหน้าดาวน์โหลด</a>
+<p style="margin:12px 0 0;color:var(--muted);font-size:13.5px">ลิงก์ใช้ได้ถึง <b data-vk-ty-expires></b></p>
+</div>
+
+<div data-vk-ty-email hidden>
+<p style="margin:0;color:var(--muted)">เราส่งลิงก์ดาวน์โหลดไปที่อีเมลของคุณแล้ว กรุณาตรวจกล่องจดหมายและโฟลเดอร์ junk ด้วยนะครับ</p>
+</div>
 </div>
 
 <div class="vk-callout" style="text-align:left">
@@ -53,8 +63,8 @@
 </div>
 
 <div data-vk-bundle hidden style="text-align:left">
-<h2 style="font-size:22px;color:var(--navy);margin:30px 0 8px">สำหรับผู้ซื้อแพ็กเกจ BUNDLE</h2>
-<p style="color:var(--muted);line-height:1.8;margin:0 0 14px">นิทาน 5 เรื่องเป็นสินค้า pre-order เราจะทยอยส่งตามกำหนดด้านล่าง <strong>ทุกครั้งที่มีเรื่องใหม่ เราจะส่งลิงก์ดาวน์โหลดไปที่อีเมลเดิมของคุณ</strong> ไม่ต้องเข้ามาเช็กเองที่หน้านี้</p>
+<h2 style="font-size:22px;color:var(--navy);margin:30px 0 8px">สำหรับผู้ซื้อที่มี VINKO Stories ในคำสั่งซื้อ</h2>
+<p style="color:var(--muted);line-height:1.8;margin:0 0 14px">VINKO Stories 5 เล่มเป็นสินค้า pre-order เราจะทยอยส่งตามกำหนดด้านล่าง <strong>ทุกครั้งที่มีเรื่องใหม่ เราจะส่งลิงก์ดาวน์โหลดไปที่อีเมลเดิมของคุณ</strong> ไม่ต้องเข้ามาเช็กเองที่หน้านี้</p>
 <div class="vk-timeline-box" style="margin-top:0">
 <h4>กำหนดส่งนิทานแต่ละเรื่อง</h4>
 <div data-vk-timeline hidden></div>
@@ -63,9 +73,10 @@
 </div>
 
 <h3 style="font-size:19px;color:var(--navy);margin:30px 0 8px">ดาวน์โหลดไม่ได้ หรือมีปัญหา?</h3>
-<p style="color:var(--muted);line-height:1.8;margin:0">ทักหาเราได้ที่ <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" style="color:var(--navy);font-weight:800" target="_blank">LINE</a> หรืออีเมล <a data-vk-email href="mailto:" style="color:var(--navy);font-weight:800">_______</a> แจ้งอีเมลที่ใช้สั่งซื้อมาด้วย เราจะช่วยแก้ให้เร็วที่สุด</p>
+<p style="color:var(--muted);line-height:1.8;margin:0">ทักหาเราได้ที่ <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" style="color:var(--navy);font-weight:800" target="_blank">LINE</a> แจ้งอีเมลที่ใช้สั่งซื้อมาด้วย เราจะช่วยแก้ให้เร็วที่สุด</p>
 
 <div class="cta-row" style="justify-content:center;margin-top:26px">
+<a class="btn" href="/certificate">สร้างใบประกาศให้ลูก</a>
 <a class="btn light" href="/">กลับหน้าแรก</a>
 </div>
 </div>
@@ -75,11 +86,12 @@
 <footer class="footer">
 <div class="wrap footer-inner">
 <div>© VINKO WOW LAB · 30 Missions Science Series</div>
-<div class="footer-links"><a href="/">หน้าแรก</a><a href="/terms">เงื่อนไขการซื้อ</a><a href="/privacy">ความเป็นส่วนตัว</a><a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">ติดต่อทาง LINE</a></div>
+<div class="footer-links"><a href="/">หน้าแรก</a><a href="/terms">เงื่อนไขการซื้อ</a><a href="/privacy">ความเป็นส่วนตัว</a><a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">ติดต่อทาง LINE</a><a href="/certificate">ใบประกาศ</a></div>
 <div>Little Kitchen. Big Discoveries.</div>
 </div>
 </footer>
 <script src="/assets/js/config.js"></script>
 <script src="/assets/js/site.js"></script>
+<script src="/assets/js/thank-you.js"></script>
 </body>
 </html>

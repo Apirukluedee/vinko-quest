@@ -44,17 +44,27 @@
     return d.getDate() + " " + TH_MONTH[d.getMonth()] + " " + (d.getFullYear() + 543);
   }
 
-  // ขายแบบ pre-order ได้ต่อเมื่อรู้วันส่งมอบครบทั้ง 5 เรื่องแล้วเท่านั้น
+  // แสดง BUNDLE ได้เมื่อมีวันส่งมอบอย่างน้อย 1 เรื่อง หรือเรื่องใดพร้อมส่งทันที
+  function storyAvailable(x) { return x.date === 'instant' || !!thaiDate(x.date); }
+
   function storiesReady() {
     var s = C.STORY_DELIVERY || [];
-    return s.length === 5 && s.every(function (x) { return !!thaiDate(x.date); });
+    return s.length === 5 && s.some(storyAvailable);
+  }
+
+  function storyDateLabel(s) {
+    if (s.date === 'instant') return 'ได้ทันที';
+    var d = thaiDate(s.date);
+    return d || 'เร็วๆ นี้';
   }
 
   function timelineHTML() {
     return '<ol class="vk-timeline">' + (C.STORY_DELIVERY || []).map(function (s) {
       return '<li><span class="vk-tl-no">' + s.no + '</span>' +
-             '<span class="vk-tl-title">' + s.title + '</span>' +
-             '<span class="vk-tl-date">' + thaiDate(s.date) + '</span></li>';
+             '<span class="vk-tl-text"><span class="vk-tl-title">' + s.title + '</span>' +
+             (s.title_en ? '<span class="vk-tl-title-en">' + s.title_en + '</span>' : '') +
+             '</span>' +
+             '<span class="vk-tl-date">' + storyDateLabel(s) + '</span></li>';
     }).join("") + '</ol>';
   }
 
