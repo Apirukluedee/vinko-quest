@@ -19,16 +19,22 @@ process.env.ADMIN_SECRET = 'admin-secret-abcdefghijklmnop';
 process.env.CRON_SECRET = 'cron-secret-abcdefghijklmnop';
 process.env.SELLER_NAME = 'VINKO WOW LAB';
 process.env.CONTACT_EMAIL = 'hello@vinko.quest';
+process.env.OMISE_SECRET_KEY = 'skey_test_FAKE';
+process.env.OMISE_PUBLIC_KEY = 'pkey_test_FAKE';
 
 /* ---------------- ฐานข้อมูลจำลอง ---------------- */
 const DB = { orders: [], order_items: [], download_events: [], webhook_events: [], email_events: [] };
 const STORAGE = new Set();              // product_code ที่มีไฟล์อยู่จริง
 const SENT = [];                        // อีเมลที่ถูกส่งออกไป
+const CHARGES = {};                     // charge ที่ Omise จะคืนให้ (id -> object)
+const LINE_PUSHED = [];                 // ข้อความ LINE ที่ถูกยิงออกไป
 let masterPdf = null;                   // PDF ต้นฉบับจำลอง
 
 function reset() {
   for (const k of Object.keys(DB)) DB[k] = [];
   STORAGE.clear(); SENT.length = 0;
+  for (const k of Object.keys(CHARGES)) delete CHARGES[k];
+  LINE_PUSHED.length = 0;
 }
 
 const UNIQUE = { orders: ['order_ref', 'omise_charge_id', 'client_request_id', 'download_token'],
@@ -106,8 +112,17 @@ global.fetch = async function (url, opts) {
     return reply(200, { id: 'msg_' + SENT.length });
   }
 
-  if (u.startsWith('https://vinko.example/api/deliver-order')) {
-    return reply(200, { ok: true });      // webhook ยิงมา ไม่ต้องทำอะไรจริงในเทสต์
+  // Omise: คืน charge ตามที่เทสต์ตั้งไว้ใน CHARGES
+  if (u.startsWith('https://api.omise.co/charges/')) {
+    const id = u.split('/').pop();
+    const c = CHARGES[id];
+    return c ? reply(200, c) : reply(404, { object: 'error', code: 'not_found' });
+  }
+
+  // LINE push
+  if (u === 'https://api.line.me/v2/bot/message/push') {
+    LINE_PUSHED.push(JSON.parse(opts.body));
+    return reply(200, {});
   }
 
   throw new Error('unmocked fetch: ' + method + ' ' + u);
@@ -356,6 +371,54 @@ function seedOrder(over) {
     id: 'chrg_x', status: 'successful', amount: 39900, currency: 'THB', source: { type: 'promptpay' }
   });
   check('เรียกซ้ำไม่สั่งส่งมอบอีก', !out2.needs_delivery, JSON.stringify(out2));
+
+  /* ---- 11. webhook ต้องทำงานให้เสร็จก่อนตอบ 200 ----
+     Vercel หยุดฟังก์ชันทันทีที่ตอบ response งานที่ยิงทิ้งไว้แบบไม่ await
+     จะถูกฆ่ากลางคัน ลูกค้าจ่ายเงินแล้วแต่ไม่มี token — เกิดขึ้นจริงกับ
+     VK-2608-0001 แล้วเทสต์ชุดเดิมมองไม่เห็นเพราะ stub ตอบ ok ให้เฉยๆ
+     เทสต์นี้จึงตรวจ "สถานะหลังตอบ 200" ไม่ใช่ "ถูกเรียกหรือยัง" */
+  section('11. webhook ต้องส่งมอบเสร็จก่อนตอบ 200');
+  reset();
+  process.env.LINE_CHANNEL_ACCESS_TOKEN = 'line-token-test';
+  process.env.LINE_ADMIN_USER_ID = 'Utest0000000000000000000000000000';
+  const o10 = seedOrder({ status: 'pending', omise_charge_id: 'chrg_wh', download_token: null });
+  DB.orders[0].amount_satang = 39900; DB.orders[0].currency = 'THB';
+  CHARGES['chrg_wh'] = { object: 'charge', id: 'chrg_wh', status: 'successful',
+                         amount: 39900, currency: 'THB', source: { type: 'promptpay' } };
+
+  const wh = load('omise-webhook.js');
+  r = mockRes();
+  await wh(post({ id: 'evnt_wh_1', key: 'charge.complete',
+                  data: { object: 'charge', id: 'chrg_wh' } }), r);
+
+  check('ตอบ 200 ให้ Omise', r.statusCode === 200, String(r.statusCode));
+  check('ตั้งเป็น paid แล้ว', DB.orders[0].status === 'paid');
+  check('ออก download_token แล้วตอนตอบ 200', !!DB.orders[0].download_token,
+        'token = ' + DB.orders[0].download_token);
+  check('ส่งอีเมลแล้วตอนตอบ 200', SENT.length === 1, 'ส่งไป ' + SENT.length + ' ฉบับ');
+  check('แจ้งเตือน LINE แล้วตอนตอบ 200', LINE_PUSHED.length === 1,
+        'ยิงไป ' + LINE_PUSHED.length + ' ข้อความ');
+  check('ข้อความ LINE มีเลขที่ออเดอร์', LINE_PUSHED.length > 0 &&
+        LINE_PUSHED[0].messages[0].text.includes(o10.order_ref),
+        JSON.stringify(LINE_PUSHED[0] || null));
+
+  r = mockRes();
+  await wh(post({ id: 'evnt_wh_1', key: 'charge.complete',
+                  data: { object: 'charge', id: 'chrg_wh' } }), r);
+  check('event ซ้ำ -> ไม่ส่งอีเมลรอบสอง', SENT.length === 1, 'ส่งไป ' + SENT.length);
+
+  delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  delete process.env.LINE_ADMIN_USER_ID;
+
+  /* ---- 12. claim-download กู้เองได้ถ้า webhook พลาด ---- */
+  section('12. claim-download ออก token เองได้ถ้า webhook พลาด');
+  reset();
+  const o11 = seedOrder({ status: 'paid', download_token: null, token_expires_at: null });
+  const claim2 = load('claim-download.js');
+  r = mockRes();
+  await claim2(post({ order_ref: o11.order_ref, client_request_id: o11.client_request_id }), r);
+  check('คืนลิงก์ให้ได้ทั้งที่ webhook ไม่ได้ออก token', r.body.ready === true, JSON.stringify(r.body));
+  check('บันทึก token ลงออเดอร์จริง', !!DB.orders[0].download_token);
 
   console.log('\n' + '='.repeat(56));
   console.log('ผ่าน ' + pass + ' / ไม่ผ่าน ' + fail);

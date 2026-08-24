@@ -2731,6 +2731,25 @@ body.premium .vk-page-head h1 { font-size:38px; margin:0 0 10px; color:var(--nav
 .vk-callout p:last-child { margin-bottom:0; }
 .vk-callout strong { color:var(--navy); }
 
+/* ---- หัวข้อบนหน้าธุรกรรม (thank-you / download / checkout) ----
+   ค่า line-height .94 กับ letter-spacing -2.2px ของ body.premium h1
+   ออกแบบมาสำหรับหัวข้อใหญ่หน้าแรก พอเอามาใช้กับหัวข้อขนาดปกติที่ขึ้น
+   สองบรรทัด วรรณยุกต์ไทยจะชนบรรทัดบน อ่านไม่ออก
+   หน้าพวกนี้ต้องอ่านง่ายมาก่อนสวย — ลูกค้าเพิ่งจ่ายเงินและกำลังหาไฟล์ของตัวเอง
+   ต้องเจาะจงกว่า body.premium h1 ถึงจะชนะ specificity */
+.vk-panel h1,
+body.premium .vk-panel h1 {
+  font-family:"Anuphan", "Mitr", "Noto Sans Thai", sans-serif !important;
+  line-height:1.32;
+  letter-spacing:normal;
+  font-weight:800;
+}
+.vk-panel h2, .vk-panel h3,
+body.premium .vk-panel h2, body.premium .vk-panel h3 {
+  line-height:1.4;
+  letter-spacing:normal;
+}
+
 /* ---- ชวนแอด LINE (หน้า thank-you) ----
    ใช้เขียว LINE เป็นตัวแยกจาก callout สีส้ม เพราะเป็นคนละเรื่องกัน
    อันนั้นคือข้อควรรู้ อันนี้คือสิ่งที่อยากให้ลงมือทำ */

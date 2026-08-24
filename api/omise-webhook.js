@@ -20,8 +20,8 @@ const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
 const line   = require('./_lib/line');
+const { deliver } = require('./deliver-order');
 const { json, requireEnv } = require('./_lib/util');
-const config = require('./_lib/config');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false });
@@ -81,11 +81,21 @@ module.exports = async function handler(req, res) {
   try {
     const result = await orders.applyChargeResult(charge);
 
-    // จ่ายสำเร็จ: สั่งส่งมอบไฟล์ + แจ้งเตือน LINE แต่ไม่รอผล เพื่อให้ตอบ 200 กลับ Omise ทันที
-    // ถ้าตอบช้า Omise จะ retry แล้วจะยุ่ง
+    // จ่ายสำเร็จ: ออก token + ส่งอีเมล + แจ้งเตือน LINE
+    //
+    // ต้อง await ทั้งคู่ ห้ามยิงทิ้งแล้วรีบตอบ 200
+    // เพราะ Vercel หยุดการทำงานของฟังก์ชันทันทีที่ตอบ response ออกไป
+    // งานที่ค้างอยู่จะถูกฆ่าทิ้งกลางคัน ลูกค้าจ่ายเงินแล้วแต่ไม่มี token
+    // (เคยพลาดตรงนี้มาแล้วกับออเดอร์ VK-2608-0001)
     if (result && result.needs_delivery) {
-      triggerDelivery(result.order_ref);
-      line.notifyOrder(result.order_ref).catch(function () {});
+      await Promise.all([
+        deliver(result.order_ref).catch(function (e) {
+          console.error('[vinko][webhook] ส่งมอบไม่สำเร็จ', result.order_ref, e.message);
+        }),
+        line.notifyOrder(result.order_ref).catch(function (e) {
+          console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
+        })
+      ]);
     }
 
     return json(res, 200, { ok: true, result: result });
@@ -94,28 +104,6 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { ok: false });
   }
 };
-
-/**
- * ยิงไปที่ /api/deliver-order แบบไม่รอผล
- *
- * ถ้าส่งอีเมลล้มเหลว ห้ามให้ออเดอร์กลายเป็น failed เด็ดขาด — ลูกค้าจ่ายเงินแล้ว
- * ความล้มเหลวถูกบันทึกไว้ใน email_events และกดส่งซ้ำได้ที่ /api/admin/resend-email
- */
-function triggerDelivery(orderRef) {
-  const base = config.appBaseUrl();
-  const secret = config.internalTaskSecret();
-  if (!base || !secret) {
-    console.error('[vinko][webhook] ยังไม่ได้ตั้ง APP_BASE_URL หรือ INTERNAL_TASK_SECRET — ข้ามการส่งอีเมล', orderRef);
-    return;
-  }
-  fetch(base + '/api/deliver-order', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-vinko-task': secret },
-    body: JSON.stringify({ order_ref: orderRef })
-  }).catch(function (e) {
-    console.error('[vinko][webhook] เรียก deliver-order ไม่สำเร็จ', orderRef, e.message);
-  });
-}
 
 /**
  * ดึง charge id ออกจาก payload — เอาแค่ "ตัวชี้" เท่านั้น
