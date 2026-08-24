@@ -251,7 +251,7 @@ const BASE = {
   })), r);
   check('ติ๊กแล้วผ่าน ราคา 39900', r.body.ok && r.body.amount_satang === 39900);
   check('order_items ครบ 6 แถว (LAB + นิทาน 5)', DB.order_items.length === 6, 'ได้ ' + DB.order_items.length);
-  check('มี preorder 4 แถว (STORY-02~05, STORY-01 ส่งทันที)', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 4);
+  check('มี preorder 3 แถว (STORY-03~05, เล่ม 1-2 ส่งทันที)', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 3, 'ได้ ' + DB.order_items.filter(i => i.delivery_type === 'preorder').length);
   check('บันทึกเวลายินยอม pre-order', !!DB.orders[0].consent_preorder_at);
 
   /* ---- 3. กดปุ่มรัว 5 ครั้ง ---- */
