@@ -2730,6 +2730,35 @@ body.premium .vk-page-head h1 { font-size:38px; margin:0 0 10px; color:var(--nav
 }
 .vk-callout p:last-child { margin-bottom:0; }
 .vk-callout strong { color:var(--navy); }
+
+/* ---- ชวนแอด LINE (หน้า thank-you) ----
+   ใช้เขียว LINE เป็นตัวแยกจาก callout สีส้ม เพราะเป็นคนละเรื่องกัน
+   อันนั้นคือข้อควรรู้ อันนี้คือสิ่งที่อยากให้ลงมือทำ */
+.vk-line-cta {
+  display:flex; align-items:center; gap:22px;
+  background:rgba(6,199,85,.06); border:1px solid rgba(6,199,85,.28);
+  border-radius:20px; padding:22px 24px; margin:26px 0 0; text-align:left;
+}
+.vk-line-cta-qr {
+  flex:0 0 118px; width:118px; height:118px; background:#fff;
+  border:1px solid var(--soft-line); border-radius:14px; padding:7px;
+}
+.vk-line-cta-qr img { width:100%; height:100%; object-fit:contain; display:block; }
+.vk-line-cta-body { flex:1; min-width:0; }
+.vk-line-cta h3 { font-size:19px; color:var(--navy); margin:0 0 6px; }
+.vk-line-cta p { color:var(--muted); line-height:1.75; margin:0 0 14px; font-size:15.5px; }
+.vk-line-cta .btn-line {
+  display:inline-block; background:#06C755; color:#fff; font-weight:900;
+  padding:12px 26px; border-radius:999px; text-decoration:none; font-size:16px;
+  border:0; transition:filter .15s ease;
+}
+.vk-line-cta .btn-line:hover { filter:brightness(.93); }
+.vk-line-cta .btn-line:focus-visible { outline:3px solid var(--navy); outline-offset:3px; }
+
+@media (max-width:560px) {
+  .vk-line-cta { flex-direction:column; text-align:center; gap:16px; padding:22px 18px; }
+  .vk-line-cta-body { text-align:center; }
+}
 .vk-blank {
   display:inline-block; min-width:190px; padding:1px 8px;
   background:rgba(217,45,32,.08); border-bottom:2px dashed #D92D20;
