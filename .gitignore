@@ -7,9 +7,11 @@ node_modules/
 .netlify
 
 # Environment / secrets — ห้าม commit ค่าจริงเด็ดขาด
-.env
-.env.local
-.env.*.local
+# ครอบทุกอย่างที่ขึ้นต้นด้วย .env แล้วค่อยยกเว้น .env.example
+# เพราะไฟล์สำรองอย่าง .env.local.bak หรือ .env.old ไม่เข้าเงื่อนไขเดิม
+# แล้วจะหลุดขึ้น repo สาธารณะโดยไม่มีอะไรเตือน
+.env*
+!.env.example
 .vercel
 
 # ไฟล์ชั่วคราวจากชุดทดสอบ

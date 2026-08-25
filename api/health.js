@@ -69,7 +69,10 @@ module.exports = async function handler(req, res) {
       errors: cfg.errors,           // ข้อความอธิบายเท่านั้น ค่าจริงถูก mask แล้วที่ config.js
       warnings: cfg.warnings,
       missing: cfg.missing,
-      supabase_key_kind: cfg.supabaseKeyKind   // secret / legacy / unknown
+      supabase_key_kind: cfg.supabaseKeyKind,  // secret / legacy / unknown
+      // true/false เท่านั้น ไม่บอกค่า key — ใช้ยืนยันว่าตั้ง RESEND_API_KEY
+      // บน Vercel แล้วและ redeploy แล้ว โดยไม่ต้องส่งอีเมลจริงไปทดสอบ
+      email_configured: cfg.emailConfigured === true
     },
 
     supabase: supabase,
@@ -80,6 +83,9 @@ module.exports = async function handler(req, res) {
     notes: [
       omiseMode === 'test' ? 'ยังใช้ Omise test key อยู่ — เงินจริงจะยังไม่เข้า' : null,
       cfg.supabaseKeyKind === 'legacy' ? 'ยังใช้ Supabase key แบบเดิม ควรย้ายไป sb_secret_' : null,
+      cfg.emailConfigured !== true
+        ? 'ยังไม่ได้ตั้ง RESEND_API_KEY — ลูกค้าจ่ายเงินแล้วจะไม่ได้รับอีเมลลิงก์ดาวน์โหลด'
+        : null,
       cfg.missing.length ? 'ยังตั้ง env ไม่ครบ ' + cfg.missing.length + ' ตัว' : null
     ].filter(Boolean)
   }, null, 2));

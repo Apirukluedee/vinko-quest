@@ -142,7 +142,13 @@ function validate(env) {
   }
 
   /* ---------------- Resend (ไม่บังคับจนกว่าจะส่งอีเมลจริง) ---------------- */
-  if (has('RESEND_API_KEY') && !env.RESEND_API_KEY.trim().startsWith('re_')) {
+  // ไม่ใส่ใน missing เพราะรันในเครื่องเพื่อพัฒนาโดยไม่ส่งอีเมลจริงได้
+  // แต่บน production ที่ไม่มี key นี้ = ลูกค้าจ่ายเงินแล้วไม่ได้รับลิงก์ดาวน์โหลด
+  // จึงต้องเตือนให้เห็นชัด ไม่ใช่เงียบไปเฉยๆ
+  if (!has('RESEND_API_KEY')) {
+    warnings.push('RESEND_API_KEY: ยังไม่ได้ตั้ง — ลูกค้าจะไม่ได้รับอีเมลลิงก์ดาวน์โหลด ' +
+                  'ดูขั้นตอนที่ content/email-setup.md');
+  } else if (!env.RESEND_API_KEY.trim().startsWith('re_')) {
     errors.push('RESEND_API_KEY: ต้องขึ้นต้นด้วย re_ (ได้มา: ' + mask(env.RESEND_API_KEY) + ')');
   }
 
@@ -190,7 +196,7 @@ function validate(env) {
                   'ต้องมีทั้งคู่ถึงจะแจ้งเตือนออเดอร์ทาง LINE ได้ ตอนนี้จะไม่ส่งอะไรเลย');
   }
 
-  return { errors, warnings, missing, supabaseKeyKind };
+  return { errors, warnings, missing, supabaseKeyKind, emailConfigured: has('RESEND_API_KEY') };
 }
 
 /* ============================================================
