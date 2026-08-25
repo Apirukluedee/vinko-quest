@@ -162,7 +162,8 @@
 <main class="gate-page">
   <div class="gate-card">
 
-    <!-- ── Step 1: Add LINE ── -->
+    <!-- ── Step 1: Add LINE — ข้ามทั้งบล็อกเมื่อมาจาก rich menu (?from=line) ── -->
+    <div id="step1">
     <div class="gate-chip">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect width="16" height="16" rx="4" fill="#00B900"/><path d="M8 3C5.24 3 3 4.9 3 7.25c0 1.38.82 2.6 2.1 3.4-.1.37-.35 1.32-.4 1.52-.06.24.09.23.19.17.08-.05 1.3-.86 1.83-1.21.4.06.82.08 1.28.08C13.76 11.21 13 9.15 13 7.25 13 4.9 10.76 3 8 3Z" fill="#fff"/></svg>
       รับไฟล์ตัวอย่างฟรี
@@ -182,10 +183,21 @@
     <p class="scan-hint">สแกน QR หรือกดปุ่มด้านบน</p>
 
     <hr class="gate-divider"/>
+    </div>
+
+    <!-- หัวเรื่องสำหรับคนที่เป็นเพื่อนอยู่แล้ว ใช้แทน step1 ทั้งบล็อก -->
+    <div id="friend-head" hidden>
+      <div class="gate-chip">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect width="16" height="16" rx="4" fill="#00B900"/><path d="M8 3C5.24 3 3 4.9 3 7.25c0 1.38.82 2.6 2.1 3.4-.1.37-.35 1.32-.4 1.52-.06.24.09.23.19.17.08-.05 1.3-.86 1.83-1.21.4.06.82.08 1.28.08C13.76 11.21 13 9.15 13 7.25 13 4.9 10.76 3 8 3Z" fill="#fff"/></svg>
+        ของขวัญสำหรับเพื่อน VINKO
+      </div>
+      <h1 class="gate-title">ภารกิจลายนิ้วมือ 1 ภารกิจเต็ม · ฟรี</h1>
+      <p class="gate-sub">กดดาวน์โหลดได้เลย<br>ไม่ต้องกรอกอะไรทั้งนั้น</p>
+    </div>
 
     <!-- ── Step 2: Download (hidden until LINE clicked) ── -->
     <div id="step2">
-      <p class="step2-label">✓ เพิ่มแล้ว? กดรับไฟล์ได้เลย</p>
+      <p class="step2-label" id="step2-label">✓ เพิ่มแล้ว? กดรับไฟล์ได้เลย</p>
       <p class="step2-title">ดาวน์โหลดตัวอย่างฟรี</p>
       <a class="btn-dl" download="LAB-free-sample.pdf" href="/downloads/LAB-free-sample.pdf">
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 2v9m0 0-3-3m3 3 3-3M3 13v1a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-1" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -202,17 +214,35 @@
 <script src="/assets/js/config.js"></script>
 <script>
   const lineBtn = document.getElementById('line-btn');
+  const step1   = document.getElementById('step1');
   const step2   = document.getElementById('step2');
   const hint    = document.getElementById('pre-hint');
+  const friendHead = document.getElementById('friend-head');
 
-  function revealDownload() {
+  function revealDownload(scroll) {
     step2.classList.add('visible');
     hint.style.display = 'none';
-    step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (scroll) step2.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  /* คนที่มาจาก rich menu ของ LINE เป็นเพื่อนอยู่แล้ว
+     ถ้ายังโชว์หน้าที่เขียนว่า "เพิ่มเพื่อน LINE ก่อน" พร้อม QR
+     เขาจะงงว่าให้แอดอะไรอีก จึงข้ามขั้นนั้นไปเลย
+
+     เช็กจาก ?from=line เท่านั้น ไม่เช็กจาก user agent เพราะลิงก์ที่ถูก
+     ส่งต่อในกลุ่มก็เปิดในแอป LINE เหมือนกัน แต่คนกลุ่มนั้นยังไม่ใช่เพื่อน */
+  const fromLine = new URLSearchParams(location.search).get('from') === 'line';
+
+  if (fromLine) {
+    step1.hidden = true;
+    friendHead.hidden = false;
+    // "✓ เพิ่มแล้ว? กดรับไฟล์ได้เลย" อ้างถึงขั้นที่เขาไม่ได้ผ่าน จึงต้องเอาออกด้วย
+    document.getElementById('step2-label').hidden = true;
+    revealDownload(false);
   }
 
   lineBtn.addEventListener('click', () => {
-    setTimeout(revealDownload, 1200);
+    setTimeout(() => revealDownload(true), 1200);
   });
 </script>
 </body>
