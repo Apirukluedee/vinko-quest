@@ -54,6 +54,21 @@ async function notifyTest() {
   }
 }
 
+/** แจ้งว่ามีการบันทึกคืนเงิน เก็บไว้เป็นหลักฐานว่าตัดสิทธิ์เมื่อไหร่ ออเดอร์ไหน */
+async function notifyRefund(orderRef, scope, refundSatang) {
+  try {
+    return await pushToAdmin(
+      '↩️ บันทึกคืนเงินแล้ว\n' +
+      orderRef + '\n' +
+      'ขอบเขต: ' + (scope === 'preorder' ? 'เฉพาะนิทานที่ยังไม่ส่ง' : 'ทั้งออเดอร์') + '\n' +
+      'ยอดที่ Omise คืน: ฿' + (Number(refundSatang || 0) / 100).toFixed(2) + '\n' +
+      'ลูกค้าดาวน์โหลดรายการที่คืนแล้วไม่ได้อีก'
+    );
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 /** ส่งข้อความแจ้งเตือนออเดอร์เดียว — คืน { ok, skipped? , error? } เสมอ ไม่ throw */
 async function notifyOrder(orderRef) {
   if (!config.lineChannelToken() || !config.lineAdminUserId()) {
@@ -84,4 +99,4 @@ async function notifyOrder(orderRef) {
   }
 }
 
-module.exports = { notifyOrder, notifyTest };
+module.exports = { notifyOrder, notifyTest, notifyRefund };

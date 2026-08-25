@@ -28,7 +28,7 @@ module.exports = async function handler(req, res) {
   const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);   // วันที่ตามเวลาไทย
 
   const r = await db.select('order_items',
-    'delivery_type=eq.preorder&delivered_at=is.null' +
+    'delivery_type=eq.preorder&delivered_at=is.null&refunded_at=is.null' +
     '&scheduled_delivery_date=lte.' + today +
     '&select=id,order_id,product_code,title,scheduled_delivery_date&limit=200');
   const due = Array.isArray(r.body) ? r.body : [];
@@ -57,7 +57,7 @@ module.exports = async function handler(req, res) {
 
       const all = await tokens.itemsFor(order.id);
       const remaining = all.filter(function (i) {
-        return i.delivery_type === 'preorder' && !i.delivered_at && i.id !== item.id;
+        return i.delivery_type === 'preorder' && !i.delivered_at && !i.refunded_at && i.id !== item.id;
       });
 
       const payload = email.storyEmail({

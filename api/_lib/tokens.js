@@ -85,14 +85,17 @@ async function itemsFor(orderId) {
   const r = await db.select(
     'order_items',
     'order_id=eq.' + orderId +
-    '&select=id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at' +
+    '&select=id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at,refunded_at' +
     '&order=delivery_type.asc,product_code.asc'
   );
   return Array.isArray(r.body) ? r.body : [];
 }
 
-/** ถึงกำหนดส่งแล้วหรือยัง */
+/** ถึงกำหนดส่งแล้วหรือยัง (คืนเงินไปแล้ว = ไม่ได้เสมอ) */
 function isReleased(item, now) {
+  // ด่านเดียวที่ทั้ง /api/download และ /api/download-info ใช้ร่วมกัน
+  // ตัดที่นี่จุดเดียวจึงครอบคลุมทุกทางเข้า
+  if (item.refunded_at) return false;
   if (item.delivery_type === 'instant') return true;
   if (!item.scheduled_delivery_date) return false;
   const due = new Date(item.scheduled_delivery_date + 'T00:00:00+07:00').getTime();

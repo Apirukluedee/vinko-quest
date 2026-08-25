@@ -424,6 +424,103 @@ function seedOrder(over) {
   check('คืนลิงก์ให้ได้ทั้งที่ webhook ไม่ได้ออก token', r.body.ready === true, JSON.stringify(r.body));
   check('บันทึก token ลงออเดอร์จริง', !!DB.orders[0].download_token);
 
+
+  /* ---- 13. คืนเงิน ---- */
+  section('13. คืนเงิน — ต้องยืนยันกับ Omise ก่อนเสมอ');
+  reset();
+  const o12 = seedOrder({ omise_charge_id: 'chrg_rf' });
+  const tok12 = await tk.issue(o12.id);
+  STORAGE.add('LAB-MAIN');
+  admin = load('admin.js');
+  const HDR = { 'x-vinko-admin': process.env.ADMIN_SECRET };
+
+  r = mockRes();
+  await admin(post({ action: 'refund', order_ref: o12.order_ref }, { 'x-vinko-admin': 'ผิด' }), r);
+  check('secret ผิด -> 401', r.statusCode === 401);
+
+  // ยังไม่ได้คืนเงินใน Omise เลย
+  CHARGES['chrg_rf'] = { object: 'charge', id: 'chrg_rf', status: 'successful',
+                         paid: true, amount: 39900, refunded_amount: 0 };
+  r = mockRes();
+  await admin(post({ action: 'refund', order_ref: o12.order_ref }, HDR), r);
+  check('Omise ยังไม่มีรายการคืน -> ปฏิเสธ', r.statusCode === 400 && /ยังไม่มีรายการคืนเงิน/.test(r.body.error || ''),
+        JSON.stringify(r.body));
+  check('ออเดอร์ยังเป็น paid อยู่ ไม่ถูกแตะ', DB.orders[0].status === 'paid');
+  check('token ยังอยู่', !!DB.orders[0].download_token);
+
+  const dl3 = load('download.js');
+  r = mockRes();
+  await dl3(get('/api/download?token=' + tok12 + '&item=it-lab'), r);
+  check('ยังโหลดได้ตามปกติ', r.statusCode === 200, String(r.statusCode));
+
+  // เจ้าของกดคืนเงินเต็มจำนวนใน Omise แล้ว
+  process.env.LINE_CHANNEL_ACCESS_TOKEN = 'line-token-test';
+  process.env.LINE_ADMIN_USER_ID = 'Utest';
+  CHARGES['chrg_rf'].refunded_amount = 39900;
+  const admin1b = load('admin.js');
+  r = mockRes();
+  await admin1b(post({ action: 'refund', order_ref: o12.order_ref, note: 'ลูกค้าขอคืน' }, HDR), r);
+  check('คืนเงินจริงแล้ว -> บันทึกสำเร็จ', r.statusCode === 200 && r.body.ok, JSON.stringify(r.body));
+  check('สถานะเปลี่ยนเป็น refunded', DB.orders[0].status === 'refunded');
+  check('บันทึกยอดที่คืนจาก Omise ไม่ใช่จากผู้เรียก', DB.orders[0].refund_satang === 39900);
+  check('เก็บเหตุผลไว้', DB.orders[0].refund_note === 'ลูกค้าขอคืน');
+  check('ล้าง token ทิ้ง', DB.orders[0].download_token === null);
+  check('ทุกรายการถูกทำเครื่องหมายคืนเงิน', DB.order_items.every(i => !!i.refunded_at));
+  check('แจ้ง LINE แล้ว', LINE_PUSHED.length === 1 && /บันทึกคืนเงิน/.test(LINE_PUSHED[0].messages[0].text),
+        JSON.stringify(LINE_PUSHED[0] || null));
+
+  const dl4 = load('download.js');
+  r = mockRes();
+  await dl4(get('/api/download?token=' + tok12 + '&item=it-lab'), r);
+  check('โหลดต่อไม่ได้แล้ว', r.statusCode === 403, String(r.statusCode));
+
+  const admin1c = load('admin.js');
+  r = mockRes();
+  await admin1c(post({ action: 'refund', order_ref: o12.order_ref }, HDR), r);
+  check('เรียกซ้ำไม่พัง และไม่แจ้ง LINE ซ้ำ', r.body.already === true && LINE_PUSHED.length === 1,
+        JSON.stringify(r.body) + ' line=' + LINE_PUSHED.length);
+
+  delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  delete process.env.LINE_ADMIN_USER_ID;
+
+  /* ---- 14. คืนเฉพาะนิทานที่ยังไม่ได้ส่ง ---- */
+  section('14. คืนเฉพาะ pre-order ที่ยังไม่ส่ง ของที่ส่งแล้วยังโหลดได้');
+  reset();
+  const o13 = seedOrder({ omise_charge_id: 'chrg_part' });
+  const tok13 = await tk.issue(o13.id);
+  STORAGE.add('LAB-MAIN'); STORAGE.add('STORY-01');
+  CHARGES['chrg_part'] = { object: 'charge', id: 'chrg_part', status: 'successful',
+                           paid: true, amount: 39900, refunded_amount: 19900 };
+  const admin2 = load('admin.js');
+
+  r = mockRes();
+  await admin2(post({ action: 'refund', order_ref: o13.order_ref, scope: 'preorder' }, HDR), r);
+  check('คืนบางส่วนสำเร็จ', r.statusCode === 200 && r.body.ok, JSON.stringify(r.body));
+  check('สถานะยังเป็น paid ไม่ใช่ refunded', DB.orders[0].status === 'paid');
+  check('token ยังใช้ได้', !!DB.orders[0].download_token);
+  check('LAB (ส่งทันที) ไม่ถูกคืน', !DB.order_items.find(i => i.id === 'it-lab').refunded_at);
+  check('นิทานที่ถึงกำหนดแล้วแต่ยังไม่ได้ส่ง ถูกคืน', !!DB.order_items.find(i => i.id === 'it-s1').refunded_at);
+  check('นิทานที่ยังไม่ถึงกำหนด ถูกคืน', !!DB.order_items.find(i => i.id === 'it-s2').refunded_at);
+
+  const dl5 = load('download.js');
+  r = mockRes();
+  await dl5(get('/api/download?token=' + tok13 + '&item=it-lab'), r);
+  check('LAB ยังโหลดได้', r.statusCode === 200, String(r.statusCode));
+
+  r = mockRes();
+  await dl5(get('/api/download?token=' + tok13 + '&item=it-s1'), r);
+  check('นิทานที่คืนเงินแล้ว โหลดไม่ได้', r.statusCode === 403, String(r.statusCode));
+
+  /* ---- 15. cron ต้องไม่ส่งของที่คืนเงินไปแล้ว ---- */
+  section('15. cron ไม่ส่งนิทานที่คืนเงินไปแล้ว');
+  cron = load('cron/deliver-preorders.js');
+  SENT.length = 0;
+  r = mockRes();
+  await cron(get('/api/cron/deliver-preorders', { authorization: 'Bearer ' + process.env.CRON_SECRET }), r);
+  check('ไม่ส่งอีเมลนิทานที่ถูกคืนเงิน', SENT.length === 0, 'ส่งไป ' + SENT.length);
+  check('ไม่ตั้ง delivered_at ให้รายการที่คืนแล้ว',
+        !DB.order_items.find(i => i.id === 'it-s1').delivered_at);
+
   console.log('\n' + '='.repeat(56));
   console.log('ผ่าน ' + pass + ' / ไม่ผ่าน ' + fail);
   console.log('='.repeat(56));
