@@ -63,7 +63,7 @@ module.exports = async function handler(req, res) {
 
   return json(res, 200, {
     ok: true, status: 'paid', ready: true,
-    download_url: '/download?token=' + encodeURIComponent(token),
+    download_url: '/download?token=' + encodeURIComponent(token) + '&openExternalBrowser=1',
     expires_at: expiresAt
   });
 };
