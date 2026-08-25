@@ -36,7 +36,7 @@
 | 2 | บน-กลาง | ดาวน์โหลดฟรี | Link | `https://vinko.quest/free-sample?from=line` |
 | 3 | บน-ขวา | พิมพ์ใบประกาศ | Link | `https://vinko.quest/certificate` |
 | 4 | ล่าง-ซ้าย | สั่งซื้อหนังสือ | Link | `https://vinko.quest/#order` |
-| 5 | ล่าง-กลาง | เว็บไซต์ | Link | `https://vinko.quest` |
+| 5 | ล่าง-กลาง | ขอลิงก์ดาวน์โหลด | Link | `https://vinko.quest/resend-link` |
 | 6 | ล่าง-ขวา | สอบถาม | **Text** | ส่งข้อความ `สอบถามเรื่องหนังสือ` |
 
 **ห้ามลืม `?from=line` ในช่อง 2** — ถ้าไม่ใส่ คนที่กดมาจากเมนู (ซึ่งเป็นเพื่อนอยู่แล้ว)
@@ -242,7 +242,7 @@ drop shadow box frame, text, letters, numbers, Thai characters, labels, watermar
 icons, app buttons.
 ```
 
-### ช่อง 5 — เว็บไซต์  (ไม่มีตัวละคร ให้ช่องนี้เงียบที่สุด)
+### ช่อง 5 — ขอลิงก์ดาวน์โหลด  (ซัน)
 
 ```
 Soft-shaded children's book illustration, square 1:1 format, soft gradients and gentle
@@ -250,18 +250,22 @@ highlights, rounded friendly shapes, warm cream background #F7F4EF, accent colou
 to warm orange #F59A23, deep navy #071B5D and sky blue #173A8A, single subject centred with
 generous empty space around it, clean and uncluttered like a sticker, no text, no letters,
 no watermark.
-Scene: a friendly rounded laptop seen straight on, deep navy body, its screen showing only a
-soft cream blank page with one simple orange conical flask shape and two small bubbles
-rising from it, nothing else on the screen; a gentle orange glow spilling from the screen
-onto the surface below.
+Scene: a Thai boy about 6 years old, short black hair, round dark brown eyes, MUST be
+wearing a white lab coat with a front chest pocket and a pen clipped in the pocket, grey
+t-shirt visible underneath the coat, navy blue shorts #003087, red sandals — standing and
+holding out a large puffy rounded envelope toward the viewer with both hands, the envelope
+glowing warm orange as if something bright is sealed inside it, a small soft aura radiating
+outward from the envelope's edges, the boy's expression friendly and eager as if handing
+over something precious; three tiny star-sparkles floating around the envelope.
 Composition: subject occupies the upper two-thirds of the square; the bottom third is plain
 low-detail background reserved for a text label added later; 8% empty safety margin on all
 four edges, nothing important touching the edges.
 Negative: flat vector style, no gradients, painterly watercolor texture, photorealistic
-rendering, browser address bar, window buttons, menu bars, website layout, keyboard letters,
-extra objects, cluttered background, busy patterned background, subject filling the bottom
-third, drop shadow box frame, text, letters, numbers, Thai characters, labels, watermark,
-logo, UI icons, app buttons.
+rendering, boy without white lab coat, boy in plain t-shirt only, download arrow icon,
+chain link icon, email app interface, open envelope showing contents, QR code, extra limbs,
+cluttered background, busy patterned background, subject filling the bottom third, drop
+shadow box frame, text, letters, numbers, Thai characters, labels, watermark, logo, UI
+icons, app buttons.
 ```
 
 ### ช่อง 6 — สอบถาม  (นิว)

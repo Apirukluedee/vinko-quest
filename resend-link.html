@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ขอลิงก์ดาวน์โหลดใหม่ | VINKO WOW LAB</title>
+<meta content="ขอลิงก์ดาวน์โหลดไฟล์ VINKO WOW LAB ใหม่ กรอกเลขที่คำสั่งซื้อและอีเมลได้เลย" name="description"/>
+<meta content="noindex, nofollow" name="robots"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mali:wght@500;600;700&family=Mitr:wght@400;500;600;700&family=Anuphan:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="/assets/css/main.css" rel="stylesheet"/>
+</head>
+<body class="premium">
+<nav class="nav">
+<div class="wrap nav-inner">
+<a aria-label="VINKO · WOW LAB กลับหน้าแรก" class="brand" href="/"><img alt="VINKO logo" decoding="async" height="174" src="/assets/img/vinko-logo.webp" width="160"/><span>VINKO · WOW LAB</span></a>
+</div>
+</nav>
+
+<section class="section">
+<div class="wrap">
+<div class="vk-panel" style="max-width:520px;margin:0 auto">
+
+<div data-vk-rl-form>
+  <h1 style="font-size:26px;margin:0 0 6px;color:var(--navy)">ขอลิงก์ดาวน์โหลดใหม่</h1>
+  <p style="margin:0 0 24px;color:var(--navy-60,#5a6a9a)">กรอกข้อมูลด้านล่าง เราจะส่งลิงก์ไปที่อีเมลที่ใช้สั่งซื้อ</p>
+
+  <div class="vk-field">
+    <label for="vk-rl-ref">เลขที่คำสั่งซื้อ <span class="vk-req">*</span></label>
+    <input autocomplete="off" id="vk-rl-ref" inputmode="text"
+           placeholder="เช่น VK-2608-0001" spellcheck="false" type="text"/>
+    <span class="vk-form-note">ดูได้จากอีเมลยืนยันการสั่งซื้อ หรือหน้าขอบคุณหลังชำระเงิน</span>
+  </div>
+
+  <div class="vk-field">
+    <label for="vk-rl-email">อีเมลที่ใช้สั่งซื้อ <span class="vk-req">*</span></label>
+    <input autocomplete="email" id="vk-rl-email" inputmode="email"
+           placeholder="your@email.com" type="email"/>
+  </div>
+
+  <button class="btn" id="vk-rl-btn" type="button">ส่งลิงก์ให้ฉัน</button>
+
+  <div class="vk-alert" data-vk-rl-error hidden role="alert">
+    <p data-vk-rl-error-msg></p>
+  </div>
+</div>
+
+<div data-vk-rl-loading hidden style="text-align:center;padding:32px 0">
+  <p class="lead" style="margin:0">
+    <span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:var(--orange)"></span>
+    กำลังส่ง…
+  </p>
+</div>
+
+<div data-vk-rl-success hidden>
+  <div style="text-align:center;padding:8px 0 16px">
+    <span style="font-size:48px;line-height:1">📬</span>
+  </div>
+  <h2 style="font-size:22px;margin:0 0 10px;color:var(--navy)">ตรวจสอบอีเมลของคุณ</h2>
+  <p style="margin:0 0 12px" data-vk-rl-success-msg></p>
+  <div class="vk-callout">
+    <p style="margin:0">ไม่เจออีเมล? ลองเช็กโฟลเดอร์ <b>junk / spam</b> และ <b>โปรโมชัน</b> ด้วย
+    ถ้ายังไม่ได้อีกครั้ง ทักหาเราได้ที่ <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">LINE</a>
+    แจ้งเลขที่คำสั่งซื้อมาด้วยนะครับ</p>
+  </div>
+  <p style="margin-top:16px;text-align:center">
+    <a class="btn light" href="/">กลับหน้าแรก</a>
+  </p>
+</div>
+
+</div>
+</div>
+</section>
+
+<footer class="footer">
+<div class="wrap footer-inner">
+<div>© VINKO WOW LAB · 30 Missions Science Series</div>
+<div class="footer-links"><a href="/">หน้าแรก</a><a href="/terms">เงื่อนไขการซื้อ</a><a href="/privacy">ความเป็นส่วนตัว</a></div>
+<div>Little Kitchen. Big Discoveries.</div>
+</div>
+</footer>
+
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/site.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var $ = function (s) { return document.querySelector(s); };
+
+  var formEl    = $('[data-vk-rl-form]');
+  var loadingEl = $('[data-vk-rl-loading]');
+  var successEl = $('[data-vk-rl-success]');
+  var errorEl   = $('[data-vk-rl-error]');
+  var errorMsg  = $('[data-vk-rl-error-msg]');
+  var successMsg = $('[data-vk-rl-success-msg]');
+  var btn       = $('#vk-rl-btn');
+  var refInput  = $('#vk-rl-ref');
+  var emailInput = $('#vk-rl-email');
+
+  function showError(msg) {
+    loadingEl.hidden = true;
+    formEl.hidden = false;
+    errorMsg.textContent = msg;
+    errorEl.hidden = false;
+    btn.disabled = false;
+  }
+
+  function normaliseRef(v) {
+    return v.trim().toUpperCase().replace(/\s+/g, '');
+  }
+
+  btn.addEventListener('click', function () {
+    errorEl.hidden = true;
+
+    var ref   = normaliseRef(refInput.value || '');
+    var email = (emailInput.value || '').trim();
+
+    if (!/^VK-\d{4}-\d{4,6}$/.test(ref)) {
+      refInput.focus();
+      return showError('เลขที่คำสั่งซื้อไม่ถูกต้อง ต้องเป็นรูปแบบ VK-YYYY-NNNN เช่น VK-2608-0001');
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      emailInput.focus();
+      return showError('กรุณากรอกอีเมลให้ถูกต้อง');
+    }
+
+    btn.disabled = true;
+    formEl.hidden = true;
+    loadingEl.hidden = false;
+
+    fetch('/api/resend-link', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_ref: ref, email: email })
+    })
+      .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
+      .then(function (res) {
+        loadingEl.hidden = true;
+        var d = res.d || {};
+        if (res.status === 429) {
+          formEl.hidden = false;
+          btn.disabled = false;
+          errorMsg.textContent = d.error || 'ขอลิงก์ใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองอีกครั้ง';
+          errorEl.hidden = false;
+          return;
+        }
+        if (!d.ok) {
+          showError(d.error || 'เกิดข้อผิดพลาด กรุณาลองอีกครั้ง');
+          return;
+        }
+        successMsg.textContent = d.message || 'ถ้าข้อมูลตรงกัน เราส่งลิงก์ไปที่อีเมลนั้นแล้ว';
+        successEl.hidden = false;
+      })
+      .catch(function () {
+        showError('เชื่อมต่อไม่สำเร็จ กรุณาลองรีเฟรชหน้านี้อีกครั้ง');
+      });
+  });
+
+  // กด Enter ในช่องใดช่องหนึ่ง → submit
+  [refInput, emailInput].forEach(function (el) {
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') btn.click();
+    });
+  });
+
+  // auto-format order_ref เป็น uppercase
+  refInput.addEventListener('input', function () {
+    var pos = refInput.selectionStart;
+    var v = normaliseRef(refInput.value);
+    refInput.value = v;
+    try { refInput.setSelectionRange(pos, pos); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
