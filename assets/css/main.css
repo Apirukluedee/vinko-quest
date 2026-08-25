@@ -3129,7 +3129,7 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 }
 
 /* ============================================================
-   แบบเช็กทักษะ EF (/ef-check)
+   แบบสำรวจทักษะ EF (/ef-check)
    ทำงานฝั่ง browser ล้วน ปุ่มตอบต้องกดง่ายบนมือถือเป็นอันดับแรก
    เพราะลิงก์นี้ส่งให้พ่อแม่ทาง LINE เกือบทั้งหมดเปิดบนมือถือ
    ============================================================ */
@@ -3150,11 +3150,14 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 }
 .vk-ef-q.is-missing { border-color:rgba(214,54,54,.55); background:rgba(214,54,54,.04); }
 
-.vk-ef-q legend {
-  display:block; width:100%; padding:0; margin-bottom:12px;
+/* เคยใช้ fieldset + legend ตรงนี้ แล้ว Safari บน iOS ไม่นับความสูงของ
+   legend เข้าในกล่อง ข้อความคำถามล้นไปทับปุ่มตอบ ตอนนี้เป็น div + p ธรรมดา
+   วางตำแหน่งตรงทุกเบราว์เซอร์ */
+.vk-ef-qtext {
+  margin:0 0 12px;
   color:var(--text); font-size:16px; line-height:1.55; font-weight:600;
 }
-.vk-ef-q legend small {
+.vk-ef-qtext .vk-ef-skill {
   display:block; margin-top:5px; color:var(--muted);
   font-size:12.5px; font-weight:800; letter-spacing:.2px;
 }
@@ -3259,14 +3262,48 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 .vk-ef-actions { display:flex; gap:12px; flex-wrap:wrap; margin:22px 0 18px; }
 .vk-ef-actions .btn { flex:1 1 220px; }
 
+/* ข้อความตอนสั่งพิมพ์ไม่ได้ (เบราว์เซอร์ในแอป) */
+.vk-ef-print-msg {
+  margin:-6px 0 18px; padding:14px 16px; border-radius:14px;
+  background:rgba(214,54,54,.07); border:1px solid rgba(214,54,54,.35);
+  color:var(--text); font-size:14.5px; line-height:1.7; font-weight:600;
+}
+.vk-ef-print-msg[hidden] { display:none; }
+
+/* ชวนไปดูหนังสือ — เดิมเป็นบรรทัดตัวเล็กสีเทา ลูกค้าไม่รู้ว่ากดได้
+   ทำเป็นแถบเต็มความกว้างมีลูกศร ให้เห็นชัดว่าเป็นลิงก์ */
+.vk-ef-book-cta {
+  display:flex; align-items:center; gap:12px;
+  margin:0 0 18px; padding:16px 20px;
+  border:1.5px solid var(--orange); border-radius:16px;
+  background:rgba(245,154,35,.07);
+  text-decoration:none; color:var(--navy);
+  transition:background .15s, transform .15s;
+}
+.vk-ef-book-cta:hover { background:rgba(245,154,35,.14); }
+.vk-ef-book-cta:active { transform:scale(.99); }
+.vk-ef-book-cta-label {
+  flex:none; color:var(--muted); font-size:13.5px; font-weight:800;
+}
+.vk-ef-book-cta-main {
+  flex:1 1 auto; font-size:15.5px; font-weight:900; line-height:1.5;
+  text-decoration:underline; text-underline-offset:3px;
+}
+.vk-ef-book-cta-arrow {
+  flex:none; color:var(--orange); font-size:22px; font-weight:900;
+}
+
 @media (max-width:560px) {
   .vk-ef-choices { gap:6px; }
   .vk-ef-choices label { padding:13px 4px; font-size:13.5px; }
   .vk-ef-card header { flex-direction:column; }
-  .vk-ef-q legend { font-size:15.5px; }
+  .vk-ef-qtext { font-size:15.5px; }
+  .vk-ef-book-cta { flex-wrap:wrap; gap:4px 10px; }
+  .vk-ef-book-cta-main { flex:1 1 100%; order:3; }
+  .vk-ef-book-cta-arrow { margin-left:auto; }
 }
 
-/* พิมพ์ผลแบบเช็ก EF เก็บไว้ — ตัดเงาและพื้นหลังออกให้ประหยัดหมึก
+/* พิมพ์ผลแบบสำรวจ EF เก็บไว้ — ตัดเงาและพื้นหลังออกให้ประหยัดหมึก
    แต่คงแถบสีซ้ายของการ์ดไว้ เพราะเป็นตัวบอกระดับผลที่อ่านเร็วที่สุด */
 @media print {
   .vk-ef-card {

@@ -1,5 +1,5 @@
 /* ============================================================
-   VINKO — แบบเช็กทักษะ EF ลูกวัย 5-7 ขวบ
+   VINKO — แบบสำรวจทักษะ EF ลูกวัย 5-7 ขวบ
 
    ทำงานฝั่ง browser ล้วน ไม่มี fetch ไม่มี storage ไม่มีอะไรถูกส่งออก
    เหมือนหน้า /certificate จึงไม่มีภาระ PDPA เพิ่ม
@@ -172,16 +172,23 @@
         s.questions.forEach(function (q) {
           n += 1;
           var name = "q" + n;
-          html += '<fieldset class="vk-ef-q" data-vk-ef-q="' + n + '">' +
-                  '<legend><span class="vk-ef-no">' + n + "</span>" + esc(q) +
-                  "<small>" + esc(s.name) + "</small></legend>" +
+          /* ห้ามใช้ fieldset + legend ตรงนี้ — Safari บน iOS ไม่นับความสูง
+             ของ legend เข้าในกล่องของ fieldset ข้อความคำถามจะล้นไปทับปุ่ม
+             ตอบข้างล่าง (เจอจริงบนมือถือลูกค้า บนคอมไม่เห็นปัญหา)
+             ใช้ div + role="group" + aria-labelledby แทน ได้ผลเหมือนกัน
+             สำหรับ screen reader และวางตำแหน่งตรงทุกเบราว์เซอร์ */
+          html += '<div class="vk-ef-q" role="group" data-vk-ef-q="' + n +
+                  '" aria-labelledby="' + name + '-label">' +
+                  '<p class="vk-ef-qtext" id="' + name + '-label">' +
+                  '<span class="vk-ef-no">' + n + "</span>" + esc(q) +
+                  '<small class="vk-ef-skill">' + esc(s.name) + "</small></p>" +
                   '<div class="vk-ef-choices">';
           CHOICES.forEach(function (c) {
             var id = name + "-" + c.value;
             html += '<input type="radio" id="' + id + '" name="' + name + '" value="' + c.value + '"/>' +
                     '<label for="' + id + '">' + esc(c.label) + "</label>";
           });
-          html += "</div></fieldset>";
+          html += "</div></div>";
         });
       });
     });
@@ -299,7 +306,31 @@
     result.scrollIntoView({ behavior: "smooth", block: "start" });
   });
 
-  $("[data-vk-ef-print]").addEventListener("click", function () { window.print(); });
+  /* เบราว์เซอร์ในแอป (LINE / Facebook) เรียก window.print() แล้วไม่เกิดอะไรขึ้น
+     เงียบสนิท ลูกค้าจะคิดว่าปุ่มเสีย ต้องบอกให้เปิดในเบราว์เซอร์จริงก่อน
+     ลิงก์นี้ส่งทาง LINE เกือบทั้งหมด เคสนี้จึงเป็นเคสปกติ ไม่ใช่เคสหายาก */
+  function inAppBrowser() {
+    return /Line\/|FBAN|FBAV|FB_IAB|Instagram|MicroMessenger/i.test(navigator.userAgent || "");
+  }
+
+  var printBtn = $("[data-vk-ef-print]");
+  var printMsg = $("[data-vk-ef-print-msg]");
+
+  printBtn.addEventListener("click", function () {
+    if (inAppBrowser()) {
+      printMsg.textContent = "กำลังเปิดในแอปอยู่ จึงสั่งพิมพ์ไม่ได้ — กดปุ่ม ⋯ มุมขวาบน " +
+        "แล้วเลือก “เปิดในเบราว์เซอร์” จากนั้นทำแบบสำรวจใหม่แล้วกดปุ่มนี้อีกครั้ง " +
+        "หรือจะแคปหน้าจอเก็บไว้เลยก็ได้";
+      printMsg.hidden = false;
+      return;
+    }
+    try {
+      window.print();
+    } catch (e) {
+      printMsg.textContent = "เบราว์เซอร์นี้สั่งพิมพ์ไม่ได้ แคปหน้าจอเก็บไว้แทนได้เลยครับ";
+      printMsg.hidden = false;
+    }
+  });
 
   $("[data-vk-ef-again]").addEventListener("click", function () {
     form.reset();
