@@ -114,6 +114,7 @@ def fix_page(doc, page):
     data = bytearray(buf)
     white = smask = False
     stack, operands, removed = [], [], 0
+    stats = fix_page.stats
 
     for start, end, tok in tokens(buf):
         if tok == b"q":
@@ -143,9 +144,12 @@ def fix_page(doc, page):
             white = False
             operands = []
         elif tok in PAINT:
-            if white and smask:
+            if smask:
+                # เติมสีใต้ SMask = เอฟเฟกต์เบลอเสมอ (เงากล่อง / แสงรอบตัวอักษร)
+                # ไม่ว่าสีอะไร ตัวอ่านที่ทำ SMask ไม่ได้จะวาดเป็นสี่เหลี่ยมทึบหมด
                 data[start:end] = b"n" + b" " * (end - start - 1)
                 removed += 1
+                stats["white" if white else "dark"] += 1
             operands = []
         elif tok in (b"n", b"S", b"s", b"W", b"W*", b"BT", b"ET", b"Do", b"sh"):
             operands = []
@@ -160,6 +164,7 @@ def fix_page(doc, page):
 
 def main():
     src, dst = sys.argv[1], sys.argv[2]
+    fix_page.stats = {"white": 0, "dark": 0}
     doc = fitz.open(src)
     total = 0
     for pno in range(doc.page_count):
@@ -169,7 +174,9 @@ def main():
             print("  หน้า %2d : ลบ %d กล่อง" % (pno + 1, n))
     doc.save(dst, garbage=4, deflate=True, clean=True)
     doc.close()
-    print("รวมลบ %d กล่อง" % total)
+    st = fix_page.stats
+    print("รวมลบ %d กล่อง  (แสงขาวรอบตัวอักษร %d · เงากล่องสีเข้ม %d)"
+          % (total, st["white"], st["dark"]))
 
 
 main()
