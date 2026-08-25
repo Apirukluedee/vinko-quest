@@ -3019,7 +3019,9 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
   .vk-cert-foot span { font-size:11pt; }
   .vk-cert-foot small { font-size:8pt; }
   .vk-cert-inner { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
 
+/* ============================================================
    VINKO — คอมโพเนนต์รอบที่ 3A (ระบบชำระเงิน)
    ============================================================ */
 
@@ -3124,4 +3126,155 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 @media (max-width:600px) {
   .vk-dl-item { flex-direction:column; align-items:stretch; }
   .vk-dl-item .btn, .vk-dl-badge { width:100%; text-align:center; }
+}
+
+/* ============================================================
+   แบบเช็กทักษะ EF (/ef-check)
+   ทำงานฝั่ง browser ล้วน ปุ่มตอบต้องกดง่ายบนมือถือเป็นอันดับแรก
+   เพราะลิงก์นี้ส่งให้พ่อแม่ทาง LINE เกือบทั้งหมดเปิดบนมือถือ
+   ============================================================ */
+.vk-ef-wrap { max-width:760px; }
+
+.vk-ef-group-head { margin:34px 0 14px; }
+.vk-ef-group-head:first-child { margin-top:8px; }
+.vk-ef-group-head h2 {
+  font-family:"Anuphan","Mitr",sans-serif; font-size:22px; line-height:1.35;
+  letter-spacing:normal; color:var(--navy); margin:0 0 2px;
+}
+.vk-ef-group-head p { color:var(--muted); font-size:14px; margin:0; font-weight:700; }
+
+.vk-ef-q {
+  border:1px solid var(--soft-line); border-radius:18px;
+  background:var(--paper); padding:16px 18px; margin:0 0 12px;
+  box-shadow:var(--premium-shadow-sm);
+}
+.vk-ef-q.is-missing { border-color:rgba(214,54,54,.55); background:rgba(214,54,54,.04); }
+
+.vk-ef-q legend {
+  display:block; width:100%; padding:0; margin-bottom:12px;
+  color:var(--text); font-size:16px; line-height:1.55; font-weight:600;
+}
+.vk-ef-q legend small {
+  display:block; margin-top:5px; color:var(--muted);
+  font-size:12.5px; font-weight:800; letter-spacing:.2px;
+}
+.vk-ef-no {
+  display:inline-block; min-width:26px; margin-right:8px;
+  color:var(--orange); font-weight:900;
+}
+
+/* ปุ่มตอบ 3 ตัวเลือก — ใช้ radio จริงเพื่อให้คีย์บอร์ดและ screen reader ใช้ได้ */
+.vk-ef-choices { display:flex; gap:8px; }
+.vk-ef-choices input { position:absolute; opacity:0; width:0; height:0; }
+.vk-ef-choices label {
+  flex:1 1 0; text-align:center; cursor:pointer;
+  padding:12px 6px; border-radius:12px;
+  border:1.5px solid var(--soft-line); background:var(--cream2);
+  color:var(--muted); font-size:14.5px; font-weight:800;
+  transition:background .12s, border-color .12s, color .12s;
+}
+.vk-ef-choices label:hover { border-color:rgba(245,154,35,.55); }
+.vk-ef-choices input:checked + label {
+  background:var(--navy); border-color:var(--navy); color:#fff;
+}
+.vk-ef-choices input:focus-visible + label {
+  outline:3px solid rgba(245,154,35,.6); outline-offset:2px;
+}
+
+.vk-ef-submit-bar { margin-top:26px; text-align:center; }
+.vk-ef-progress { color:var(--muted); font-size:14px; font-weight:800; margin:0 0 12px; }
+.vk-ef-submit-bar .btn { min-width:220px; }
+.vk-ef-submit-bar .vk-error { display:block; margin-top:12px; }
+
+/* ---- ผลลัพธ์ ---- */
+.vk-ef-result-head { text-align:center; margin-bottom:26px; }
+.vk-ef-kicker {
+  color:var(--orange); font-size:13px; font-weight:900;
+  letter-spacing:1.4px; text-transform:uppercase; margin:0 0 6px;
+}
+.vk-ef-result-head h2 {
+  font-family:"Anuphan","Mitr",sans-serif; font-size:26px; line-height:1.4;
+  letter-spacing:normal; color:var(--navy); margin:0 0 8px;
+}
+.vk-ef-total { color:var(--muted); font-size:14.5px; font-weight:700; margin:0; }
+
+.vk-ef-card {
+  border:1px solid var(--soft-line); border-left:6px solid var(--soft-line);
+  border-radius:20px; background:var(--paper);
+  padding:20px 22px; margin:0 0 16px; box-shadow:var(--premium-shadow-sm);
+}
+.vk-ef-card.is-strong   { border-left-color:#2E9E5B; }
+.vk-ef-card.is-growing  { border-left-color:var(--orange); }
+.vk-ef-card.is-practice { border-left-color:#D63636; }
+
+.vk-ef-card header {
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:12px; margin-bottom:10px;
+}
+.vk-ef-card h3 {
+  font-family:"Anuphan","Mitr",sans-serif; font-size:20px; line-height:1.35;
+  letter-spacing:normal; color:var(--navy); margin:0 0 2px;
+}
+.vk-ef-card header p { color:var(--muted); font-size:13.5px; font-weight:700; margin:0; }
+
+.vk-ef-badge {
+  flex:none; padding:7px 14px; border-radius:999px;
+  font-size:13px; font-weight:900; white-space:nowrap;
+}
+.is-strong   .vk-ef-badge { background:rgba(46,158,91,.12);  color:#1F7A44; }
+.is-growing  .vk-ef-badge { background:rgba(245,154,35,.14); color:#8a5a00; }
+.is-practice .vk-ef-badge { background:rgba(214,54,54,.10);  color:#9c2020; }
+
+.vk-ef-score {
+  color:var(--navy); font-size:15px; font-weight:900;
+  margin:0 0 8px; font-variant-numeric:tabular-nums;
+}
+.vk-ef-meter {
+  height:9px; border-radius:999px; background:var(--cream2);
+  overflow:hidden; margin-bottom:14px;
+}
+.vk-ef-meter span { display:block; height:100%; border-radius:999px; }
+.is-strong   .vk-ef-meter span { background:#2E9E5B; }
+.is-growing  .vk-ef-meter span { background:var(--orange); }
+.is-practice .vk-ef-meter span { background:#D63636; }
+
+.vk-ef-verdict { color:var(--text); font-size:15.5px; line-height:1.7; margin:0 0 14px; }
+
+.vk-ef-tip-head {
+  color:var(--navy); font-size:14px; font-weight:900;
+  letter-spacing:.3px; margin:0 0 8px;
+}
+.vk-ef-tips { margin:0 0 14px; padding-left:20px; }
+.vk-ef-tips li { color:var(--text); font-size:15px; line-height:1.7; margin-bottom:8px; }
+.vk-ef-tips li:last-child { margin-bottom:0; }
+.vk-ef-tips b { color:var(--navy); }
+
+.vk-ef-mission {
+  background:var(--cream2); border-radius:14px; padding:14px 16px;
+  color:var(--muted); font-size:14px; line-height:1.7; margin:0 0 10px;
+}
+.vk-ef-skills { color:var(--muted); font-size:12.5px; font-weight:700; margin:0; }
+
+.vk-ef-next { margin-top:22px; }
+.vk-ef-actions { display:flex; gap:12px; flex-wrap:wrap; margin:22px 0 18px; }
+.vk-ef-actions .btn { flex:1 1 220px; }
+
+@media (max-width:560px) {
+  .vk-ef-choices { gap:6px; }
+  .vk-ef-choices label { padding:13px 4px; font-size:13.5px; }
+  .vk-ef-card header { flex-direction:column; }
+  .vk-ef-q legend { font-size:15.5px; }
+}
+
+/* พิมพ์ผลแบบเช็ก EF เก็บไว้ — ตัดเงาและพื้นหลังออกให้ประหยัดหมึก
+   แต่คงแถบสีซ้ายของการ์ดไว้ เพราะเป็นตัวบอกระดับผลที่อ่านเร็วที่สุด */
+@media print {
+  .vk-ef-card {
+    box-shadow:none !important;
+    break-inside:avoid; page-break-inside:avoid;
+    border-left-width:5pt;
+  }
+  .vk-ef-meter { border:1px solid #ccc; }
+  .vk-ef-mission { background:none !important; border:1px solid #ddd; }
+  .vk-ef-result-head h2 { font-size:18pt; }
 }
