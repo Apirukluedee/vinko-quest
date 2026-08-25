@@ -92,6 +92,27 @@
 
   /* ---------- พิมพ์ ---------- */
 
+  /* เบราว์เซอร์ในแอป (LINE / Facebook) เรียก window.print() แล้วไม่เกิดอะไรขึ้น
+     เงียบสนิท ไม่ error ลูกค้าจะคิดว่าปุ่มเสีย
+     หน้านี้เข้าจาก rich menu ของ LINE เป็นหลัก เคสนี้จึงเป็นเคสปกติ ไม่ใช่เคสหายาก */
+  function inAppBrowser() {
+    return /Line\/|FBAN|FBAV|FB_IAB|Instagram|MicroMessenger/i.test(navigator.userAgent || "");
+  }
+
+  /* LINE เปิดลิงก์ที่มี openExternalBrowser=1 ด้วยเบราว์เซอร์จริงของเครื่อง
+     ทำให้กดครั้งเดียวข้ามไปได้เลย ไม่ต้องไล่หาเมนู ⋯ เอง */
+  function externalUrl() {
+    var u = location.origin + location.pathname;
+    return u + (u.indexOf("?") === -1 ? "?" : "&") + "openExternalBrowser=1";
+  }
+
+  var printMsg = $("[data-vk-cert-print-msg]");
+
+  function showPrintMsg(html) {
+    printMsg.innerHTML = html;
+    printMsg.hidden = false;
+  }
+
   $("#vk-cert-print").addEventListener("click", function () {
     var slot = $('[data-vk-error-for="cert-name"]');
     if (!nameInput.value.trim()) {
@@ -102,7 +123,25 @@
     }
     slot.textContent = "";
     nameInput.removeAttribute("aria-invalid");
-    window.print();
+
+    if (inAppBrowser()) {
+      // ชื่อที่กรอกไว้ไม่ถูกส่งไปกับลิงก์ เพราะเป็นข้อมูลของเด็ก
+      // ไม่ควรไปโผล่ในประวัติเบราว์เซอร์ ยอมให้พิมพ์ใหม่ดีกว่า
+      showPrintMsg(
+        'กำลังเปิดอยู่ในแอป จึงสั่งพิมพ์ไม่ได้ ' +
+        '<a href="' + externalUrl() + '">แตะตรงนี้เพื่อเปิดในเบราว์เซอร์</a> ' +
+        'แล้วกรอกชื่อใหม่อีกครั้ง (หรือกดปุ่ม ⋯ มุมขวาบน แล้วเลือก “เปิดในเบราว์เซอร์”) ' +
+        'จะแคปหน้าจอเก็บไว้เลยก็ได้เหมือนกัน'
+      );
+      return;
+    }
+
+    printMsg.hidden = true;
+    try {
+      window.print();
+    } catch (e) {
+      showPrintMsg("เบราว์เซอร์นี้สั่งพิมพ์ไม่ได้ แคปหน้าจอเก็บไว้แทนได้เลยครับ");
+    }
   });
 
   function pad(n) { return n < 10 ? "0" + n : String(n); }

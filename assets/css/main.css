@@ -3270,6 +3270,16 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 }
 .vk-ef-print-msg[hidden] { display:none; }
 
+/* ข้อความเดียวกันบนหน้าใบประกาศ — ที่นั่นมีลิงก์ให้กดข้ามไปเบราว์เซอร์จริงด้วย
+   จึงต้องให้ลิงก์เด่นพอที่จะเห็นว่ากดได้ ไม่ใช่ตัวหนังสือธรรมดา */
+.vk-cert-print-msg {
+  margin:10px 0 0; padding:14px 16px; border-radius:14px;
+  background:rgba(214,54,54,.07); border:1px solid rgba(214,54,54,.35);
+  color:var(--text); font-size:14.5px; line-height:1.7; font-weight:600;
+}
+.vk-cert-print-msg[hidden] { display:none; }
+.vk-cert-print-msg a { color:var(--navy); text-decoration:underline; text-underline-offset:3px; }
+
 /* ชวนไปดูหนังสือ — เดิมเป็นบรรทัดตัวเล็กสีเทา ลูกค้าไม่รู้ว่ากดได้
    ทำเป็นแถบเต็มความกว้างมีลูกศร ให้เห็นชัดว่าเป็นลิงก์ */
 .vk-ef-book-cta {
