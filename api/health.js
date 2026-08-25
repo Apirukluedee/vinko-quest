@@ -72,7 +72,12 @@ module.exports = async function handler(req, res) {
       supabase_key_kind: cfg.supabaseKeyKind,  // secret / legacy / unknown
       // true/false เท่านั้น ไม่บอกค่า key — ใช้ยืนยันว่าตั้ง RESEND_API_KEY
       // บน Vercel แล้วและ redeploy แล้ว โดยไม่ต้องส่งอีเมลจริงไปทดสอบ
-      email_configured: cfg.emailConfigured === true
+      email_configured: cfg.emailConfigured === true,
+
+      // โดเมนสาธารณะ ไม่ใช่ความลับ — ต้องเห็นค่าจริงเพราะลิงก์ดาวน์โหลด
+      // ในอีเมลทุกฉบับสร้างจากค่านี้ ถ้าชี้ผิดโดเมนลูกค้าจะกดแล้วเจอ
+      // หน้าเตือนของเบราว์เซอร์หรือเว็บผิดตัว โดยที่ระบบไม่ฟ้องอะไรเลย
+      app_base_url: config.appBaseUrl() || null
     },
 
     supabase: supabase,
