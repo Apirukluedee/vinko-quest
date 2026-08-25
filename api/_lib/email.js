@@ -22,6 +22,23 @@ function baseUrl() {
   return config.appBaseUrl() || 'https://vinko.quest';
 }
 
+/**
+ * ลิงก์หน้าดาวน์โหลด
+ *
+ * openExternalBrowser=1 เป็นพารามิเตอร์ของ LINE โดยเฉพาะ: ถ้าลูกค้ากดลิงก์นี้
+ * จากในแอป LINE ระบบจะเด้งไปเปิดเบราว์เซอร์จริงของเครื่องให้เลย
+ *
+ * จำเป็นเพราะเบราว์เซอร์ในแอป LINE "เปิดไฟล์ให้ดู" เฉยๆ ไม่ได้บันทึกลงเครื่อง
+ * พอปิดหน้าไฟล์หายทันที ลูกค้าเจอปัญหานี้จริงมาแล้ว (หาไฟล์ไม่เจอหลังโหลด)
+ * หน้าดาวน์โหลดมีข้อความเตือนอยู่แล้ว แต่แก้ที่ต้นทางดีกว่าให้เขาต้องอ่านแล้วกดเอง
+ *
+ * เบราว์เซอร์อื่นมองว่าเป็น query string ที่ไม่รู้จักแล้วข้ามไป ไม่มีผลอะไร
+ * และ download.js อ่านเฉพาะ token จึงไม่กระทบการทำงาน
+ */
+function downloadUrl(token) {
+  return baseUrl() + '/download?token=' + encodeURIComponent(token) + '&openExternalBrowser=1';
+}
+
 function seller() {
   return {
     name: config.sellerName(),
@@ -109,7 +126,7 @@ function timelineTable(items) {
 /* ---------------- อีเมล A: ยืนยันการสั่งซื้อ ---------------- */
 
 function purchaseEmail(o) {
-  const url = baseUrl() + '/download?token=' + encodeURIComponent(o.token);
+  const url = downloadUrl(o.token);
   const hasPreorderStories = o.packageCode === 'BUNDLE' || o.packageCode === 'STORIES';
   const preorders = (o.items || []).filter(function (i) { return i.delivery_type === 'preorder'; });
 
@@ -154,7 +171,7 @@ function purchaseEmail(o) {
 /* ---------------- อีเมล B: ส่งมอบนิทาน ---------------- */
 
 function storyEmail(o) {
-  const url = baseUrl() + '/download?token=' + encodeURIComponent(o.token);
+  const url = downloadUrl(o.token);
   const inner =
     '<p style="margin:0 0 12px;font-size:19px;font-weight:bold;color:' + BRAND_NAVY + ';">นิทานเรื่องใหม่มาแล้ว 📖</p>' +
     '<p style="margin:0 0 6px;"><b>' + esc(o.itemTitle) + '</b> พร้อมให้ดาวน์โหลดแล้วครับ</p>' +
@@ -179,7 +196,7 @@ function storyEmail(o) {
 /* ---------------- อีเมล C: ขอลิงก์ใหม่ ---------------- */
 
 function resendEmail(o) {
-  const url = baseUrl() + '/download?token=' + encodeURIComponent(o.token);
+  const url = downloadUrl(o.token);
   const inner =
     '<p style="margin:0 0 12px;font-size:19px;font-weight:bold;color:' + BRAND_NAVY + ';">ลิงก์ดาวน์โหลดใหม่ของคุณ</p>' +
     '<p style="margin:0 0 6px;">ตามที่ขอมาครับ ลิงก์ด้านล่างใช้ได้อีก 48 ชั่วโมง</p>' +
