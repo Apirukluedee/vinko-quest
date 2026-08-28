@@ -3325,3 +3325,44 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
   .vk-ef-mission { background:none !important; border:1px solid #ddd; }
   .vk-ef-result-head h2 { font-size:18pt; }
 }
+
+/* ─── ของขวัญสำหรับเพื่อนใน LINE: แบบสำรวจทักษะ EF ──────────────────
+   ตั้งใจให้หน้าตา "ไม่เหมือนกล่องขายของ" อื่นบนหน้านี้ — ขอบส้มบางๆ พื้นอ่อน
+   ถ้าทำเหมือน .price-box คนจะกวาดตาผ่านเพราะนึกว่าเป็นบล็อกราคาซ้ำ
+   ของฟรีต้องดูออกตั้งแต่แวบแรกว่าไม่ได้ขออะไร */
+.vk-lead-card {
+  background:linear-gradient(180deg, rgba(255,107,0,.07), rgba(255,255,255,.92) 52%), #fff;
+  border:1.5px solid rgba(255,107,0,.34);
+  border-radius:var(--radius);
+  padding:38px 34px;
+  box-shadow:var(--shadow);
+}
+.vk-lead-card h2 { margin:0 0 12px; }
+.vk-lead-card .lead { margin:0; max-width:72ch; }
+
+.vk-lead-points {
+  list-style:none; margin:24px 0 0; padding:0;
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px 28px;
+}
+.vk-lead-points li {
+  position:relative; padding-left:28px;
+  font-size:15.5px; line-height:1.62; color:var(--text);
+}
+.vk-lead-points li::before {
+  content:"✓"; position:absolute; left:2px; top:0;
+  color:var(--orange); font-weight:900; font-size:16px; line-height:1.62;
+}
+.vk-lead-points b { color:var(--navy); }
+
+.vk-lead-card .line-card { margin:26px 0 0; }
+.cta-row.vk-lead-cta { margin:18px 0 0; justify-content:center; }
+.vk-lead-note {
+  margin:16px auto 0; max-width:60ch; text-align:center;
+  font-size:13.5px; line-height:1.65; color:var(--muted);
+}
+
+@media (max-width:760px) {
+  .vk-lead-card { padding:26px 19px; }
+  .vk-lead-points { grid-template-columns:1fr; gap:11px; }
+  .cta-row.vk-lead-cta .btn { width:100%; text-align:center; }
+}
