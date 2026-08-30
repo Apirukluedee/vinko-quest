@@ -28,6 +28,20 @@
   var rid = saved && saved.rid;
   if (!ref && saved) ref = saved.ref;
 
+  // โชว์เลขที่คำสั่งซื้อทันทีที่รู้ ก่อนแตกสาขาใดๆ
+  // เลขนี้เคยไม่ถูกแสดงที่ไหนเลยนอกจากในอีเมล ลูกค้าที่ไม่ได้รับอีเมลจึงเข้า
+  // /resend-link ไม่ได้ กลายเป็นวงกลม — ต้องเห็นตรงนี้ให้จดไว้ได้ก่อน
+  // และต้องโชว์แม้ในสาขา showEmailOnly() ด้วย เพราะคนที่เปิดจากเครื่องอื่น
+  // คือคนที่ต้องใช้เลขนี้มากที่สุด
+  if (ref) {
+    var refBox = $("[data-vk-ty-ref-box]");
+    var refVal = $("[data-vk-ty-ref]");
+    if (refBox && refVal) {
+      refVal.textContent = ref;
+      refBox.hidden = false;
+    }
+  }
+
   // ไม่มีข้อมูลยืนยัน (เช่น เปิดหน้านี้จากเครื่องอื่น) ให้ใช้ลิงก์จากอีเมลแทน
   if (!ref || !rid || (saved && saved.ref && saved.ref !== ref)) {
     showEmailOnly();

@@ -3366,3 +3366,43 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
   .vk-lead-points { grid-template-columns:1fr; gap:11px; }
   .cta-row.vk-lead-cta .btn { width:100%; text-align:center; }
 }
+
+/* ป้าย "(ไม่บังคับ)" และคำอธิบายใต้ช่องกรอก — ต่างจาก .vk-form-note
+   ที่จัดกึ่งกลางเพราะอันนั้นเป็นหมายเหตุท้ายฟอร์มทั้งก้อน ไม่ใช่ของช่องเดียว */
+.vk-optional { color:var(--muted); font-weight:800; font-size:13px; }
+.vk-field-hint {
+  display:block; margin-top:7px;
+  font-size:13px; line-height:1.6; color:var(--muted); text-align:left;
+}
+.vk-field-hint b { color:var(--navy); }
+
+/* กล่องเลขที่คำสั่งซื้อบนหน้า thank-you
+   ทำให้เด่นพอที่คนจะแคปหน้าจอเก็บ เพราะถ้าอีเมลเข้า junk เลขนี้คือ
+   ทางเดียวที่เขาจะขอลิงก์ใหม่ได้เอง โดยไม่ต้องทักมาหาเรา */
+.vk-orderref {
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+  margin:20px auto 0; max-width:520px; padding:16px 20px;
+  background:rgba(255,107,0,.07);
+  border:1.5px dashed rgba(255,107,0,.45); border-radius:18px;
+}
+.vk-orderref[hidden] { display:none; }
+.vk-orderref-label {
+  font-size:12.5px; font-weight:900; letter-spacing:.6px;
+  text-transform:uppercase; color:var(--muted);
+}
+.vk-orderref-value {
+  font-size:26px; font-weight:950; color:var(--navy);
+  letter-spacing:1.2px; font-variant-numeric:tabular-nums;
+  user-select:all;              /* แตะทีเดียวเลือกทั้งเลข ก็อปง่ายบนมือถือ */
+  overflow-wrap:anywhere;
+}
+.vk-orderref-note {
+  margin-top:6px; font-size:13px; line-height:1.65; color:var(--muted);
+}
+.vk-orderref-note a, .vk-orderref-note b { color:var(--navy); font-weight:800; }
+.vk-orderref-note a { text-decoration:underline; text-underline-offset:3px; }
+
+@media (max-width:560px) {
+  .vk-orderref { padding:14px 15px; }
+  .vk-orderref-value { font-size:22px; }
+}

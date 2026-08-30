@@ -5,8 +5,16 @@
      ส่งลิงก์ใหม่ผ่าน token เก่าที่หมดอายุ (ปุ่มใน /download)
      ส่งไปที่อีเมลเดิมของออเดอร์เท่านั้น ไม่รับอีเมลจากผู้ใช้
 
-   Path B — { order_ref, email }
-     ลูกค้ากรอกเลขที่คำสั่งซื้อ + อีเมล (จากเมนู LINE หรือหน้า /resend-link)
+   Path B — { email, order_ref? }
+     ลูกค้ากรอกอีเมลที่ใช้สั่งซื้อ (จากเมนู LINE หรือหน้า /resend-link)
+
+     **อีเมลคือสิ่งที่บังคับ ส่วนเลขที่คำสั่งซื้อเป็นตัวเลือก**
+     เพราะ order_ref ออกเป็นเลขเรียงลำดับจึงเดาได้ (ดูคอมเมนต์ใน
+     claim-download.js) มันไม่ได้กันใครอยู่จริง แต่กันลูกค้าตัวจริง
+     ที่หาอีเมลยืนยันไม่เจอออกไปหมด — ซึ่งเป็นคนกลุ่มเดียวที่ต้องใช้
+     หน้านี้ ความปลอดภัยจริงมาจากการที่ลิงก์ถูกส่งเข้ากล่องจดหมาย
+     ของเจ้าของอีเมลเท่านั้น คนกรอกอีเมลคนอื่นจึงไม่ได้อะไรกลับไป
+
      ตอบ generic OK เสมอ ไม่ว่าจะเจอออเดอร์หรือไม่ ป้องกัน enumeration
    ============================================================ */
 'use strict';
@@ -16,7 +24,15 @@ const tokens = require('./_lib/tokens');
 const email  = require('./_lib/email');
 const { json, fail, hashIp, requireEnv } = require('./_lib/util');
 
-const GENERIC_MSG = 'ถ้าเลขที่คำสั่งซื้อและอีเมลตรงกัน เราส่งลิงก์ไปที่อีเมลนั้นแล้ว ' +
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const REF_RE   = /^VK-\d{4}-\d{4,6}$/;
+
+/* คนหนึ่งอาจซื้อหลายรอบ (ซื้อ LAB ก่อน แล้วค่อยซื้อ STORIES เพิ่ม)
+   ต้องส่งให้ครบทุกออเดอร์ ไม่งั้นเขาจะได้ไฟล์กลับมาไม่ครบแล้วงง
+   แต่ต้องจำกัดจำนวนไว้ ไม่ให้คนสุ่มอีเมลคนอื่นยิงเมลถล่มได้ */
+const MAX_ORDERS = 3;
+
+const GENERIC_MSG = 'ถ้าอีเมลนี้เคยสั่งซื้อกับเรา ลิงก์ดาวน์โหลดใหม่ถูกส่งไปแล้ว ' +
                     'กรุณาตรวจกล่องจดหมาย และโฟลเดอร์ junk ด้วยนะครับ';
 
 module.exports = async function handler(req, res) {
@@ -32,41 +48,60 @@ module.exports = async function handler(req, res) {
   const body = typeof req.body === 'string' ? safeParse(req.body) : (req.body || {});
   const token = body && typeof body.token === 'string' ? body.token : '';
 
-  /* ─── Path B: order_ref + email ───────────────────────────── */
+  /* ─── Path B: email (+ order_ref ถ้าจำได้) ─────────────────── */
   if (!token) {
-    const ref        = body && typeof body.order_ref === 'string' ? body.order_ref.trim() : '';
     const givenEmail = body && typeof body.email     === 'string' ? body.email.trim().toLowerCase() : '';
+    const rawRef     = body && typeof body.order_ref === 'string' ? body.order_ref.trim().toUpperCase() : '';
 
-    if (!/^VK-\d{4}-\d{4,6}$/.test(ref) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(givenEmail)) {
-      return fail(res, 400, 'กรุณากรอกเลขที่คำสั่งซื้อและอีเมลให้ถูกต้อง');
+    if (!EMAIL_RE.test(givenEmail)) {
+      return fail(res, 400, 'กรุณากรอกอีเมลที่ใช้สั่งซื้อให้ถูกต้อง');
+    }
+    // เลขที่คำสั่งซื้อไม่บังคับ แต่ถ้าอุตส่าห์กรอกมาแล้วผิดรูปแบบ ต้องบอก
+    // ไม่งั้นเขาจะรอเมลที่ไม่มีวันมาโดยไม่รู้ว่าพิมพ์ผิด
+    if (rawRef && !REF_RE.test(rawRef)) {
+      return fail(res, 400, 'เลขที่คำสั่งซื้อไม่ถูกต้อง ต้องเป็นรูปแบบ VK-2608-0001 (เว้นว่างไว้ก็ได้)');
     }
 
-    const r2 = await db.select('orders',
-      'order_ref=eq.' + encodeURIComponent(ref) +
-      '&select=id,order_ref,status,customer_email&limit=1');
-    const order2 = Array.isArray(r2.body) && r2.body[0];
+    // customer_email เก็บตามที่ลูกค้าพิมพ์มา ไม่ได้แปลงเป็นตัวพิมพ์เล็ก
+    // จึงค้นแบบไม่สนตัวพิมพ์ แล้วไปยืนยันตัวต่อตัวอีกชั้นในลูปข้างล่าง
+    let q = 'customer_email=ilike.' + encodeURIComponent(likeLiteral(givenEmail)) +
+            '&status=eq.paid' +
+            '&select=id,order_ref,customer_email' +
+            '&order=created_at.desc&limit=' + MAX_ORDERS;
+    if (rawRef) q += '&order_ref=eq.' + encodeURIComponent(rawRef);
 
-    // ไม่เจอออเดอร์ หรืออีเมลไม่ตรง → generic OK ป้องกันการแจงว่า order_ref ใดมีจริง
-    if (!order2 || order2.status !== 'paid' ||
-        (order2.customer_email || '').toLowerCase() !== givenEmail) {
-      return json(res, 200, { ok: true, message: GENERIC_MSG });
+    let orders = [];
+    try {
+      const r2 = await db.select('orders', q);
+      orders = Array.isArray(r2.body) ? r2.body : [];
+    } catch (e) {
+      console.error('[vinko][resend-b] ค้นออเดอร์ไม่สำเร็จ', e.message);
     }
 
-    const since2 = new Date(Date.now() - 10 * 60000).toISOString();
-    const recent2 = await db.count('email_events',
-      'order_id=eq.' + order2.id + '&kind=eq.resend_link&created_at=gte.' + encodeURIComponent(since2));
-    if (recent2 >= 3) {
-      return fail(res, 429, 'ขอลิงก์ใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองอีกครั้ง');
+    for (const o of orders) {
+      // ด่านสุดท้าย: ส่งได้เฉพาะเมื่ออีเมลตรงกันเป๊ะจริงๆ
+      // ถ้า ilike คืนแถวเกินมาด้วยเหตุใดก็ตาม ตรงนี้จะกันไว้ไม่ให้ส่งผิดคน
+      if ((o.customer_email || '').trim().toLowerCase() !== givenEmail) continue;
+
+      try {
+        const since = new Date(Date.now() - 10 * 60000).toISOString();
+        const recent = await db.count('email_events',
+          'order_id=eq.' + o.id + '&kind=eq.resend_link&created_at=gte.' + encodeURIComponent(since));
+        if (recent >= 3) continue;   // ออเดอร์นี้ขอถี่เกินไป ข้ามไป แต่ยังตอบ OK เหมือนเดิม
+
+        const t = await tokens.issue(o.id);
+        const fresh = await db.select('orders', 'id=eq.' + o.id + '&select=token_expires_at&limit=1');
+        const exp = (Array.isArray(fresh.body) && fresh.body[0] && fresh.body[0].token_expires_at) ||
+                    tokens.expiryFromNow();
+
+        const payload = email.resendEmail({ orderRef: o.order_ref, token: t, expiresAt: exp });
+        await email.send('resend_link', o.customer_email, payload, { orderId: o.id });
+      } catch (e) {
+        // ล้มออเดอร์เดียวไม่ควรทำให้ออเดอร์ที่เหลือไม่ได้ส่ง และห้ามเปลี่ยนคำตอบ
+        // ที่ส่งกลับไป ไม่งั้นจะกลายเป็นช่องให้เดาว่าอีเมลไหนมีออเดอร์อยู่จริง
+        console.error('[vinko][resend-b]', o.order_ref, e.message);
+      }
     }
-
-    const newToken2 = await tokens.issue(order2.id);
-    const fresh2 = await db.select('orders', 'id=eq.' + order2.id + '&select=token_expires_at&limit=1');
-    const expiresAt2 = (Array.isArray(fresh2.body) && fresh2.body[0] && fresh2.body[0].token_expires_at) ||
-                       tokens.expiryFromNow();
-
-    const payload2 = email.resendEmail({ orderRef: order2.order_ref, token: newToken2, expiresAt: expiresAt2 });
-    await email.send('resend_link', order2.customer_email, payload2, { orderId: order2.id })
-               .catch(function (e) { console.error('[vinko][resend-b]', e.message); });
 
     return json(res, 200, { ok: true, message: GENERIC_MSG });
   }
@@ -104,3 +139,8 @@ module.exports = async function handler(req, res) {
 };
 
 function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+
+/** หนีอักขระพิเศษของ LIKE เพื่อให้ค่าที่ใส่มาถูกใช้เป็นข้อความตรงๆ
+    อีเมลมี `_` ได้จริง (เช่น my_name@example.com) ถ้าไม่หนี `_` จะกลาย
+    เป็นไวลด์การ์ดที่แมตช์อักขระอะไรก็ได้ ทำให้ดึงแถวของคนอื่นติดมาด้วย */
+function likeLiteral(s) { return String(s).replace(/([\\%_])/g, '\\$1'); }

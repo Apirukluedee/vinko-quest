@@ -24,19 +24,21 @@
 
 <div data-vk-rl-form>
   <h1 style="font-size:26px;margin:0 0 6px;color:var(--navy)">ขอลิงก์ดาวน์โหลดใหม่</h1>
-  <p style="margin:0 0 24px;color:var(--navy-60,#5a6a9a)">กรอกข้อมูลด้านล่าง เราจะส่งลิงก์ไปที่อีเมลที่ใช้สั่งซื้อ</p>
-
-  <div class="vk-field">
-    <label for="vk-rl-ref">เลขที่คำสั่งซื้อ <span class="vk-req">*</span></label>
-    <input autocomplete="off" id="vk-rl-ref" inputmode="text"
-           placeholder="เช่น VK-2608-0001" spellcheck="false" type="text"/>
-    <span class="vk-form-note">ดูได้จากอีเมลยืนยันการสั่งซื้อ หรือหน้าขอบคุณหลังชำระเงิน</span>
-  </div>
+  <p style="margin:0 0 24px;color:var(--navy-60,#5a6a9a)">กรอกอีเมลที่ใช้สั่งซื้อ เราจะส่งลิงก์ใหม่ไปให้ที่อีเมลนั้น</p>
 
   <div class="vk-field">
     <label for="vk-rl-email">อีเมลที่ใช้สั่งซื้อ <span class="vk-req">*</span></label>
     <input autocomplete="email" id="vk-rl-email" inputmode="email"
            placeholder="your@email.com" type="email"/>
+  </div>
+
+  <div class="vk-field">
+    <label for="vk-rl-ref">เลขที่คำสั่งซื้อ <span class="vk-optional">(ไม่บังคับ)</span></label>
+    <input autocomplete="off" id="vk-rl-ref" inputmode="text"
+           placeholder="เช่น VK-2608-0001" spellcheck="false" type="text"/>
+    <span class="vk-field-hint">จำไม่ได้ก็ไม่เป็นไร เว้นว่างไว้ได้เลย ถ้าเคยสั่งหลายครั้ง
+    เราจะส่งลิงก์ของทุกคำสั่งซื้อไปให้ · เลขนี้อยู่ในหัวข้ออีเมลยืนยัน
+    (ลองค้นในกล่องจดหมายด้วยคำว่า <b>VINKO</b>)</span>
   </div>
 
   <button class="btn" id="vk-rl-btn" type="button">ส่งลิงก์ให้ฉัน</button>
@@ -117,23 +119,28 @@
     var ref   = normaliseRef(refInput.value || '');
     var email = (emailInput.value || '').trim();
 
-    if (!/^VK-\d{4}-\d{4,6}$/.test(ref)) {
-      refInput.focus();
-      return showError('เลขที่คำสั่งซื้อไม่ถูกต้อง ต้องเป็นรูปแบบ VK-YYYY-NNNN เช่น VK-2608-0001');
-    }
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
       emailInput.focus();
-      return showError('กรุณากรอกอีเมลให้ถูกต้อง');
+      return showError('กรุณากรอกอีเมลที่ใช้สั่งซื้อให้ถูกต้อง');
+    }
+    // เลขที่คำสั่งซื้อไม่บังคับ แต่ถ้ากรอกมาแล้วผิดรูปแบบต้องทักก่อนส่ง
+    // ไม่งั้นเขาจะนั่งรออีเมลที่ไม่มีวันมาโดยไม่รู้ว่าพิมพ์ตกไปตัวหนึ่ง
+    if (ref && !/^VK-\d{4}-\d{4,6}$/.test(ref)) {
+      refInput.focus();
+      return showError('เลขที่คำสั่งซื้อไม่ถูกต้อง ต้องเป็นรูปแบบ VK-2608-0001 หรือเว้นว่างไว้ก็ได้');
     }
 
     btn.disabled = true;
     formEl.hidden = true;
     loadingEl.hidden = false;
 
+    var payload = { email: email };
+    if (ref) payload.order_ref = ref;   // เว้นว่างไว้ = ค้นจากอีเมลอย่างเดียว
+
     fetch('/api/resend-link', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_ref: ref, email: email })
+      body: JSON.stringify(payload)
     })
       .then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); })
       .then(function (res) {
