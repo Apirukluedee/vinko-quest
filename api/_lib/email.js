@@ -203,11 +203,14 @@ function resendEmail(o) {
     '<p style="margin:0 0 4px;color:#6B7285;font-size:13.5px;">เลขที่คำสั่งซื้อ <b style="color:' + BRAND_NAVY + ';">' + esc(o.orderRef) + '</b></p>' +
     bigButton(url, 'เปิดหน้าดาวน์โหลด') +
     noticeBox('<b>ใช้ได้ถึง ' + esc(thaiDateTime(o.expiresAt)) + '</b><br/>' +
-              'ลิงก์เก่าจะใช้ไม่ได้แล้วหลังจากนี้ ขอโทษที่ทำให้ยุ่งยากนะครับ');
+              'ลิงก์เดิมจะใช้ไม่ได้แล้วหลังจากนี้ กรุณาใช้ลิงก์ในอีเมลฉบับนี้แทน ' +
+              'ขออภัยในความไม่สะดวกครับ');
 
   const text =
     'ลิงก์ดาวน์โหลดใหม่ของคุณ\n\nเลขที่คำสั่งซื้อ: ' + o.orderRef + '\n\n' + url +
-    '\n\nใช้ได้ถึง ' + thaiDateTime(o.expiresAt) + '\n\n' + seller().name + '\n' + seller().line + '\n';
+    '\n\nใช้ได้ถึง ' + thaiDateTime(o.expiresAt) +
+    '\nลิงก์เดิมจะใช้ไม่ได้แล้วหลังจากนี้ กรุณาใช้ลิงก์ในอีเมลฉบับนี้แทน ขออภัยในความไม่สะดวกครับ\n\n' +
+    seller().name + '\n' + seller().line + '\n';
 
   return { subject: 'ลิงก์ดาวน์โหลดใหม่ · ' + o.orderRef, html: shell(inner), text: text };
 }
