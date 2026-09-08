@@ -26,16 +26,16 @@ window.VINKO_CONFIG = {
   PREORDER_LIMIT: null,
   PREORDER_SOLD:  null,
 
-  /* ---- กำหนดส่ง VINKO Stories: เอ๊ะ?...จนอ๋อ! (5 เล่ม) ----
+  /* ---- กำหนดส่ง VINKO STORIES · เอ๊ะ! อ๋อ! (5 เล่ม) ----
      date รูปแบบ "2026-10-15" (วันที่จริงที่ทำได้ ไม่ใช่วันที่หวัง)
      ถ้ายังไม่ครบทั้ง 5 วัน ระบบจะซ่อนไทม์ไลน์ทั้งบล็อก
      และซ่อนแพ็กเกจ BUNDLE ออกจากหน้าเว็บโดยอัตโนมัติ           */
   STORY_DELIVERY: [
     { no: 1, title: "วันที่แรงโน้มถ่วงลางาน", title_en: "The Day Gravity Took a Day Off", date: "instant" },
     { no: 2, title: "คดีสีสันที่หายไป", title_en: "The Case of the Missing Colors", date: "instant" },
-    { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "2026-09-10" },
-    { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "2026-09-10" },
-    { no: 5, title: "อะไรอยู่ในแก้ว?", title_en: "What's in the Cup?", date: "2026-09-10" }
+    { no: 3, title: "ใครขโมยเสียงของนิวไป?", title_en: "Who Stole Niew's Voice?", date: "instant" },
+    { no: 4, title: "แม่เหล็กป่วนปาร์ตี้!", title_en: "Magnet Party Mayhem!", date: "instant" },
+    { no: 5, title: "อะไรอยู่ในแก้ว?", title_en: "What's in the Cup?", date: "instant" }
   ],
 
   /* ---- ชื่อภารกิจทั้ง 10 บท ------------------------------

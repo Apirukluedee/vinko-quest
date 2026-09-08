@@ -12,8 +12,11 @@ const config = require('./config');
    วัดจากไฟล์จริงที่ส่งออกไป ถ้าเปลี่ยนไฟล์ต้นฉบับต้องมาแก้ตรงนี้ด้วย */
 const APPROX_MB = {
   'LAB-MAIN': 6.1,
-  'STORY-01': 5.6,
-  'STORY-02': 5.3
+  'STORY-01': 5.8,
+  'STORY-02': 6.2,
+  'STORY-03': 5.6,
+  'STORY-04': 6.0,
+  'STORY-05': 6.1
 };
 
 /** ไฟล์ใหญ่พอที่ต้องเตือนเรื่องเวลาโหลดไหม */
@@ -33,31 +36,31 @@ const CATALOG = {
   },
   BUNDLE: {
     code: 'BUNDLE',
-    title: 'BUNDLE: VINKO WOW LAB + VINKO Stories (5 เล่ม)',
+    title: 'BUNDLE: VINKO WOW LAB + VINKO STORIES · เอ๊ะ! อ๋อ! (5 เล่ม)',
     launch_satang: 39900,
     normal_satang: 89000,
-    requires_preorder_consent: true,
+    requires_preorder_consent: false,
     items: [
       { product_code: 'LAB-MAIN',  title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
       { product_code: 'STORY-01', title: 'วันที่แรงโน้มถ่วงลางาน (The Day Gravity Took a Day Off)', delivery_type: 'instant' },
       { product_code: 'STORY-02', title: 'คดีสีสันที่หายไป (The Case of the Missing Colors)', delivery_type: 'instant' },
-      { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'preorder', schedule_index: 1 },
-      { product_code: 'STORY-04', title: 'แม่เหล็กป่วนปาร์ตี้! (Magnet Party Mayhem!)', delivery_type: 'preorder', schedule_index: 2 },
-      { product_code: 'STORY-05', title: 'อะไรอยู่ในแก้ว? (What\'s in the Cup?)', delivery_type: 'preorder', schedule_index: 3 }
+      { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'instant' },
+      { product_code: 'STORY-04', title: 'แม่เหล็กป่วนปาร์ตี้! (Magnet Party Mayhem!)', delivery_type: 'instant' },
+      { product_code: 'STORY-05', title: 'อะไรอยู่ในแก้ว? (What\'s in the Cup?)', delivery_type: 'instant' }
     ]
   },
   STORIES: {
     code: 'STORIES',
-    title: 'VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow! (5 เล่ม)',
+    title: 'VINKO STORIES · เอ๊ะ! อ๋อ! / Why? Wow! (5 เล่ม)',
     launch_satang: 29900,
     normal_satang: 59000,
-    requires_preorder_consent: true,
+    requires_preorder_consent: false,
     items: [
       { product_code: 'STORY-01', title: 'วันที่แรงโน้มถ่วงลางาน (The Day Gravity Took a Day Off)', delivery_type: 'instant' },
       { product_code: 'STORY-02', title: 'คดีสีสันที่หายไป (The Case of the Missing Colors)', delivery_type: 'instant' },
-      { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'preorder', schedule_index: 1 },
-      { product_code: 'STORY-04', title: 'แม่เหล็กป่วนปาร์ตี้! (Magnet Party Mayhem!)', delivery_type: 'preorder', schedule_index: 2 },
-      { product_code: 'STORY-05', title: 'อะไรอยู่ในแก้ว? (What\'s in the Cup?)', delivery_type: 'preorder', schedule_index: 3 }
+      { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'instant' },
+      { product_code: 'STORY-04', title: 'แม่เหล็กป่วนปาร์ตี้! (Magnet Party Mayhem!)', delivery_type: 'instant' },
+      { product_code: 'STORY-05', title: 'อะไรอยู่ในแก้ว? (What\'s in the Cup?)', delivery_type: 'instant' }
     ]
   }
 };

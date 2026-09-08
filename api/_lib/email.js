@@ -125,8 +125,18 @@ function timelineTable(items) {
 
 /* ---------------- อีเมล A: ยืนยันการสั่งซื้อ ---------------- */
 
+/* ชื่อสั้นของแพ็กเกจสำหรับหัวเรื่องอีเมล — ใช้ชื่อเต็มจาก catalog ไม่ได้
+   เพราะยาวเกินกว่าที่กล่องจดหมายจะแสดงหมด แต่จะเขียนตายตัวก็ไม่ได้
+   คนซื้อนิทานอย่างเดียวจะได้อีเมลหัวเรื่องว่า WOW LAB ซึ่งไม่ใช่ของที่เขาซื้อ */
+const SUBJECT_NAME = {
+  LAB:     'VINKO WOW LAB',
+  STORIES: 'VINKO STORIES',
+  BUNDLE:  'VINKO WOW LAB + STORIES'
+};
+
 function purchaseEmail(o) {
   const url = downloadUrl(o.token);
+  const pkgName = SUBJECT_NAME[o.packageCode] || 'VINKO';
   const hasPreorderStories = o.packageCode === 'BUNDLE' || o.packageCode === 'STORIES';
   const preorders = (o.items || []).filter(function (i) { return i.delivery_type === 'preorder'; });
 
@@ -165,7 +175,7 @@ function purchaseEmail(o) {
     'ไฟล์มีลายน้ำระบุตัวผู้ซื้อทุกหน้า กรุณาเก็บไว้ใช้ในครอบครัว\n\n' +
     seller().name + (seller().email ? ' · ' + seller().email : '') + '\n' + seller().line + '\n';
 
-  return { subject: 'ดาวน์โหลด VINKO WOW LAB ของคุณได้เลย · ' + o.orderRef, html: shell(inner), text: text };
+  return { subject: 'ดาวน์โหลด ' + pkgName + ' ของคุณได้เลย · ' + o.orderRef, html: shell(inner), text: text };
 }
 
 /* ---------------- อีเมล B: ส่งมอบนิทาน ---------------- */

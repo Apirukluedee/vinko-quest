@@ -17,8 +17,8 @@
 
   var NAMES = {
     lab:     "VINKO WOW LAB",
-    stories: "VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow! (5 เล่ม)",
-    bundle:  "BUNDLE: LAB + VINKO Stories: เอ๊ะ?...จนอ๋อ! / Why? Wow!"
+    stories: "VINKO STORIES · เอ๊ะ! อ๋อ! / Why? Wow! (5 เล่ม)",
+    bundle:  "BUNDLE: LAB + VINKO STORIES · เอ๊ะ! อ๋อ! / Why? Wow!"
   };
   var PKG_CODE = { lab: "LAB", stories: "STORIES", bundle: "BUNDLE" };
 
@@ -67,7 +67,11 @@
 
   function applyPackage() {
     var pkg = selectedPkg();
-    var needsPreorder = pkg === "bundle" || pkg === "stories";
+    // อ่านจาก STORY_DELIVERY แทนการเขียนตายตัว วันหลังมีเล่มใหม่เป็น pre-order
+    // ช่องติ๊กยินยอมจะกลับมาเอง ไม่ต้องแก้บรรทัดนี้ซ้ำ
+    var deliv = (V.cfg && V.cfg.STORY_DELIVERY) || [];
+    var hasPreorder = deliv.some(function (s) { return s.date !== "instant"; });
+    var needsPreorder = (pkg === "bundle" || pkg === "stories") && hasPreorder;
     var cfg = V.cfg.PRICES && V.cfg.PRICES[pkg];
     if (!cfg) return;
 

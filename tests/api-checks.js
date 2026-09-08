@@ -236,23 +236,19 @@ const BASE = {
   check('แถวใน DB เก็บ 19900', DB.orders[0].amount_satang === 19900);
   check('charge ที่ส่งไป Omise เป็น 19900', Object.values(OMISE.charges)[0].amount === 19900);
 
-  /* ---- 2. BUNDLE ต้องมี consent pre-order ---- */
-  section('2. BUNDLE ที่ไม่ติ๊กรับทราบ pre-order ต้องถูกปฏิเสธ');
+  /* ---- 2. BUNDLE ส่งครบทุกเล่มทันที ไม่ต้องติ๊ก pre-order อีกแล้ว ----
+     เดิมข้อนี้ทดสอบว่า "ไม่ติ๊กต้องถูกปฏิเสธ" ตั้งแต่ 8 ก.ย. 2026 นิทานครบ 5 เล่ม
+     อัปขึ้น storage แล้ว ทั้งแพ็กเกจจึงเป็น instant ล้วน ไม่มีของที่ต้องรอ
+     ข้อนี้จึงกลับด้าน: ต้องสั่งได้โดยไม่ต้องติ๊ก และต้องไม่เหลือแถว preorder */
+  section('2. BUNDLE สั่งได้โดยไม่ต้องติ๊ก pre-order และได้ instant ครบ 6 แถว');
   resetAll();
   h = load('create-charge.js'); r = mockRes();
   await h(post(Object.assign({}, BASE, { package_code: 'BUNDLE', payment_method: 'promptpay' })), r);
-  check('ปฏิเสธด้วย 400', r.statusCode === 400, 'ได้ ' + r.statusCode);
-  check('ข้อความเป็นภาษาไทย', /pre-order/.test(r.body.error) && /กรุณา/.test(r.body.error), r.body.error);
-  check('ไม่มีออเดอร์ถูกสร้าง', DB.orders.length === 0);
-
-  r = mockRes();
-  await h(post(Object.assign({}, BASE, {
-    package_code: 'BUNDLE', payment_method: 'promptpay', consent_preorder: true
-  })), r);
-  check('ติ๊กแล้วผ่าน ราคา 39900', r.body.ok && r.body.amount_satang === 39900);
+  check('ไม่ติ๊กก็สั่งได้ ราคา 39900', r.body.ok === true && r.body.amount_satang === 39900, JSON.stringify(r.body));
   check('order_items ครบ 6 แถว (LAB + นิทาน 5)', DB.order_items.length === 6, 'ได้ ' + DB.order_items.length);
-  check('มี preorder 3 แถว (STORY-03~05, เล่ม 1-2 ส่งทันที)', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 3, 'ได้ ' + DB.order_items.filter(i => i.delivery_type === 'preorder').length);
-  check('บันทึกเวลายินยอม pre-order', !!DB.orders[0].consent_preorder_at);
+  check('ไม่เหลือแถว preorder แล้ว', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 0, 'ได้ ' + DB.order_items.filter(i => i.delivery_type === 'preorder').length);
+  check('ทุกแถวเป็น instant', DB.order_items.every(i => i.delivery_type === 'instant'));
+  check('ไม่บันทึกเวลายินยอม pre-order', !DB.orders[0].consent_preorder_at);
 
   /* ---- 3. กดปุ่มรัว 5 ครั้ง ---- */
   section('3. กดปุ่มรัว 5 ครั้งด้วย client_request_id เดิม');
