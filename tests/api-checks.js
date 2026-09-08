@@ -240,12 +240,12 @@ const BASE = {
      เดิมข้อนี้ทดสอบว่า "ไม่ติ๊กต้องถูกปฏิเสธ" ตั้งแต่ 8 ก.ย. 2026 นิทานครบ 5 เล่ม
      อัปขึ้น storage แล้ว ทั้งแพ็กเกจจึงเป็น instant ล้วน ไม่มีของที่ต้องรอ
      ข้อนี้จึงกลับด้าน: ต้องสั่งได้โดยไม่ต้องติ๊ก และต้องไม่เหลือแถว preorder */
-  section('2. BUNDLE สั่งได้โดยไม่ต้องติ๊ก pre-order และได้ instant ครบ 6 แถว');
+  section('2. BUNDLE สั่งได้โดยไม่ต้องติ๊ก pre-order และได้ instant ครบ 7 แถว');
   resetAll();
   h = load('create-charge.js'); r = mockRes();
   await h(post(Object.assign({}, BASE, { package_code: 'BUNDLE', payment_method: 'promptpay' })), r);
   check('ไม่ติ๊กก็สั่งได้ ราคา 39900', r.body.ok === true && r.body.amount_satang === 39900, JSON.stringify(r.body));
-  check('order_items ครบ 6 แถว (LAB + นิทาน 5)', DB.order_items.length === 6, 'ได้ ' + DB.order_items.length);
+  check('order_items ครบ 7 แถว (LAB เล่มเต็ม + ใบงาน + นิทาน 5)', DB.order_items.length === 7, 'ได้ ' + DB.order_items.length);
   check('ไม่เหลือแถว preorder แล้ว', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 0, 'ได้ ' + DB.order_items.filter(i => i.delivery_type === 'preorder').length);
   check('ทุกแถวเป็น instant', DB.order_items.every(i => i.delivery_type === 'instant'));
   check('ไม่บันทึกเวลายินยอม pre-order', !DB.orders[0].consent_preorder_at);

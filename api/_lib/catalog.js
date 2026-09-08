@@ -11,7 +11,9 @@ const config = require('./config');
    คนใช้เน็ตมือถือควรรู้ก่อนว่ากำลังจะโหลดอะไรใหญ่แค่ไหน จะได้ไม่กดแล้วปิดหนี
    วัดจากไฟล์จริงที่ส่งออกไป ถ้าเปลี่ยนไฟล์ต้นฉบับต้องมาแก้ตรงนี้ด้วย */
 const APPROX_MB = {
-  'LAB-MAIN': 6.1,
+  // วัดจากของจริงด้วยการรัน wm.stamp() กับไฟล์ต้นฉบับ ไม่ใช่ขนาดไฟล์ก่อนลายน้ำ
+  'LAB-MAIN': 9.5,
+  'LAB-WORKBOOK': 3.4,
   'STORY-01': 5.8,
   'STORY-02': 6.2,
   'STORY-03': 5.6,
@@ -31,7 +33,8 @@ const CATALOG = {
     normal_satang: 39000,
     requires_preorder_consent: false,
     items: [
-      { product_code: 'LAB-MAIN', title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' }
+      { product_code: 'LAB-MAIN', title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
+      { product_code: 'LAB-WORKBOOK', title: 'ใบบันทึกนักวิทย์น้อย — ใบงาน 10 ภารกิจ (พิมพ์ออกมาเขียน หรือกรอกลงไฟล์)', delivery_type: 'instant' }
     ]
   },
   BUNDLE: {
@@ -42,6 +45,7 @@ const CATALOG = {
     requires_preorder_consent: false,
     items: [
       { product_code: 'LAB-MAIN',  title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
+      { product_code: 'LAB-WORKBOOK', title: 'ใบบันทึกนักวิทย์น้อย — ใบงาน 10 ภารกิจ (พิมพ์ออกมาเขียน หรือกรอกลงไฟล์)', delivery_type: 'instant' },
       { product_code: 'STORY-01', title: 'วันที่แรงโน้มถ่วงลางาน (The Day Gravity Took a Day Off)', delivery_type: 'instant' },
       { product_code: 'STORY-02', title: 'คดีสีสันที่หายไป (The Case of the Missing Colors)', delivery_type: 'instant' },
       { product_code: 'STORY-03', title: 'ใครขโมยเสียงของนิวไป? (Who Stole Niew\'s Voice?)', delivery_type: 'instant' },
