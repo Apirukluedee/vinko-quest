@@ -253,6 +253,7 @@
           consent_terms: $('[name="agree_terms"]', form).checked,
           consent_privacy: $('[name="agree_privacy"]', form).checked,
           consent_preorder: !!($('[name="agree_preorder"]', form) || {}).checked,
+          consent_marketing: !!($('[name="agree_marketing"]', form) || {}).checked,
           client_request_id: clientRequestId
         })
       });

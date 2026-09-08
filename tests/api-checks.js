@@ -250,6 +250,34 @@ const BASE = {
   check('ทุกแถวเป็น instant', DB.order_items.every(i => i.delivery_type === 'instant'));
   check('ไม่บันทึกเวลายินยอม pre-order', !DB.orders[0].consent_preorder_at);
 
+  /* ---- 2.1 ความยินยอมรับอีเมลการตลาด (PDPA) ----
+     กฎ PDPA ที่ต้องคุมไว้ด้วย test ไม่ใช่แค่ความตั้งใจ:
+       - ไม่ติ๊ก ต้องสั่งซื้อได้ตามปกติ  (ห้ามบังคับแลกกับการขาย)
+       - ไม่ติ๊ก ต้องไม่มีเวลายินยอมค้างใน DB  (null = ห้ามส่งหาคนนี้)
+       - ติ๊ก ต้องบันทึกเป็น "เวลา" ไม่ใช่ true  (ต้องพิสูจน์ได้ว่าได้มาเมื่อไหร่)
+     ถ้าใครเผลอทำช่องนี้เป็น required หรือ default ติ๊ก ข้อนี้จะแดง */
+  section('2.1 ความยินยอมรับอีเมลการตลาดต้องแยกและไม่บังคับ');
+  resetAll();
+  h = load('create-charge.js'); r = mockRes();
+  await h(post(Object.assign({}, BASE, { package_code: 'LAB', payment_method: 'promptpay' })), r);
+  check('ไม่ติ๊กก็สั่งซื้อได้', r.body.ok === true, JSON.stringify(r.body));
+  check('ไม่ติ๊ก = ไม่บันทึกเวลายินยอม', DB.orders[0].consent_marketing_at === null,
+        'ได้ ' + DB.orders[0].consent_marketing_at);
+
+  resetAll();
+  h = load('create-charge.js'); r = mockRes();
+  await h(post(Object.assign({}, BASE, {
+    package_code: 'LAB', payment_method: 'promptpay', consent_marketing: true
+  })), r);
+  check('ติ๊กแล้วสั่งซื้อได้', r.body.ok === true);
+  check('ติ๊ก = บันทึกเวลายินยอมไว้', !!DB.orders[0].consent_marketing_at);
+  check('เก็บเป็นเวลา ไม่ใช่ true/false',
+        typeof DB.orders[0].consent_marketing_at === 'string' &&
+        !isNaN(Date.parse(DB.orders[0].consent_marketing_at)),
+        'ได้ ' + JSON.stringify(DB.orders[0].consent_marketing_at));
+  check('ยังยอมรับเงื่อนไขซื้อแยกจากการตลาด',
+        !!DB.orders[0].consent_terms_at && !!DB.orders[0].consent_privacy_at);
+
   /* ---- 3. กดปุ่มรัว 5 ครั้ง ---- */
   section('3. กดปุ่มรัว 5 ครั้งด้วย client_request_id เดิม');
   resetAll();

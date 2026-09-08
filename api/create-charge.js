@@ -112,6 +112,10 @@ module.exports = async function handler(req, res) {
     consent_terms_at: now,
     consent_privacy_at: now,
     consent_preorder_at: pkg.requires_preorder_consent ? now : null,
+    // PDPA: ความยินยอมรับอีเมลการตลาดเป็นคนละเรื่องกับการยอมรับเงื่อนไขการซื้อ
+    // เก็บเป็นเวลา ไม่ใช่ true/false เพราะต้องพิสูจน์ได้ว่ายินยอมเมื่อไหร่
+    // ไม่ติ๊ก = null = ห้ามส่งอีเมลการตลาดหาคนนี้
+    consent_marketing_at: body.consent_marketing === true ? now : null,
     ip_hash: ipHash,
     client_request_id: clientRequestId
   });
