@@ -2,6 +2,12 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "cleanUrls": true,
   "trailingSlash": false,
+  "rewrites": [
+    {
+      "source": "/api/unsubscribe",
+      "destination": "/api/health?_route=unsubscribe"
+    }
+  ],
   "redirects": [
     {
       "source": "/lab01",

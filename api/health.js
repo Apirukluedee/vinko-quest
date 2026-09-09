@@ -19,6 +19,7 @@
 const config = require('./_lib/config');
 const db     = require('./_lib/supabase');
 const { safeEqual } = require('./_lib/util');
+const { handleUnsubscribe } = require('./_lib/unsubscribe');
 
 /** ตอบเหมือนไม่มีไฟล์นี้อยู่จริง ใช้ทั้งกรณีไม่ได้ตั้ง token และกรณี token ผิด */
 function notFound(res) {
@@ -28,12 +29,19 @@ function notFound(res) {
 }
 
 module.exports = async function handler(req, res) {
+  // /api/unsubscribe rewrite มาที่นี่ (ดู vercel.json) — Vercel Hobby จำกัด 12
+  // Serverless Functions ต่อ deployment เลยรวมสองเส้นทางไว้ในไฟล์เดียว
+  // เช็คก่อนเรื่อง health token ใดๆ ทั้งหมด เพราะเป็นคนละระบบ คนละสิทธิ์กันโดยสิ้นเชิง
+  const url = new URL(req.url, 'https://placeholder.local');
+  if (url.searchParams.get('_route') === 'unsubscribe') {
+    return handleUnsubscribe(req, res);
+  }
+
   if (req.method !== 'GET' && req.method !== 'HEAD') return notFound(res);
 
   const expected = config.healthToken();
   if (!expected) return notFound(res);
 
-  const url = new URL(req.url, 'https://placeholder.local');
   const given = url.searchParams.get('token') || '';
   if (!given || !safeEqual(given, expected)) return notFound(res);
 

@@ -1,6 +1,9 @@
 /* ============================================================
-   GET /api/unsubscribe?token=...
    ลิงก์ยกเลิกรับอีเมลการตลาด (PDPA) — ต้องมีไว้ก่อนเริ่มส่งอีเมลการตลาดจริง
+
+   อยู่ใน _lib แทนที่จะเป็นไฟล์แยกใน api/ เพราะทุกไฟล์ใต้ api/ นับเป็น
+   Serverless Function 1 ตัวของ Vercel — แพ็กเกจ Hobby จำกัดไว้ 12 ตัว
+   จึง route มาจาก /api/health ผ่าน rewrite ใน vercel.json แทน (ดู health.js)
 
    ใช้ unsubscribe_token คนละคีย์กับ download_token โดยเจตนา (ดู migration 006)
    กดได้เสมอไม่ว่าออเดอร์จะสถานะไหน ไม่มีเงื่อนไขที่ทำให้ยกเลิกไม่สำเร็จ
@@ -9,9 +12,9 @@
 
 'use strict';
 
-const tokens = require('./_lib/tokens');
-const db = require('./_lib/supabase');
-const { requireEnv } = require('./_lib/util');
+const tokens = require('./tokens');
+const db = require('./supabase');
+const { requireEnv } = require('./util');
 
 function page(title, heading, body) {
   return '<!doctype html><html lang="th"><meta charset="utf-8">' +
@@ -38,7 +41,8 @@ function successHtml(alreadyDone) {
     '<br>ส่วนอีเมลแจ้งเตือนคำสั่งซื้อ/ลิงก์ดาวน์โหลดของที่ซื้อไปแล้ว ยังส่งตามปกติ</p>');
 }
 
-module.exports = async function handler(req, res) {
+/** req.url ต้องยังมี query token=... ติดมาด้วย (rewrite ใน vercel.json ส่งผ่านให้อัตโนมัติ) */
+async function handleUnsubscribe(req, res) {
   if (req.method !== 'GET') {
     res.statusCode = 405;
     res.end();
@@ -89,4 +93,6 @@ module.exports = async function handler(req, res) {
   console.log('[vinko][unsubscribe]', order.order_ref, '-> ยกเลิกรับอีเมลการตลาดแล้ว');
   res.statusCode = 200;
   res.end(successHtml(false));
-};
+}
+
+module.exports = { handleUnsubscribe };
