@@ -88,6 +88,13 @@
       el.hidden = !needsPreorder;
     });
 
+    // แพ็กเกจนี้ไม่มีส่วนลดจริง (normal === launch เช่น LAB/BUNDLE) หรือหมดช่วงเปิดตัวแล้ว
+    // ต้องซ่อนแถว "ราคาปกติ" ขีดฆ่า ไม่งั้นจะโชว์ราคาเดียวกันขีดฆ่าทับตัวเอง
+    var hasDiscount = cfg.normal !== cfg.launch;
+    $$("[data-vk-launch-only]").forEach(function (el) {
+      el.hidden = !(hasDiscount && V.promoActive());
+    });
+
     var pre = $('input[name="agree_preorder"]');
     if (pre) {
       pre.required = needsPreorder;

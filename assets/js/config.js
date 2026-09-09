@@ -10,13 +10,17 @@ window.VINKO_CONFIG = {
      รูปแบบ: "2026-09-30T23:59:59+07:00"  (เวลาไทย)
      เว้นว่าง = ซ่อน countdown และถือว่าราคาเปิดตัวยังใช้อยู่
      เมื่อเลยวันนี้แล้ว เว็บจะสลับไปแสดงราคาปกติเองอัตโนมัติ    */
-  LAUNCH_PROMO_END: "",
+  LAUNCH_PROMO_END: "2026-12-31T23:59:59+07:00",
 
   /* ---- ราคา (บาท) ---------------------------------------- */
+  // ปรับ 9 ก.ย. 2026: เลิกใช้ราคาขีดฆ่าตัวใหญ่ (390/590/890) ที่ไม่เคยขายจริง
+  // LAB และ BUNDLE ราคาเดียวไม่มีส่วนลด — normal == launch โดยตั้งใจ
+  // มีแค่ STORIES ที่ลดจริงช่วงเปิดตัว (249 -> 199) ดู renderPrices() ใน site.js
+  // ที่ซ่อนป้าย "ราคาเปิดตัว"/ราคาขีดฆ่าให้อัตโนมัติเมื่อ normal === launch
   PRICES: {
-    lab:     { normal: 390, launch: 199 },
-    stories: { normal: 590, launch: 299 },
-    bundle:  { normal: 890, launch: 399 }
+    lab:     { normal: 199, launch: 199 },
+    stories: { normal: 249, launch: 199 },
+    bundle:  { normal: 349, launch: 349 }
   },
   UPGRADE_PRICE: 249,          // อัปเกรด LAB -> BUNDLE ภายหลัง
 
@@ -64,7 +68,15 @@ window.VINKO_CONFIG = {
   /* ---- Tracking (เติม ID แล้วสคริปต์จะทำงานเอง) -----------
      ยิงเฉพาะหลังผู้ใช้กดยอมรับคุกกี้เท่านั้น                     */
   ANALYTICS: {
-    GA4_ID:          "",   // G-XXXXXXXXXX
+    GA4_ID:          "G-W9W53C5DWS",   // property จริง ใช้เฉพาะบน vinko.quest
+
+    /* property สำหรับทดสอบ — ใช้บน localhost และ preview ของ Vercel เท่านั้น
+       ใส่ค่านี้แล้วจะทดสอบว่า GA4 รับ event ครบไหมได้โดยไม่ต้อง deploy
+       และไม่มีทางปนเข้า property จริง (คนละ ID คนละ property)
+       ยิงพร้อม debug_mode:true จึงเห็นใน DebugView ทันที
+       ยังไม่ใส่ = local/preview ไม่ยิง analytics เลย */
+    GA4_TEST_ID:     "G-QSZPV4HKJR",   // property "VINKO — TEST" ใช้บน localhost/preview เท่านั้น
+
     META_PIXEL_ID:   "",
     TIKTOK_PIXEL_ID: ""
   },

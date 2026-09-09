@@ -244,7 +244,7 @@ const BASE = {
   resetAll();
   h = load('create-charge.js'); r = mockRes();
   await h(post(Object.assign({}, BASE, { package_code: 'BUNDLE', payment_method: 'promptpay' })), r);
-  check('ไม่ติ๊กก็สั่งได้ ราคา 39900', r.body.ok === true && r.body.amount_satang === 39900, JSON.stringify(r.body));
+  check('ไม่ติ๊กก็สั่งได้ ราคา 34900', r.body.ok === true && r.body.amount_satang === 34900, JSON.stringify(r.body));
   check('order_items ครบ 7 แถว (LAB เล่มเต็ม + ใบงาน + นิทาน 5)', DB.order_items.length === 7, 'ได้ ' + DB.order_items.length);
   check('ไม่เหลือแถว preorder แล้ว', DB.order_items.filter(i => i.delivery_type === 'preorder').length === 0, 'ได้ ' + DB.order_items.filter(i => i.delivery_type === 'preorder').length);
   check('ทุกแถวเป็น instant', DB.order_items.every(i => i.delivery_type === 'instant'));
@@ -435,12 +435,12 @@ const BASE = {
   process.env.LAUNCH_PROMO_END = '2020-01-01T00:00:00+07:00';
   h = load('create-charge.js'); r = mockRes();
   await h(post(Object.assign({}, BASE, { package_code: 'LAB', payment_method: 'promptpay' })), r);
-  check('คิดราคาปกติ 39000 อัตโนมัติ', r.body.amount_satang === 39000, 'ได้ ' + r.body.amount_satang);
+  check('คิดราคาปกติ 19900 อัตโนมัติ (LAB ไม่มีส่วนลด normal=launch)', r.body.amount_satang === 19900, 'ได้ ' + r.body.amount_satang);
   r = mockRes();
   await h(post(Object.assign({}, BASE, {
     package_code: 'BUNDLE', payment_method: 'promptpay', consent_preorder: true
   })), r);
-  check('BUNDLE คิด 89000', r.body.amount_satang === 89000, 'ได้ ' + r.body.amount_satang);
+  check('BUNDLE คิด 34900 (ไม่มีส่วนลด normal=launch)', r.body.amount_satang === 34900, 'ได้ ' + r.body.amount_satang);
   delete process.env.LAUNCH_PROMO_END;
 
   /* ---- 14. input ไม่ถูกต้อง ---- */

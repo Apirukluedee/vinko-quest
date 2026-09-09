@@ -25,12 +25,16 @@ const APPROX_MB = {
 const LARGE_MB = 10;
 
 // ราคาเป็นสตางค์เสมอ (199 บาท = 19900) ห้ามใช้ทศนิยมกับเงิน
+//
+// ปรับ 9 ก.ย. 2026: เลิกใช้ราคาขีดฆ่าตัวใหญ่ (390/590/890) ที่ไม่เคยขายจริง
+// LAB และ BUNDLE ราคาเดียวไม่มีส่วนลด (launch_satang === normal_satang โดยตั้งใจ)
+// มีแค่ STORIES ที่ลดจริงช่วงเปิดตัว (249 -> 199) ต้องแก้คู่กับ assets/js/config.js เสมอ
 const CATALOG = {
   LAB: {
     code: 'LAB',
     title: 'VINKO WOW LAB: 10 Missions in the Kitchen',
     launch_satang: 19900,
-    normal_satang: 39000,
+    normal_satang: 19900,
     requires_preorder_consent: false,
     items: [
       { product_code: 'LAB-MAIN', title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
@@ -40,8 +44,8 @@ const CATALOG = {
   BUNDLE: {
     code: 'BUNDLE',
     title: 'BUNDLE: VINKO WOW LAB + VINKO STORIES · เอ๊ะ! อ๋อ! (5 เล่ม)',
-    launch_satang: 39900,
-    normal_satang: 89000,
+    launch_satang: 34900,
+    normal_satang: 34900,
     requires_preorder_consent: false,
     items: [
       { product_code: 'LAB-MAIN',  title: 'VINKO WOW LAB — 10 ภารกิจในครัว', delivery_type: 'instant' },
@@ -56,8 +60,8 @@ const CATALOG = {
   STORIES: {
     code: 'STORIES',
     title: 'VINKO STORIES · เอ๊ะ! อ๋อ! / Why? Wow! (5 เล่ม)',
-    launch_satang: 29900,
-    normal_satang: 59000,
+    launch_satang: 19900,
+    normal_satang: 24900,
     requires_preorder_consent: false,
     items: [
       { product_code: 'STORY-01', title: 'วันที่แรงโน้มถ่วงลางาน (The Day Gravity Took a Day Off)', delivery_type: 'instant' },
