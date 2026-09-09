@@ -80,6 +80,27 @@ async function resolve(token) {
   return { ok: true, order: order };
 }
 
+/**
+ * หาออเดอร์จาก unsubscribe token
+ *
+ * ไม่เช็คว่าจ่ายเงินแล้วหรือยัง ไม่เช็ควันหมดอายุ — คนละเรื่องกับ resolve()
+ * เพราะการ "ยกเลิกรับอีเมลการตลาด" ต้องกดได้เสมอไม่ว่าออเดอร์จะอยู่สถานะไหน
+ * ห้ามมีเงื่อนไขที่ทำให้คนยกเลิกไม่สำเร็จ ไม่งั้นจะกลายเป็นส่งอีเมลต่อทั้งที่เขาปฏิเสธแล้ว
+ * @returns {Promise<object|null>}
+ */
+async function resolveUnsubscribe(token) {
+  if (typeof token !== 'string' || token.length < 32 || !/^[A-Za-z0-9_-]+$/.test(token)) {
+    return null;
+  }
+  const r = await db.select(
+    'orders',
+    'unsubscribe_token=eq.' + encodeURIComponent(token) +
+    '&select=id,order_ref,customer_email,marketing_optout_at&limit=1'
+  );
+  const order = Array.isArray(r.body) && r.body[0];
+  return order || null;
+}
+
 /** รายการไฟล์ของออเดอร์ พร้อมบอกว่าโหลดได้แล้วหรือยัง */
 async function itemsFor(orderId) {
   const r = await db.select(
@@ -115,5 +136,6 @@ async function downloadCount(orderItemId) {
 
 module.exports = {
   TTL_HOURS, MAX_DOWNLOADS_PER_ITEM,
-  newToken, issue, renew, resolve, itemsFor, isReleased, downloadCount, expiryFromNow
+  newToken, issue, renew, resolve, resolveUnsubscribe,
+  itemsFor, isReleased, downloadCount, expiryFromNow
 };

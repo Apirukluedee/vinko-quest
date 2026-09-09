@@ -12,6 +12,7 @@ const catalog = require('./_lib/catalog');
 const omise   = require('./_lib/omise');
 const db      = require('./_lib/supabase');
 const orders  = require('./_lib/orders');
+const tokens  = require('./_lib/tokens');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
 const config  = require('./_lib/config');
 
@@ -116,6 +117,9 @@ module.exports = async function handler(req, res) {
     // เก็บเป็นเวลา ไม่ใช่ true/false เพราะต้องพิสูจน์ได้ว่ายินยอมเมื่อไหร่
     // ไม่ติ๊ก = null = ห้ามส่งอีเมลการตลาดหาคนนี้
     consent_marketing_at: body.consent_marketing === true ? now : null,
+    // ออก unsubscribe_token ไว้ล่วงหน้าเฉพาะคนที่ยินยอม — จะได้มีลิงก์ยกเลิก
+    // แนบในอีเมลการตลาดได้ทันทีที่เริ่มส่ง โดยไม่ต้องมาแก้จุดนี้อีกครั้ง
+    unsubscribe_token: body.consent_marketing === true ? tokens.newToken() : null,
     ip_hash: ipHash,
     client_request_id: clientRequestId
   });
