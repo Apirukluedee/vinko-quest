@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VINKO WOW LAB — อ่านนิทาน</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --accent: #e94560;
+    --gold: #f5a623;
+    --text: #eee;
+    --muted: #888;
+    --bar-h: 64px;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    height: var(--bar-h);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid #ffffff18;
+  }
+  #topbar .logo {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 1px;
+  }
+  #topbar .story-title {
+    font-size: 14px;
+    color: var(--muted);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* bg music toggle */
+  #btn-bgm {
+    border: none;
+    background: #ffffff18;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all .2s;
+    white-space: nowrap;
+  }
+  #btn-bgm.on { background: var(--gold); color: #000; }
+
+  /* ── Page view ── */
+  #stage {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+
+  }
+  #page-img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+    will-change: transform;
+  }
+
+  /* Page transition — slow fade in */
+  @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .page-fade-in { animation: pageFadeIn 800ms ease-out forwards; }
+
+  /* nav arrows */
+  .nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #00000060;
+    border: none;
+    color: #fff;
+    font-size: 28px;
+    width: 48px;
+    height: 80px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .2s;
+    z-index: 10;
+  }
+  .nav-btn:hover { background: #00000099; }
+  .nav-btn:disabled { opacity: 0.2; cursor: default; }
+  #btn-prev { left: 8px; }
+  #btn-next { right: 8px; }
+
+  /* page counter */
+  #page-counter {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #00000080;
+    color: #ffffffcc;
+    font-size: 13px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    pointer-events: none;
+  }
+
+  /* language overlay buttons */
+  #lang-overlay {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 10;
+  }
+  .lang-btn {
+    border: none;
+    cursor: pointer;
+    border-radius: 28px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(6px);
+    transition: all .2s;
+    box-shadow: 0 2px 8px #0006;
+  }
+  .lang-btn.th-btn {
+    background: #a50d3bcc;
+    color: #fff;
+  }
+  .lang-btn.en-btn {
+    background: #003894cc;
+    color: #fff;
+  }
+  .lang-btn.playing {
+    box-shadow: 0 0 0 3px #fff6, 0 2px 8px #0006;
+    transform: scale(1.06);
+  }
+  .lang-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+    transform: none;
+  }
+  .lang-btn .flag { font-size: 18px; line-height: 1; }
+
+  /* audio status */
+  #audio-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: #00000080;
+    color: #ffffffaa;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    pointer-events: none;
+    display: none;
+  }
+  #audio-badge.visible { display: block; }
+
+  /* ── Bottom bar ── */
+  #bottombar {
+    height: var(--bar-h);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    flex-shrink: 0;
+    border-top: 1px solid #ffffff18;
+    padding: 0 16px;
+  }
+
+  .ctrl-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 26px;
+    cursor: pointer;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s;
+  }
+  .ctrl-btn:hover { background: #ffffff14; }
+  .ctrl-btn:disabled { opacity: .3; cursor: default; }
+  .ctrl-btn:disabled:hover { background: none; }
+
+  #btn-play-pause {
+    font-size: 32px;
+    width: 58px;
+    height: 58px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  #btn-play-pause:hover { background: #c73350; }
+  #btn-play-pause:disabled { background: #555; }
+
+  .auto-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 2px;
+  }
+  .auto-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  #btn-auto.on { color: var(--gold); }
+
+  /* progress bar */
+  #progress-wrap {
+    position: absolute;
+    bottom: var(--bar-h);
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #ffffff20;
+  }
+  #progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width .3s;
+  }
+
+  /* loading overlay */
+  #loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    z-index: 100;
+  }
+  #loading-screen.hidden { display: none; }
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #ffffff22;
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* error */
+  #error-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+    padding: 32px;
+    z-index: 100;
+  }
+  #error-screen.hidden { display: none; }
+  #error-screen h2 { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p style="color:var(--muted)">กำลังโหลด...</p>
+</div>
+
+<!-- Error -->
+<div id="error-screen" class="hidden">
+  <h2>ไม่พบนิทาน</h2>
+  <p style="color:var(--muted)">ลิงก์ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง</p>
+  <a href="/" style="color:var(--accent)">กลับหน้าหลัก</a>
+</div>
+
+<!-- Top bar -->
+<div id="topbar">
+  <span class="logo">VINKO</span>
+  <span id="story-title" class="story-title">WOW LAB</span>
+  <button id="btn-bgm" onclick="toggleBgm()" title="เพลงประกอบ">♪ เพลง</button>
+</div>
+
+<!-- Stage -->
+<div id="stage">
+  <button class="nav-btn" id="btn-prev" onclick="goPage(-1)">&#8249;</button>
+  <img id="page-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="หน้าหนังสือ" draggable="false">
+  <button class="nav-btn" id="btn-next" onclick="goPage(1)">&#8250;</button>
+  <div id="page-counter">1 / 1</div>
+  <div id="audio-badge">🔊 กำลังเล่น...</div>
+
+  <!-- Language audio buttons overlaid on image -->
+  <div id="lang-overlay">
+    <button class="lang-btn th-btn" id="btn-play-th" onclick="playLang('th')" disabled>
+      <span class="flag">🇹🇭</span> ไทย
+    </button>
+    <button class="lang-btn en-btn" id="btn-play-en" onclick="playLang('en')" disabled>
+      <span class="flag">🇬🇧</span> English
+    </button>
+  </div>
+</div>
+
+<!-- Progress -->
+<div id="progress-wrap">
+  <div id="progress-fill" style="width:0%"></div>
+</div>
+
+<!-- Bottom bar -->
+<div id="bottombar">
+  <button class="ctrl-btn" id="btn-rew" onclick="goPage(-1)" title="หน้าก่อน">&#10094;&#10094;</button>
+  <button class="ctrl-btn" id="btn-play-pause" onclick="togglePlay()" title="เล่น/หยุด">&#9654;</button>
+  <button class="ctrl-btn" id="btn-fwd" onclick="goPage(1)" title="หน้าถัดไป">&#10095;&#10095;</button>
+  <div class="auto-wrap">
+    <button class="ctrl-btn" id="btn-auto" onclick="toggleAuto()" title="เล่นต่อเนื่อง">&#8635;</button>
+    <span class="auto-label" id="auto-label">ต่อเนื่อง</span>
+  </div>
+</div>
+
+<audio id="player" preload="none"></audio>
+<audio id="bgm" loop preload="none"></audio>
+
+<script>
+// ── Config ───────────────────────────────────────────────────────────────────
+const SB = 'https://snhfobhkrkuntohybnrh.supabase.co/storage/v1/object/public/story-reader';
+
+// Page manifest per story.
+// img: image filename, audio: audio base name (null = no audio for this page)
+// audio naming: {base}_th.wav and {base}_en.wav
+// Background music URL — ใส่ URL เพลงที่นี่เมื่อมีไฟล์
+const BGM_URL = 'https://snhfobhkrkuntohybnrh.supabase.co/storage/v1/object/public/story-reader/bgm/background.mp3';
+
+const STORIES = {
+  '1': { title: 'นิทานเล่ม 1', pages: buildPages(20, 14, 2) },
+  '2': { title: 'นิทานเล่ม 2', pages: buildPages(21, 16, 2) },
+  '3': { title: 'นิทานเล่ม 3', pages: buildPages(20, 14, 2) },
+  '4': { title: 'นิทานเล่ม 4', pages: buildPages(21, 15, 2) },
+  '5': { title: 'นิทานเล่ม 5', pages: buildPages(21, 15, 2) }
+};
+
+// buildPages: image pages 1..total, audio pages 1..audioCount (1-indexed, offset shifts which image starts audio)
+function buildPages(total, audioCount, audioStartAt) {
+  return Array.from({ length: total }, (_, i) => {
+    const n = i + 1;
+    const audioIdx = n - audioStartAt;
+    const hasAudio = audioIdx >= 1 && audioIdx <= audioCount;
+    return {
+      img: `page-${String(n).padStart(2,'0')}.png`,
+      audio: hasAudio ? `page${String(audioIdx).padStart(2,'0')}` : null
+    };
+  });
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+const params  = new URLSearchParams(location.search);
+const storyId = params.get('story') || '1';
+let story, currentLang = 'th', currentPage = 0, autoPlay = false, playing = false, bgmOn = false;
+
+const player    = document.getElementById('player');
+const bgmEl     = document.getElementById('bgm');
+const imgEl     = document.getElementById('page-img');
+const counter   = document.getElementById('page-counter');
+const fill      = document.getElementById('progress-fill');
+const btnPlay   = document.getElementById('btn-play-pause');
+const btnAuto   = document.getElementById('btn-auto');
+const audioBadge= document.getElementById('audio-badge');
+const loadingEl = document.getElementById('loading-screen');
+const errorEl   = document.getElementById('error-screen');
+const btnPlayTh = document.getElementById('btn-play-th');
+const btnPlayEn = document.getElementById('btn-play-en');
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+  story = STORIES[storyId];
+  if (!story) { showError(); return; }
+
+  document.getElementById('story-title').textContent = story.title;
+  document.title = `VINKO — ${story.title}`;
+
+  const startPage = parseInt(params.get('p') || '1', 10) - 1;
+  currentPage = Math.max(0, Math.min(startPage, story.pages.length - 1));
+
+  showPage(currentPage, () => {
+    loadingEl.classList.add('hidden');
+  });
+
+  // swipe support
+  let tx = 0;
+  const stage = document.getElementById('stage');
+  stage.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 40) goPage(dx < 0 ? 1 : -1);  // goPage already passes flipDir
+  }, { passive: true });
+
+  // keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goPage(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   goPage(-1);
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  });
+
+  // audio events
+  player.addEventListener('ended', () => {
+    setPlayIcon(false);
+    playing = false;
+    audioBadge.classList.remove('visible');
+    updateLangButtons(false);
+    if (autoPlay && currentPage < story.pages.length - 1) {
+      setTimeout(() => goPage(1), 800);
+    }
+  });
+  player.addEventListener('play',  () => { setPlayIcon(true);  audioBadge.classList.add('visible'); });
+  player.addEventListener('pause', () => { setPlayIcon(false); audioBadge.classList.remove('visible'); updateLangButtons(false); });
+  player.addEventListener('error', () => { setPlayIcon(false); playing = false; btnPlay.disabled = true; updateLangButtons(false); });
+
+  // bgm setup
+  if (BGM_URL) {
+    bgmEl.src = BGM_URL;
+    bgmEl.volume = 0.25;
+    document.getElementById('btn-bgm').style.display = '';
+  } else {
+    document.getElementById('btn-bgm').style.display = 'none';
+  }
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function goPage(delta) {
+  const next = currentPage + delta;
+  if (next < 0 || next >= story.pages.length) return;
+  stopAudio();
+  showPage(next, null, delta > 0 ? 'fwd' : 'bck');
+}
+
+function showPage(idx, onLoad, flipDir) {
+  currentPage = idx;
+  const pg = story.pages[idx];
+
+  function loadImg() {
+    imgEl.onload = () => {
+      imgEl.classList.remove('page-fade-in');
+      void imgEl.offsetWidth;
+      imgEl.classList.add('page-fade-in');
+      if (onLoad) onLoad();
+      if (autoPlay && pg.audio) startAudio(pg);
+    };
+    imgEl.onerror = () => { if (onLoad) onLoad(); };
+    imgEl.src = `${SB}/images/STORY-0${storyId}/${pg.img}`;
+  }
+
+  loadImg();
+
+  // ui
+  counter.textContent = `${idx + 1} / ${story.pages.length}`;
+  fill.style.width = `${((idx + 1) / story.pages.length) * 100}%`;
+  document.getElementById('btn-prev').disabled = idx === 0;
+  document.getElementById('btn-next').disabled = idx === story.pages.length - 1;
+  document.getElementById('btn-rew').disabled  = idx === 0;
+  document.getElementById('btn-fwd').disabled  = idx === story.pages.length - 1;
+
+  // audio
+  const hasAudio = !!pg.audio;
+  btnPlay.disabled = !hasAudio;
+  btnPlayTh.disabled = !hasAudio;
+  btnPlayEn.disabled = !hasAudio;
+  if (hasAudio) {
+    const url = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${currentLang}.wav`;
+    player.src = url;
+    player.load();
+    playing = false;
+    setPlayIcon(false);
+    updateLangButtons(false);
+  } else {
+    player.src = '';
+    setPlayIcon(false);
+    playing = false;
+    updateLangButtons(false);
+  }
+
+  // update URL without reload
+  history.replaceState(null, '', `?story=${storyId}&p=${idx + 1}`);
+}
+
+// ── Audio controls ────────────────────────────────────────────────────────────
+function togglePlay() {
+  if (!player.src || btnPlay.disabled) return;
+  if (playing) {
+    player.pause();
+    playing = false;
+  } else {
+    player.play().then(() => { playing = true; updateLangButtons(true); }).catch(() => {});
+  }
+}
+
+function startAudio(pg) {
+  if (!pg.audio) return;
+  player.src = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${currentLang}.wav`;
+  player.load();
+  player.play().then(() => { playing = true; updateLangButtons(true); }).catch(() => {});
+}
+
+function stopAudio() {
+  player.pause();
+  player.currentTime = 0;
+  playing = false;
+  audioBadge.classList.remove('visible');
+  setPlayIcon(false);
+}
+
+function setPlayIcon(isPlaying) {
+  btnPlay.innerHTML = isPlaying ? '&#9646;&#9646;' : '&#9654;';
+}
+
+// ── Language buttons on image ─────────────────────────────────────────────────
+function playLang(l) {
+  const pg = story.pages[currentPage];
+  if (!pg.audio) return;
+
+  // If already playing this lang → pause
+  if (playing && currentLang === l) {
+    player.pause();
+    return;
+  }
+
+  currentLang = l;
+  stopAudio();
+  player.src = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${l}.wav`;
+  player.load();
+  player.play().then(() => {
+    playing = true;
+    updateLangButtons(true);
+  }).catch(() => {});
+}
+
+function updateLangButtons(isPlaying) {
+  btnPlayTh.classList.toggle('playing', isPlaying && currentLang === 'th');
+  btnPlayEn.classList.toggle('playing', isPlaying && currentLang === 'en');
+}
+
+// ── Background music ──────────────────────────────────────────────────────────
+function toggleBgm() {
+  bgmOn = !bgmOn;
+  document.getElementById('btn-bgm').classList.toggle('on', bgmOn);
+  if (bgmOn) {
+    bgmEl.play().catch(() => {});
+  } else {
+    bgmEl.pause();
+  }
+}
+
+// ── Auto-play ─────────────────────────────────────────────────────────────────
+function toggleAuto() {
+  autoPlay = !autoPlay;
+  btnAuto.classList.toggle('on', autoPlay);
+  document.getElementById('auto-label').textContent = autoPlay ? 'เปิดอยู่' : 'ต่อเนื่อง';
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function showError() {
+  loadingEl.classList.add('hidden');
+  errorEl.classList.remove('hidden');
+}
+
+init();
+</script>
+</body>
+</html>
