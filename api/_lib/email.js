@@ -39,6 +39,15 @@ function downloadUrl(token) {
   return baseUrl() + '/download?token=' + encodeURIComponent(token) + '&openExternalBrowser=1';
 }
 
+function readerUrl(storyNum, readerToken) {
+  return baseUrl() + '/read?story=' + storyNum + '&token=' + encodeURIComponent(readerToken) + '&openExternalBrowser=1';
+}
+
+function storyNumFromCode(productCode) {
+  const m = String(productCode || '').match(/STORY-0?(\d+)/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
 function seller() {
   return {
     name: config.sellerName(),
@@ -154,6 +163,22 @@ function purchaseEmail(o) {
     inner += '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">กำหนดส่งนิทานเล่มถัดไป</p>' +
       '<p style="margin:0;color:#6B7285;font-size:13.5px;">เราจะส่งอีเมลพร้อมลิงก์ให้ทุกครั้งที่มีเรื่องใหม่ ไม่ต้องเข้ามาเช็กเอง</p>' +
       timelineTable(preorders);
+  }
+
+  // reader links สำหรับนิทานที่ส่งมอบแล้ว (instant)
+  if (o.readerToken) {
+    const instantStories = (o.items || []).filter(function (i) {
+      return i.delivery_type === 'instant' && !i.refunded_at &&
+             storyNumFromCode(i.product_code) !== null;
+    });
+    if (instantStories.length) {
+      inner += '<p style="margin:24px 0 6px;font-weight:bold;color:' + BRAND_NAVY + ';">🎧 ฟังนิทานเสียงออนไลน์</p>';
+      inner += '<p style="margin:0 0 10px;color:#6B7285;font-size:13.5px;">คลิกปุ่มด้านล่างเพื่ออ่านและฟังเสียงประกอบได้เลย ไม่ต้องดาวน์โหลด</p>';
+      for (const it of instantStories) {
+        const num = storyNumFromCode(it.product_code);
+        inner += bigButton(readerUrl(num, o.readerToken), 'เปิดอ่าน ' + esc(it.title));
+      }
+    }
   }
 
   inner += '<p style="margin:18px 0 0;color:#6B7285;font-size:13px;line-height:1.7;">' +

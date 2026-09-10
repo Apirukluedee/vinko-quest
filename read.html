@@ -313,6 +313,14 @@
   <a href="/" style="color:var(--accent)">กลับหน้าหลัก</a>
 </div>
 
+<!-- Locked -->
+<div id="locked-screen" class="hidden" style="text-align:center;padding:40px 24px;">
+  <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+  <h2 style="color:var(--accent);margin-bottom:8px;">หนังสือเสียงนี้สำหรับผู้ซื้อเท่านั้น</h2>
+  <p style="color:var(--muted);margin-bottom:24px;">กรุณาเปิดลิงก์จากอีเมลยืนยันการสั่งซื้อของคุณ</p>
+  <a href="https://vinko.quest" style="color:var(--accent);font-weight:bold;">ไปหน้าหลัก</a>
+</div>
+
 <!-- Top bar -->
 <div id="topbar">
   <span class="logo">VINKO</span>
@@ -361,6 +369,8 @@
 <script>
 // ── Config ───────────────────────────────────────────────────────────────────
 const SB = 'https://snhfobhkrkuntohybnrh.supabase.co/storage/v1/object/public/story-reader';
+const SB_URL = 'https://snhfobhkrkuntohybnrh.supabase.co';
+const SB_KEY = 'sb_publishable_QbQ2cvGe5cfFcV61FhEtjQ_KbVsYKZ_';
 
 // Page manifest per story.
 // img: image filename, audio: audio base name (null = no audio for this page)
@@ -599,7 +609,38 @@ function showError() {
   errorEl.classList.remove('hidden');
 }
 
-init();
+function showLocked() {
+  loadingEl.classList.add('hidden');
+  document.getElementById('locked-screen').classList.remove('hidden');
+}
+
+async function checkAccess(token, story) {
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/rpc/check_reader_access', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_KEY,
+        'Authorization': 'Bearer ' + SB_KEY
+      },
+      body: JSON.stringify({ p_token: token, p_story: parseInt(story, 10) })
+    });
+    if (!r.ok) return false;
+    return await r.json();
+  } catch (e) {
+    return false;
+  }
+}
+
+async function start() {
+  const token = params.get('token');
+  if (!token) { showLocked(); return; }
+  const ok = await checkAccess(token, storyId);
+  if (!ok) { showLocked(); return; }
+  init();
+}
+
+start();
 </script>
 </body>
 </html>

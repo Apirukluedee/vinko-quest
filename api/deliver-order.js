@@ -48,7 +48,7 @@ async function deliver(orderRef, opts) {
   const r = await db.select('orders',
     'order_ref=eq.' + encodeURIComponent(orderRef) +
     '&select=id,order_ref,status,package_code,customer_name,customer_email,' +
-    'download_token,token_expires_at&limit=1');
+    'download_token,token_expires_at,reader_token&limit=1');
   const order = Array.isArray(r.body) && r.body[0];
   if (!order) return { ok: false, error: 'ไม่พบคำสั่งซื้อ' };
   if (order.status !== 'paid') return { ok: false, error: 'คำสั่งซื้อยังไม่อยู่ในสถานะ paid' };
@@ -73,6 +73,7 @@ async function deliver(orderRef, opts) {
 
   const items = await tokens.itemsFor(order.id);
   const pkg = catalog.getPackage(order.package_code);
+  const readerToken = await tokens.getOrCreateReaderToken(order).catch(function () { return null; });
 
   const payload = email.purchaseEmail({
     orderRef: order.order_ref,
@@ -80,7 +81,8 @@ async function deliver(orderRef, opts) {
     packageTitle: (pkg && pkg.title) || order.package_code,
     token: token,
     expiresAt: expiresAt,
-    items: items
+    items: items,
+    readerToken: readerToken
   });
 
   const out = await email.send('purchase', order.customer_email, payload, { orderId: order.id });

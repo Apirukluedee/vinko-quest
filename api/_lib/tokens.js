@@ -134,8 +134,23 @@ async function downloadCount(orderItemId) {
   }
 }
 
+/** ออก reader_token ใหม่ให้ออเดอร์ (ไม่หมดอายุ) */
+async function issueReaderToken(orderId) {
+  const token = newToken();
+  const r = await db.update('orders', 'id=eq.' + orderId, { reader_token: token });
+  if (!r.ok) throw new Error('ออก reader_token ไม่สำเร็จ: ' + JSON.stringify(r.body));
+  return token;
+}
+
+/** คืน reader_token ที่มีอยู่ หรือออกใหม่ถ้ายังไม่มี */
+async function getOrCreateReaderToken(order) {
+  if (order.reader_token) return order.reader_token;
+  return issueReaderToken(order.id);
+}
+
 module.exports = {
   TTL_HOURS, MAX_DOWNLOADS_PER_ITEM,
   newToken, issue, renew, resolve, resolveUnsubscribe,
-  itemsFor, isReleased, downloadCount, expiryFromNow
+  itemsFor, isReleased, downloadCount, expiryFromNow,
+  issueReaderToken, getOrCreateReaderToken
 };
