@@ -329,7 +329,7 @@ async function handleMyLibrary(req, res) {
   const orderIds = orders.map(function(o) { return o.id; });
   const itemsRes = await db.select('order_items',
     'order_id=in.(' + orderIds.join(',') + ')' +
-    '&select=order_id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at'
+    '&select=id,order_id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at'
   );
   const items = Array.isArray(itemsRes.body) ? itemsRes.body : [];
 
@@ -353,7 +353,8 @@ async function handleMyLibrary(req, res) {
       delivery_date: item.delivery_type === 'preorder'
         ? thaiDate(item.scheduled_delivery_date)
         : null,
-      reader_token:  item.delivery_type === 'instant' ? readerToken : null
+      reader_token:  item.delivery_type === 'instant' ? readerToken : null,
+      item_id:       item.delivery_type === 'instant' ? item.id : null
     });
   }
   books.sort(function(a, b) { return a.num - b.num; });

@@ -27,10 +27,12 @@ module.exports = async function handler(req, res) {
 
   const url = new URL(req.url, 'http://localhost');
   const token = url.searchParams.get('token') || '';
+  const readerToken = url.searchParams.get('rtoken') || '';
   const itemId = url.searchParams.get('item') || '';
 
   /* ---------- 1. ตรวจ token ---------- */
-  const t = await tokens.resolve(token);
+  // rtoken มาจาก My Library (login แล้ว) ไม่หมดอายุ / token มาจากลิงก์ในอีเมล หมดอายุใน 48 ชม.
+  const t = readerToken ? await tokens.resolveByReaderToken(readerToken) : await tokens.resolve(token);
   if (!t.ok) {
     const msg = {
       invalid:   'ลิงก์ไม่ถูกต้อง',

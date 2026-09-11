@@ -81,6 +81,27 @@ async function resolve(token) {
 }
 
 /**
+ * แลก reader_token เป็นออเดอร์ — ใช้เข้าถึงไฟล์ถาวรจาก My Library
+ * ไม่มีวันหมดอายุ (ต่างจาก resolve() ที่เช็ค token_expires_at) เพราะ
+ * reader_token ออกให้ตอนส่งมอบแล้วและผูกกับ session ที่ login ผ่าน
+ * LINE/อีเมลเจ้าของออเดอร์เท่านั้น ไม่ได้แปะลอยในอีเมลแบบ download_token
+ */
+async function resolveByReaderToken(token) {
+  if (typeof token !== 'string' || token.length < 32 || !/^[A-Za-z0-9_-]+$/.test(token)) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const r = await db.select(
+    'orders',
+    'reader_token=eq.' + encodeURIComponent(token) +
+    '&select=id,order_ref,status,package_code,customer_name,customer_email,reader_token&limit=1'
+  );
+  const order = Array.isArray(r.body) && r.body[0];
+  if (!order) return { ok: false, reason: 'not_found' };
+  if (order.status !== 'paid') return { ok: false, reason: 'not_paid', order: order };
+  return { ok: true, order: order };
+}
+
+/**
  * หาออเดอร์จาก unsubscribe token
  *
  * ไม่เช็คว่าจ่ายเงินแล้วหรือยัง ไม่เช็ควันหมดอายุ — คนละเรื่องกับ resolve()
@@ -150,7 +171,7 @@ async function getOrCreateReaderToken(order) {
 
 module.exports = {
   TTL_HOURS, MAX_DOWNLOADS_PER_ITEM,
-  newToken, issue, renew, resolve, resolveUnsubscribe,
+  newToken, issue, renew, resolve, resolveByReaderToken, resolveUnsubscribe,
   itemsFor, isReleased, downloadCount, expiryFromNow,
   issueReaderToken, getOrCreateReaderToken
 };

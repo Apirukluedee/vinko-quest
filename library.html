@@ -109,6 +109,23 @@
   color: #999;
   cursor: default;
 }
+.btn-download {
+  flex: 1;
+  padding: 10px;
+  background: #fff;
+  color: #071B5D;
+  border: 1.5px solid #071B5D;
+  border-radius: 10px;
+  font-family: 'Mitr', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  display: block;
+  transition: background .2s;
+}
+.btn-download:hover { background: #eef1fa; }
 .pending-label {
   font-family: 'Anuphan', sans-serif;
   font-size: 11px;
@@ -234,6 +251,9 @@
       const readerUrl = book.available && book.reader_token
         ? BASE_URL + '/read?story=' + book.num + '&token=' + encodeURIComponent(book.reader_token) + '&openExternalBrowser=1'
         : null;
+      const downloadUrl = book.available && book.reader_token && book.item_id
+        ? BASE_URL + '/api/download?rtoken=' + encodeURIComponent(book.reader_token) + '&item=' + encodeURIComponent(book.item_id)
+        : null;
 
       const card = document.createElement('div');
       card.className = 'book-card';
@@ -248,6 +268,7 @@
         <div class="book-card-actions">
           ${readerUrl
             ? `<a href="${esc(readerUrl)}" class="btn-reader">🎧 ฟังเสียงอ่าน · อ่านนิทาน</a>`
+            + (downloadUrl ? `<a href="${esc(downloadUrl)}" class="btn-download">📄 ดาวน์โหลด PDF</a>` : '')
             : `<div>
                 <span class="btn-reader pending">⏳ รอส่งมอบ</span>
                 ${book.delivery_date ? `<span class="pending-label">กำหนดส่ง ${book.delivery_date}</span>` : ''}
