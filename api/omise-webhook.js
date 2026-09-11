@@ -20,7 +20,7 @@ const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
 const line   = require('./_lib/line');
-const { deliver } = require('./deliver-order');
+const { deliver } = require('./_lib/deliver-order');
 const { json, requireEnv } = require('./_lib/util');
 
 module.exports = async function handler(req, res) {

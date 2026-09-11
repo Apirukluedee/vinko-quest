@@ -16,9 +16,10 @@
 
 'use strict';
 
-const config = require('./_lib/config');
-const db     = require('./_lib/supabase');
-const { safeEqual } = require('./_lib/util');
+const config  = require('./_lib/config');
+const catalog = require('./_lib/catalog');
+const db      = require('./_lib/supabase');
+const { json, safeEqual } = require('./_lib/util');
 const { handleUnsubscribe } = require('./_lib/unsubscribe');
 
 /** ตอบเหมือนไม่มีไฟล์นี้อยู่จริง ใช้ทั้งกรณีไม่ได้ตั้ง token และกรณี token ผิด */
@@ -33,8 +34,31 @@ module.exports = async function handler(req, res) {
   // Serverless Functions ต่อ deployment เลยรวมสองเส้นทางไว้ในไฟล์เดียว
   // เช็คก่อนเรื่อง health token ใดๆ ทั้งหมด เพราะเป็นคนละระบบ คนละสิทธิ์กันโดยสิ้นเชิง
   const url = new URL(req.url, 'https://placeholder.local');
-  if (url.searchParams.get('_route') === 'unsubscribe') {
+  const route = url.searchParams.get('_route');
+
+  if (route === 'unsubscribe') {
     return handleUnsubscribe(req, res);
+  }
+
+  // /api/public-config rewrite มาที่นี่ (ลด function count)
+  if (route === 'public-config') {
+    if (req.method !== 'GET') return json(res, 405, { ok: false });
+    const key = config.omisePublicKey();
+    if (key && !/^pkey_/.test(key)) {
+      console.error('[vinko] OMISE_PUBLIC_KEY ไม่ได้ขึ้นต้นด้วย pkey_');
+      return json(res, 500, { ok: false, error: 'ระบบชำระเงินตั้งค่าไม่ถูกต้อง' });
+    }
+    res.setHeader('Cache-Control', 'public, max-age=300, must-revalidate');
+    return json(res, 200, {
+      ok: true,
+      omise_public_key:    key,
+      launch_price_active: catalog.isLaunchPriceActive(),
+      prices_satang: {
+        LAB:     catalog.priceSatang('LAB'),
+        STORIES: catalog.priceSatang('STORIES'),
+        BUNDLE:  catalog.priceSatang('BUNDLE')
+      }
+    });
   }
 
   if (req.method !== 'GET' && req.method !== 'HEAD') return notFound(res);

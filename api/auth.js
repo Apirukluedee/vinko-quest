@@ -1,0 +1,328 @@
+/* ============================================================
+   GET|POST /api/auth   ?action=<send-magic-link|verify-magic|line-start|line-callback|logout>
+   GET       /api/auth   ?action=my-library
+
+   รวม 6 endpoints ไว้ที่ไฟล์เดียว ลด serverless function count
+   (Vercel Hobby จำกัด 12 ตัว)  vercel.json มี rewrite ส่งทุก
+   /api/auth/:action → /api/auth?action=:action  และ
+   /api/my-library → /api/auth?action=my-library
+   ============================================================ */
+'use strict';
+
+const crypto   = require('crypto');
+const sessions = require('./_lib/sessions');
+const config   = require('./_lib/config');
+const db       = require('./_lib/supabase');
+const { json } = require('./_lib/util');
+
+function base() { return config.appBaseUrl() || 'https://vinko.quest'; }
+
+function getCookieValue(req, name) {
+  const c = req.headers.cookie || '';
+  const m = c.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+/* ── send-magic-link ─────────────────────────────────────── */
+
+const FROM   = 'VINKO <hello@mail.vinko.quest>';
+const NAVY   = '#071B5D';
+const ORANGE = '#F59A23';
+
+function buildMagicEmail(magicUrl) {
+  return '<!doctype html><html lang="th"><head><meta charset="utf-8"/>' +
+  '<meta name="viewport" content="width=device-width,initial-scale=1"/></head>' +
+  '<body style="margin:0;padding:0;background:#F4F6FB;">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F4F6FB;padding:24px 12px;">' +
+  '<tr><td align="center">' +
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"' +
+  ' style="max-width:560px;background:#fff;border-radius:16px;overflow:hidden;font-family:\'Segoe UI\',Tahoma,Arial,sans-serif;">' +
+  '<tr><td style="background:' + NAVY + ';padding:20px 26px;">' +
+  '<div style="color:#fff;font-size:17px;font-weight:bold;">VINKO · WOW LAB</div>' +
+  '<div style="color:#B9C4E8;font-size:12px;margin-top:2px;">Little Kitchen. Big Discoveries.</div>' +
+  '</td></tr>' +
+  '<tr><td style="padding:26px;color:#2A3040;font-size:15px;line-height:1.75;">' +
+  '<p style="margin:0 0 16px">สวัสดีครับ 👋</p>' +
+  '<p style="margin:0 0 24px">กดปุ่มด้านล่างเพื่อเข้าสู่ระบบและดูหนังสือที่ซื้อไว้ได้เลย ลิงก์นี้ใช้ได้ <strong>15 นาที</strong> เท่านั้น</p>' +
+  '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">' +
+  '<tr><td align="center" bgcolor="' + ORANGE + '" style="border-radius:999px;">' +
+  '<a href="' + magicUrl + '" style="display:inline-block;padding:15px 36px;color:#fff;font-size:17px;font-weight:bold;text-decoration:none;border-radius:999px;">' +
+  '📚 เข้าดูหนังสือของฉัน</a>' +
+  '</td></tr></table>' +
+  '<p style="margin:24px 0 0;font-size:13px;color:#6B7285;">ถ้ากดปุ่มไม่ได้ ให้คัดลอก URL นี้ไปวางในเบราว์เซอร์:<br/>' +
+  '<a href="' + magicUrl + '" style="color:' + NAVY + ';word-break:break-all;">' + magicUrl + '</a></p>' +
+  '<p style="margin:16px 0 0;font-size:13px;color:#6B7285;">ถ้าคุณไม่ได้ขอ link นี้ ไม่ต้องทำอะไร ระบบจะยกเลิกอัตโนมัติ</p>' +
+  '</td></tr>' +
+  '<tr><td style="background:#F7F4EF;padding:18px 26px;color:#6B7285;font-size:12px;line-height:1.7;">' +
+  'VINKO WOW LAB<br/>' +
+  'LINE: <a href="https://lin.ee/8F08BYJ" style="color:' + NAVY + ';">lin.ee/8F08BYJ</a>' +
+  '</td></tr></table></td></tr></table></body></html>';
+}
+
+async function handleSendMagicLink(req, res) {
+  if (req.method !== 'POST') return json(res, 405, { ok: false });
+
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+  if (!body || typeof body !== 'object') body = {};
+
+  const email = (body.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return json(res, 400, { ok: false, error: 'email_invalid' });
+  }
+
+  const resendKey = config.resendApiKey();
+  if (!resendKey) return json(res, 503, { ok: false, error: 'email_not_configured' });
+
+  let magic_token;
+  try {
+    ({ magic_token } = await sessions.createMagicSession(email));
+  } catch (e) {
+    console.error('[auth] createMagicSession failed:', e.message);
+    return json(res, 500, { ok: false, error: 'internal' });
+  }
+
+  const magicUrl = base() + '/api/auth/verify-magic?token=' + encodeURIComponent(magic_token) + '&openExternalBrowser=1';
+  const html     = buildMagicEmail(magicUrl);
+
+  const sendRes = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + resendKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from: FROM, to: email,
+      subject: '📚 เข้าดูหนังสือ VINKO ของคุณ',
+      html,
+      text: 'เข้าดูหนังสือที่ซื้อไว้ได้ที่ลิงก์นี้ (ใช้ได้ 15 นาที):\n' + magicUrl
+    })
+  });
+
+  if (!sendRes.ok) {
+    const err = await sendRes.text().catch(function() { return ''; });
+    console.error('[auth] resend failed', sendRes.status, err.slice(0, 200));
+    return json(res, 500, { ok: false, error: 'send_failed' });
+  }
+
+  return json(res, 200, { ok: true });
+}
+
+/* ── verify-magic ────────────────────────────────────────── */
+
+async function handleVerifyMagic(req, res) {
+  if (req.method !== 'GET') { res.status(405).end(); return; }
+
+  const token = (req.query && req.query.token) ||
+    new URL(req.url, 'https://x').searchParams.get('token') || '';
+
+  if (!token) return res.redirect(302, base() + '/login?error=invalid_link');
+
+  let result;
+  try {
+    result = await sessions.activateMagicSession(token);
+  } catch (e) {
+    console.error('[auth] activateMagicSession error:', e.message);
+    return res.redirect(302, base() + '/login?error=internal');
+  }
+
+  if (!result) return res.redirect(302, base() + '/login?error=expired_link');
+
+  res.setHeader('Set-Cookie', sessions.cookieHeader(result.session_token));
+  return res.redirect(302, base() + '/library');
+}
+
+/* ── line-start ──────────────────────────────────────────── */
+
+function handleLineStart(req, res) {
+  if (req.method !== 'GET') { res.status(405).end(); return; }
+
+  const channelId = config.lineLoginChannelId();
+  if (!channelId) return res.redirect(302, base() + '/login?error=line_not_configured');
+
+  const state       = crypto.randomBytes(16).toString('hex');
+  const callbackUrl = base() + '/api/auth/line-callback';
+
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id:     channelId,
+    redirect_uri:  callbackUrl,
+    state:         state,
+    scope:         'profile openid email',
+    bot_prompt:    'normal'
+  });
+
+  res.setHeader('Set-Cookie',
+    'vnk_line_state=' + state + '; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600'
+  );
+  return res.redirect(302, 'https://access.line.me/oauth2/v2.1/authorize?' + params.toString());
+}
+
+/* ── line-callback ───────────────────────────────────────── */
+
+async function handleLineCallback(req, res) {
+  if (req.method !== 'GET') { res.status(405).end(); return; }
+
+  const channelId = config.lineLoginChannelId();
+  const secret    = config.lineLoginChannelSecret();
+
+  if (!channelId || !secret) {
+    return res.redirect(302, base() + '/login?error=line_not_configured');
+  }
+
+  const q          = req.query || Object.fromEntries(new URL(req.url, 'https://x').searchParams);
+  const code       = q.code  || '';
+  const stateBack  = q.state || '';
+  const stateSaved = getCookieValue(req, 'vnk_line_state');
+
+  res.setHeader('Set-Cookie', 'vnk_line_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+
+  if (!code || !stateBack || stateBack !== stateSaved) {
+    return res.redirect(302, base() + '/login?error=line_state_mismatch');
+  }
+
+  const callbackUrl = base() + '/api/auth/line-callback';
+  let lineToken;
+  try {
+    const r = await fetch('https://api.line.me/oauth2/v2.1/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type:    'authorization_code',
+        code,
+        redirect_uri:  callbackUrl,
+        client_id:     channelId,
+        client_secret: secret
+      }).toString()
+    });
+    if (!r.ok) throw new Error('token_exchange_' + r.status);
+    lineToken = await r.json();
+  } catch (e) {
+    console.error('[line-cb] token exchange failed:', e.message);
+    return res.redirect(302, base() + '/login?error=line_token_failed');
+  }
+
+  let lineUserId, email;
+  try {
+    const profileRes = await fetch('https://api.line.me/v2/profile', {
+      headers: { 'Authorization': 'Bearer ' + lineToken.access_token }
+    });
+    if (!profileRes.ok) throw new Error('profile_' + profileRes.status);
+    const profile = await profileRes.json();
+    lineUserId = profile.userId;
+
+    if (lineToken.id_token) {
+      const parts   = lineToken.id_token.split('.');
+      const payload = parts[1] ? JSON.parse(Buffer.from(parts[1], 'base64').toString()) : {};
+      email = payload.email || '';
+    }
+  } catch (e) {
+    console.error('[line-cb] profile failed:', e.message);
+    return res.redirect(302, base() + '/login?error=line_profile_failed');
+  }
+
+  if (!email) {
+    return res.redirect(302,
+      base() + '/login?line_uid=' + encodeURIComponent(lineUserId) + '&need_email=1'
+    );
+  }
+
+  let session_token;
+  try {
+    ({ session_token } = await sessions.createLineSession(email.toLowerCase(), lineUserId));
+  } catch (e) {
+    console.error('[line-cb] createLineSession failed:', e.message);
+    return res.redirect(302, base() + '/login?error=internal');
+  }
+
+  res.setHeader('Set-Cookie', sessions.cookieHeader(session_token));
+  return res.redirect(302, base() + '/library');
+}
+
+/* ── logout ──────────────────────────────────────────────── */
+
+function handleLogout(req, res) {
+  res.setHeader('Set-Cookie', sessions.cookieHeader(null, true));
+  return res.redirect(302, base() + '/login?logged_out=1');
+}
+
+/* ── my-library ──────────────────────────────────────────── */
+
+const STORY_META = {
+  'STORY-01': { num: 1, title: 'แรงโน้มถ่วงขอลาหยุด',      topic: 'ฟิสิกส์',       color: '#4e9af1' },
+  'STORY-02': { num: 2, title: 'น้ำไม่เคยหายไปไหน',         topic: 'วัฏจักรน้ำ',    color: '#41b89c' },
+  'STORY-03': { num: 3, title: 'ทำไมฟ้าถึงสีฟ้า',            topic: 'แสงและสี',      color: '#f5a623' },
+  'STORY-04': { num: 4, title: 'เสียงเดินทางได้อย่างไร',     topic: 'เสียงและคลื่น', color: '#9b59b6' },
+  'STORY-05': { num: 5, title: 'ดาวฤกษ์เกิดขึ้นได้อย่างไร', topic: 'ดาราศาสตร์',   color: '#e74c3c' }
+};
+
+function thaiDate(iso) {
+  if (!iso) return '';
+  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00+07:00');
+  if (isNaN(d.getTime())) return '';
+  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+}
+
+async function handleMyLibrary(req, res) {
+  if (req.method !== 'GET') return json(res, 405, { ok: false });
+
+  const sessionToken = sessions.getSessionToken(req);
+  const user = sessionToken ? await sessions.validateSession(sessionToken) : null;
+  if (!user) return json(res, 401, { ok: false, error: 'unauthorized' });
+
+  const ordersRes = await db.select('orders',
+    'customer_email=eq.' + encodeURIComponent(user.email) +
+    '&status=eq.paid&select=id,order_ref,package_code'
+  );
+  const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
+  if (!orders.length) return json(res, 200, { ok: true, email: user.email, books: [] });
+
+  const orderIds = orders.map(function(o) { return o.id; });
+  const itemsRes = await db.select('order_items',
+    'order_id=in.(' + orderIds.join(',') + ')' +
+    '&select=order_id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at'
+  );
+  const items = Array.isArray(itemsRes.body) ? itemsRes.body : [];
+
+  const tokenRes = await db.select('orders',
+    'customer_email=eq.' + encodeURIComponent(user.email) +
+    '&status=eq.paid&reader_token=not.is.null&select=reader_token&limit=1'
+  );
+  const readerToken = Array.isArray(tokenRes.body) && tokenRes.body[0]
+    ? tokenRes.body[0].reader_token : null;
+
+  const books = [];
+  for (const [code, meta] of Object.entries(STORY_META)) {
+    const item = items.find(function(i) { return i.product_code === code && !i.refunded_at; });
+    if (!item) continue;
+    books.push({
+      num:           meta.num,
+      title:         meta.title,
+      topic:         meta.topic,
+      color:         meta.color,
+      available:     item.delivery_type === 'instant',
+      delivery_date: item.delivery_type === 'preorder'
+        ? thaiDate(item.scheduled_delivery_date)
+        : null,
+      reader_token:  item.delivery_type === 'instant' ? readerToken : null
+    });
+  }
+  books.sort(function(a, b) { return a.num - b.num; });
+
+  return json(res, 200, { ok: true, email: user.email, books });
+}
+
+/* ── dispatcher ──────────────────────────────────────────── */
+
+module.exports = async function handler(req, res) {
+  const action = (req.query && req.query.action) || '';
+  switch (action) {
+    case 'send-magic-link': return handleSendMagicLink(req, res);
+    case 'verify-magic':    return handleVerifyMagic(req, res);
+    case 'line-start':      return handleLineStart(req, res);
+    case 'line-callback':   return handleLineCallback(req, res);
+    case 'logout':          return handleLogout(req, res);
+    case 'my-library':      return handleMyLibrary(req, res);
+    default:
+      return json(res, 404, { ok: false, error: 'not_found' });
+  }
+};

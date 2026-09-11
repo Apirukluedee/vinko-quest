@@ -8,6 +8,18 @@
       "destination": "/api/health?_route=unsubscribe"
     },
     {
+      "source": "/api/public-config",
+      "destination": "/api/health?_route=public-config"
+    },
+    {
+      "source": "/api/my-library",
+      "destination": "/api/auth?action=my-library"
+    },
+    {
+      "source": "/api/auth/:action",
+      "destination": "/api/auth?action=:action"
+    },
+    {
       "source": "/r/:token",
       "destination": "/api/redirect?token=:token"
     }
@@ -98,10 +110,7 @@
     "api/download.js": {
       "maxDuration": 60
     },
-    "api/auth/*.js": {
-      "maxDuration": 10
-    },
-    "api/my-library.js": {
+    "api/auth.js": {
       "maxDuration": 10
     }
   }

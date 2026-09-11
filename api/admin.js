@@ -19,7 +19,7 @@
    ============================================================ */
 'use strict';
 
-const { deliver } = require('./deliver-order');
+const { deliver } = require('./_lib/deliver-order');
 const line = require('./_lib/line');
 const refunds = require('./_lib/refunds');
 const { json, safeEqual } = require('./_lib/util');
