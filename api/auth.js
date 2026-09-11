@@ -321,7 +321,7 @@ async function handleMyLibrary(req, res) {
 
   const ordersRes = await db.select('orders',
     'customer_email=eq.' + encodeURIComponent(user.email) +
-    '&status=eq.paid&select=id,order_ref,package_code'
+    '&status=eq.paid&select=id,order_ref,package_code,reader_token'
   );
   const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
   if (!orders.length) return json(res, 200, { ok: true, email: user.email, books: [] });
@@ -333,12 +333,11 @@ async function handleMyLibrary(req, res) {
   );
   const items = Array.isArray(itemsRes.body) ? itemsRes.body : [];
 
-  const tokenRes = await db.select('orders',
-    'customer_email=eq.' + encodeURIComponent(user.email) +
-    '&status=eq.paid&reader_token=not.is.null&select=reader_token&limit=1'
-  );
-  const readerToken = Array.isArray(tokenRes.body) && tokenRes.body[0]
-    ? tokenRes.body[0].reader_token : null;
+  // reader_token อยู่ในผลลัพธ์ orders ชุดแรกอยู่แล้ว ไม่ต้อง query ซ้ำ
+  // (จุดนี้เคย query orders ซ้ำอีกรอบเฉพาะเพื่อดึง reader_token — ทำให้หน้า
+  // My Library ช้าโดยไม่จำเป็น เสีย round-trip ไป Supabase ฟรีๆ 1 ครั้ง)
+  const orderWithToken = orders.find(function(o) { return o.reader_token; });
+  const readerToken = orderWithToken ? orderWithToken.reader_token : null;
 
   const books = [];
   for (const [code, meta] of Object.entries(STORY_META)) {

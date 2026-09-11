@@ -39,6 +39,20 @@
     flex-shrink: 0;
     border-bottom: 1px solid #ffffff18;
   }
+  #btn-home {
+    color: var(--text);
+    font-size: 20px;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #ffffff18;
+    flex-shrink: 0;
+  }
+  #btn-home:hover { background: #ffffff28; }
   #topbar .logo {
     font-size: 18px;
     font-weight: 700;
@@ -229,16 +243,23 @@
   #btn-play-pause:hover { background: #c73350; }
   #btn-play-pause:disabled { background: #555; }
 
+  /* auto-label ลอยด้วย absolute ใต้ปุ่ม ไม่กินพื้นที่ใน flex ของแถบล่าง
+     เดิมใช้ flex-direction:column ทำให้กล่องนี้สูงกว่าปุ่มอื่น พอ #bottombar
+     สั่ง align-items:center ปุ่มวงกลมข้างในเลยถูกดันขึ้นสูงกว่าปุ่มข้างๆ ที่ไม่มี label */
+  .auto-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
   .auto-label {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
     font-size: 11px;
     color: var(--muted);
-    text-align: center;
+    white-space: nowrap;
     margin-top: 2px;
-  }
-  .auto-wrap {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
   }
   #btn-auto.on { color: var(--gold); }
 
@@ -342,6 +363,7 @@
 
 <!-- Top bar -->
 <div id="topbar">
+  <a id="btn-home" href="/library?openExternalBrowser=1" title="กลับไปชั้นหนังสือของฉัน">&#8249;</a>
   <span class="logo">VINKO</span>
   <span id="story-title" class="story-title">WOW LAB</span>
   <button id="btn-bgm" onclick="toggleBgm()" title="เพลงประกอบ">♪ เพลง</button>
