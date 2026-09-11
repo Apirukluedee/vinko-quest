@@ -207,6 +207,20 @@ function purchaseEmail(o) {
 
 function storyEmail(o) {
   const url = downloadUrl(o.token);
+  const libraryUrl = baseUrl() + '/library?openExternalBrowser=1';
+  const libraryBox =
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="background:' + BRAND_NAVY + ';border-radius:12px;margin:20px 0;">' +
+    '<tr><td style="padding:18px 20px;">' +
+    '<p style="margin:0 0 4px;color:' + BRAND_ORANGE + ';font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">VINKO Reader Book</p>' +
+    '<p style="margin:0 0 6px;color:#ffffff;font-size:16px;font-weight:bold;line-height:1.4;">🎧 ฟังเสียงอ่านได้เลย ไม่ต้องหาอีเมล</p>' +
+    '<p style="margin:0 0 14px;color:#B9C4E8;font-size:13.5px;line-height:1.6;">เข้า My Library ด้วย LINE หรืออีเมล เห็นหนังสือทุกเล่มที่ซื้อไว้ และกดฟังเสียงได้ทันที</p>' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0">' +
+    '<tr><td align="center" bgcolor="' + BRAND_ORANGE + '" style="border-radius:999px;">' +
+    '<a href="' + esc(libraryUrl) + '" style="display:inline-block;padding:11px 26px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;border-radius:999px;">📚 เข้า My Library</a>' +
+    '</td></tr></table>' +
+    '</td></tr></table>';
+
   const inner =
     '<p style="margin:0 0 12px;font-size:19px;font-weight:bold;color:' + BRAND_NAVY + ';">นิทานเรื่องใหม่มาแล้ว 📖</p>' +
     '<p style="margin:0 0 6px;"><b>' + esc(o.itemTitle) + '</b> พร้อมให้ดาวน์โหลดแล้วครับ</p>' +
@@ -214,6 +228,7 @@ function storyEmail(o) {
     bigButton(url, 'ดาวน์โหลดนิทานเรื่องนี้') +
     noticeBox('<b>ลิงก์ใช้ได้ถึง ' + esc(thaiDateTime(o.expiresAt)) + '</b><br/>' +
               'ลิงก์เดิมนี้เปิดได้ทุกไฟล์ที่คุณซื้อไว้ ไม่ใช่เฉพาะเรื่องใหม่') +
+    libraryBox +
     (o.remaining && o.remaining.length
       ? '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">เรื่องที่เหลือ</p>' + timelineTable(o.remaining)
       : '<p style="margin:18px 0 0;color:#6B7285;font-size:13.5px;">นี่คือนิทานเรื่องสุดท้ายในชุดแล้ว ขอบคุณที่รอจนครบนะครับ 🙏</p>');
@@ -223,6 +238,8 @@ function storyEmail(o) {
     'เลขที่คำสั่งซื้อ: ' + o.orderRef + '\n\n' +
     'ดาวน์โหลด: ' + url + '\n\n' +
     'ลิงก์ใช้ได้ถึง ' + thaiDateTime(o.expiresAt) + '\n\n' +
+    '🎧 ฟังเสียงอ่านได้เลยที่ My Library (ไม่ต้องหาอีเมล)\n' +
+    baseUrl() + '/library\n\n' +
     seller().name + '\n' + seller().line + '\n';
 
   return { subject: esc(o.itemTitle) + ' พร้อมดาวน์โหลดแล้ว · ' + o.orderRef, html: shell(inner), text: text };
