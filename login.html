@@ -197,10 +197,20 @@
   const params = new URLSearchParams(location.search);
   const err    = params.get('error');
   const loggedOut = params.get('logged_out');
-  let needEmail = params.get('need_email') === '1';
-  let lineUid   = params.get('line_uid');
   const lineCode  = params.get('code');
   const lineState = params.get('state');
+
+  /* need_email มาจาก JSON response ของ line-callback (ไม่ได้ redirect
+     พร้อม query string เหมือนเดิมแล้ว) จึงเก็บ line_uid ไว้ใน
+     sessionStorage แทนตัวแปรในหน่วยความจำล้วนๆ — มือถือหลายรุ่น reload
+     แท็บ Safari ที่ถูก background ไว้ พอกลับมาตัวแปร JS หายหมด ทำให้
+     ส่ง magic-link ไปโดยไม่มี line_uid ติดไปด้วย (เจอจริงจากข้อมูลใน DB —
+     แถวที่ส่งมาล่าสุดก็ line_user_id เป็น null) sessionStorage รอดจาก
+     reload หน้าเดิมได้ ตัวแปรในหน่วยความจำไม่รอด */
+  let storedLineUid = null;
+  try { storedLineUid = sessionStorage.getItem('vnk_need_email_line_uid'); } catch (e) {}
+  let lineUid   = params.get('line_uid') || storedLineUid;
+  let needEmail = params.get('need_email') === '1' || !!lineUid;
 
   const msgBox = document.getElementById('msg-box');
 
@@ -252,6 +262,7 @@
         if (data.error === 'need_email') {
           needEmail = true;
           lineUid   = data.line_uid;
+          try { sessionStorage.setItem('vnk_need_email_line_uid', lineUid || ''); } catch (e) {}
           showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
         } else {
           showMsg(ERROR_MSGS[data.error] || 'เกิดข้อผิดพลาด: ' + data.error, 'error');
@@ -304,6 +315,7 @@
       });
       const data = await r.json();
       if (data.ok) {
+        try { sessionStorage.removeItem('vnk_need_email_line_uid'); } catch (e) {}
         showMsg('ส่งลิงก์ไปที่ ' + email + ' แล้ว กรุณาตรวจกล่องจดหมาย (รวม Junk/Spam)', 'success');
         btn.textContent = 'ส่งแล้ว ✓';
       } else {
