@@ -150,12 +150,12 @@
     </div>
 
     <!-- LINE Login -->
-    <a href="/api/auth/line-start" class="btn-line-login" id="btn-line">
+    <button type="button" class="btn-line-login" id="btn-line" onclick="beginLineLogin()">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
         <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63h2.386c.349 0 .63.285.63.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.627-.63.349 0 .631.285.631.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.281.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/>
       </svg>
       เข้าสู่ระบบด้วย LINE
-    </a>
+    </button>
 
     <div class="divider">หรือ</div>
 
@@ -179,24 +179,83 @@
   const params = new URLSearchParams(location.search);
   const err    = params.get('error');
   const loggedOut = params.get('logged_out');
-  const needEmail = params.get('need_email');
-  const lineUid   = params.get('line_uid');
+  let needEmail = params.get('need_email') === '1';
+  let lineUid   = params.get('line_uid');
+  const lineCode  = params.get('code');
+  const lineState = params.get('state');
 
   const msgBox = document.getElementById('msg-box');
+
+  const ERROR_MSGS = {
+    expired_link:        'ลิงก์หมดอายุแล้ว กรุณาขอลิงก์ใหม่',
+    invalid_link:        'ลิงก์ไม่ถูกต้อง',
+    line_not_configured: 'LINE Login ยังไม่พร้อมใช้งาน กรุณาใช้อีเมลแทน',
+    line_state_mismatch: 'เกิดข้อผิดพลาด กรุณาลองใหม่',
+    line_token_failed:   'เชื่อมต่อ LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+    line_profile_failed: 'เชื่อมต่อ LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+    internal:            'เกิดข้อผิดพลาดภายใน กรุณาลองใหม่'
+  };
 
   if (loggedOut) showMsg('ออกจากระบบแล้ว', 'success');
   if (needEmail) {
     showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
   }
-  if (err) {
-    const msgs = {
-      expired_link:      'ลิงก์หมดอายุแล้ว กรุณาขอลิงก์ใหม่',
-      invalid_link:      'ลิงก์ไม่ถูกต้อง',
-      line_not_configured: 'LINE Login ยังไม่พร้อมใช้งาน กรุณาใช้อีเมลแทน',
-      line_state_mismatch: 'เกิดข้อผิดพลาด กรุณาลองใหม่',
-      internal:          'เกิดข้อผิดพลาดภายใน กรุณาลองใหม่'
-    };
-    showMsg(msgs[err] || 'เกิดข้อผิดพลาด: ' + err, 'error');
+  if (err) showMsg(ERROR_MSGS[err] || 'เกิดข้อผิดพลาด: ' + err, 'error');
+
+  /* ── LINE Login: client สร้าง+เก็บ state เอง (sessionStorage) แทน
+     cookie ฝั่ง server — ป้องกันปัญหา state หายเมื่อเปิดจากเบราว์เซอร์
+     ในแอป (LINE/Gmail in-app browser) ซึ่งเป็นสาเหตุจริงของ
+     line_state_mismatch ที่ลูกค้าเจอ ดูรูปแบบเดียวกันใน
+     skyhousepet.com (assets/js/rewards-api.js) */
+  window.beginLineLogin = function () {
+    const btn = document.getElementById('btn-line');
+    btn.disabled = true;
+    fetch('/api/auth/line-start')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data.ok) { showMsg(ERROR_MSGS[data.error] || 'เกิดข้อผิดพลาด', 'error'); btn.disabled = false; return; }
+        try { sessionStorage.setItem('vnk_line_state', data.state); } catch (e) {}
+        location.href = data.authorizeUrl;
+      })
+      .catch(function () { showMsg('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error'); btn.disabled = false; });
+  };
+
+  function completeLineLogin(code) {
+    const btn = document.getElementById('btn-line');
+    if (btn) btn.disabled = true;
+    fetch('/api/auth/line-callback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code, redirect_uri: location.origin + location.pathname })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.ok) { location.href = '/library'; return; }
+        if (data.error === 'need_email') {
+          needEmail = true;
+          lineUid   = data.line_uid;
+          showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
+        } else {
+          showMsg(ERROR_MSGS[data.error] || 'เกิดข้อผิดพลาด: ' + data.error, 'error');
+        }
+        if (btn) btn.disabled = false;
+      })
+      .catch(function () {
+        showMsg('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error');
+        if (btn) btn.disabled = false;
+      });
+  }
+
+  if (lineCode) {
+    let savedState = null;
+    try { savedState = sessionStorage.getItem('vnk_line_state'); } catch (e) {}
+    try { sessionStorage.removeItem('vnk_line_state'); } catch (e) {}
+    history.replaceState({}, '', location.pathname);
+    if (!savedState || savedState !== lineState) {
+      showMsg(ERROR_MSGS.line_state_mismatch, 'error');
+    } else {
+      completeLineLogin(lineCode);
+    }
   }
 
   window.sendMagicLink = async function () {

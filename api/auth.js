@@ -17,12 +17,6 @@ const { json } = require('./_lib/util');
 
 function base() { return config.appBaseUrl() || 'https://vinko.quest'; }
 
-function getCookieValue(req, name) {
-  const c = req.headers.cookie || '';
-  const m = c.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'));
-  return m ? decodeURIComponent(m[1]) : null;
-}
-
 /* ── send-magic-link ─────────────────────────────────────── */
 
 const FROM   = 'VINKO <hello@mail.vinko.quest>';
@@ -129,56 +123,68 @@ async function handleVerifyMagic(req, res) {
   return res.redirect(302, base() + '/library');
 }
 
-/* ── line-start ──────────────────────────────────────────── */
+/* ── line-start ──────────────────────────────────────────────────────
+   คืน JSON (ไม่ redirect ตรง ๆ แล้ว) — ฝั่ง client เป็นคนสร้าง state,
+   เก็บไว้ใน sessionStorage เอง แล้วค่อย navigate ไป LINE เอง จุดเดียวกับ
+   ที่เขียน sessionStorage และที่ navigate ต้องเป็น "คลิกเดียวกัน" ฝั่ง
+   หน้าเว็บ ไม่งั้นจะพึ่ง cookie แบบเดิมซึ่งพังในเบราว์เซอร์ในแอป (LINE/Gmail
+   in-app browser คนละ cookie jar กับตอนเด้งกลับมา ทำให้ state ไม่ตรงกัน
+   เป็น error ที่ลูกค้าเจอจริง — ดูโน้ตใน login.html) */
 
 function handleLineStart(req, res) {
   if (req.method !== 'GET') { res.status(405).end(); return; }
 
   const channelId = config.lineLoginChannelId();
-  if (!channelId) return res.redirect(302, base() + '/login?error=line_not_configured');
+  if (!channelId) return json(res, 200, { ok: false, error: 'line_not_configured' });
 
-  const state       = crypto.randomBytes(16).toString('hex');
-  const callbackUrl = base() + '/api/auth/line-callback';
+  const state      = crypto.randomBytes(16).toString('hex');
+  const redirectUri = base() + '/login';
 
   const params = new URLSearchParams({
     response_type: 'code',
     client_id:     channelId,
-    redirect_uri:  callbackUrl,
+    redirect_uri:  redirectUri,
     state:         state,
     scope:         'profile openid email',
     bot_prompt:    'normal'
   });
 
-  res.setHeader('Set-Cookie',
-    'vnk_line_state=' + state + '; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=600'
-  );
-  return res.redirect(302, 'https://access.line.me/oauth2/v2.1/authorize?' + params.toString());
+  return json(res, 200, {
+    ok: true,
+    state: state,
+    authorizeUrl: 'https://access.line.me/oauth2/v2.1/authorize?' + params.toString()
+  });
 }
 
-/* ── line-callback ───────────────────────────────────────── */
+/* ── line-callback ──────────────────────────────────────────────────
+   POST จาก JS ของ login.html เท่านั้น (ไม่ใช่ LINE redirect ตรงมาแล้ว —
+   redirect_uri ที่จดใน LINE Developers console คือ /login ธรรมดา)
+   client เช็ค state ตรงกับ sessionStorage เองก่อนแล้วค่อยเรียกมาที่นี่
+   ดังนั้นที่นี่ไม่ต้องเช็ค state ซ้ำ (ไม่มี cookie ให้เช็คอยู่แล้ว) —
+   ตัว code เองเป็น single-use/short-lived จาก LINE และ redirect_uri ต้อง
+   ตรงกับตอนขอ authorize พอดี นั่นคือชั้นป้องกันความถูกต้องของคำขอนี้ */
 
 async function handleLineCallback(req, res) {
-  if (req.method !== 'GET') { res.status(405).end(); return; }
+  if (req.method !== 'POST') { res.status(405).end(); return; }
 
   const channelId = config.lineLoginChannelId();
   const secret    = config.lineLoginChannelSecret();
 
   if (!channelId || !secret) {
-    return res.redirect(302, base() + '/login?error=line_not_configured');
+    return json(res, 200, { ok: false, error: 'line_not_configured' });
   }
 
-  const q          = req.query || Object.fromEntries(new URL(req.url, 'https://x').searchParams);
-  const code       = q.code  || '';
-  const stateBack  = q.state || '';
-  const stateSaved = getCookieValue(req, 'vnk_line_state');
+  let body = req.body;
+  if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
+  if (!body || typeof body !== 'object') body = {};
 
-  res.setHeader('Set-Cookie', 'vnk_line_state=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
+  const code        = (body.code || '').trim();
+  const redirectUri = (body.redirect_uri || '').trim();
 
-  if (!code || !stateBack || stateBack !== stateSaved) {
-    return res.redirect(302, base() + '/login?error=line_state_mismatch');
+  if (!code || !redirectUri) {
+    return json(res, 200, { ok: false, error: 'invalid_link' });
   }
 
-  const callbackUrl = base() + '/api/auth/line-callback';
   let lineToken;
   try {
     const r = await fetch('https://api.line.me/oauth2/v2.1/token', {
@@ -187,7 +193,7 @@ async function handleLineCallback(req, res) {
       body: new URLSearchParams({
         grant_type:    'authorization_code',
         code,
-        redirect_uri:  callbackUrl,
+        redirect_uri:  redirectUri,
         client_id:     channelId,
         client_secret: secret
       }).toString()
@@ -196,7 +202,7 @@ async function handleLineCallback(req, res) {
     lineToken = await r.json();
   } catch (e) {
     console.error('[line-cb] token exchange failed:', e.message);
-    return res.redirect(302, base() + '/login?error=line_token_failed');
+    return json(res, 200, { ok: false, error: 'line_token_failed' });
   }
 
   let lineUserId, email;
@@ -215,13 +221,11 @@ async function handleLineCallback(req, res) {
     }
   } catch (e) {
     console.error('[line-cb] profile failed:', e.message);
-    return res.redirect(302, base() + '/login?error=line_profile_failed');
+    return json(res, 200, { ok: false, error: 'line_profile_failed' });
   }
 
   if (!email) {
-    return res.redirect(302,
-      base() + '/login?line_uid=' + encodeURIComponent(lineUserId) + '&need_email=1'
-    );
+    return json(res, 200, { ok: false, error: 'need_email', line_uid: lineUserId });
   }
 
   let session_token;
@@ -229,11 +233,11 @@ async function handleLineCallback(req, res) {
     ({ session_token } = await sessions.createLineSession(email.toLowerCase(), lineUserId));
   } catch (e) {
     console.error('[line-cb] createLineSession failed:', e.message);
-    return res.redirect(302, base() + '/login?error=internal');
+    return json(res, 200, { ok: false, error: 'internal' });
   }
 
   res.setHeader('Set-Cookie', sessions.cookieHeader(session_token));
-  return res.redirect(302, base() + '/library');
+  return json(res, 200, { ok: true });
 }
 
 /* ── logout ──────────────────────────────────────────────── */
