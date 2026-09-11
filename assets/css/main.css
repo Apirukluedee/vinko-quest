@@ -2814,6 +2814,14 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
 .vk-consent-actions { display:flex; gap:10px; }
 .vk-consent .btn { padding:11px 20px; font-size:15px; }
 
+/* แถบขอความยินยอมแบบอยู่ในสายเลย์เอาต์ (ไม่ลอยทับเนื้อหา)
+   แถบลอยก้นจอบังปุ่ม "ชำระเงิน" บนมือถือ วัดได้ 38px กดไม่โดน
+   แบบนี้ดันเนื้อหาลงมาแทน จึงไม่ทับอะไรเลยในทุกตำแหน่ง scroll */
+.vk-consent.vk-consent-inflow {
+  position:static; left:auto; right:auto; bottom:auto;
+  margin:0 auto; border-radius:0 0 22px 22px; border-top:0;
+}
+
 /* ---- responsive ---- */
 @media (max-width:920px) {
   .vk-checkout-grid { grid-template-columns:1fr; }
@@ -2830,6 +2838,7 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
   .vk-tl-date { grid-column:2; }
   .vk-legal h2 { font-size:21px; }
   .vk-consent { left:10px; right:10px; bottom:10px; padding:16px; }
+  .vk-consent.vk-consent-inflow { left:auto; right:auto; bottom:auto; }
   .vk-consent-actions { width:100%; }
   .vk-consent .btn { flex:1; }
 }

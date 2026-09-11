@@ -212,6 +212,7 @@
   </div>
 </main>
 <script src="/assets/js/config.js"></script>
+<script src="/assets/js/site.js"></script>
 <script>
   const lineBtn = document.getElementById('line-btn');
   const step1   = document.getElementById('step1');
@@ -233,6 +234,11 @@
      ส่งต่อในกลุ่มก็เปิดในแอป LINE เหมือนกัน แต่คนกลุ่มนั้นยังไม่ใช่เพื่อน */
   const fromLine = new URLSearchParams(location.search).get('from') === 'line';
 
+  /* วัดสองปุ่มแยกกัน และห้ามเรียกตัวเลขนี้ว่า "เพื่อนใหม่ที่ยืนยันแล้ว"
+     การกดปุ่มคือความตั้งใจ ไม่ใช่หลักฐานว่าเพิ่มเพื่อนสำเร็จ
+     เราไม่มีทางรู้จากฝั่งเว็บ ต้องดูจาก LINE OA เท่านั้น */
+  const track = (n, p) => { const V = window.VINKO; if (V && V.track) V.track(n, p || {}); };
+
   if (fromLine) {
     step1.hidden = true;
     friendHead.hidden = false;
@@ -242,8 +248,17 @@
   }
 
   lineBtn.addEventListener('click', () => {
+    track('free_sample_line_click');
     setTimeout(() => revealDownload(true), 1200);
   });
+
+  const dlBtn = document.querySelector('#step2 .btn-dl');
+  if (dlBtn) {
+    dlBtn.addEventListener('click', () => {
+      // entry = มาจาก rich menu (เพื่อนเดิม) หรือเพิ่งกดปุ่ม LINE ในหน้านี้
+      track('free_sample_download', { entry: fromLine ? 'line_richmenu' : 'web' });
+    });
+  }
 </script>
 </body>
 </html>

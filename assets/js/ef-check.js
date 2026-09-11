@@ -301,6 +301,13 @@
     }
 
     renderResult(answers);
+
+    /* นับว่า "ทำจบ" เท่านั้น ห้ามส่งคำตอบ คะแนน หรือระดับผลใดๆ ออกไป
+       หน้านี้สัญญากับผู้ใช้ไว้ว่า "คำตอบทั้งหมดอยู่ในเครื่องของคุณเท่านั้น
+       ไม่ถูกส่งไปที่ไหน" — event นี้ต้องไม่ทำให้ประโยคนั้นกลายเป็นเท็จ */
+    var V = window.VINKO;
+    if (V && V.track) V.track("ef_check_complete");
+
     form.hidden = true;
     result.hidden = false;
     result.scrollIntoView({ behavior: "smooth", block: "start" });

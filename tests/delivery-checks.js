@@ -99,7 +99,12 @@ global.fetch = async function (url, opts) {
       hit.forEach(r => Object.assign(r, patch));
       return reply(200, hit);
     }
-    if (method === 'GET') return reply(200, DB[table].filter(r => match(r, filters(qs))));
+    if (method === 'GET') {
+      const selected = new URLSearchParams(qs).get('select');
+      const rows = DB[table].filter(r => match(r, filters(qs)));
+      return reply(200, !selected || selected === '*' ? rows : rows.map(row =>
+        Object.fromEntries(selected.split(',').filter(k => k in row).map(k => [k, row[k]]))));
+    }
     if (method === 'HEAD') {
       const n = DB[table].filter(r => match(r, filters(qs))).length;
       return reply(200, undefined, { 'content-range': '0-0/' + n });
@@ -159,8 +164,9 @@ const section = t => console.log('\n' + t);
 function seedOrder(over) {
   const o = Object.assign({
     id: 'orders-1', order_ref: 'VK-2609-0001', status: 'paid',
-    package_code: 'BUNDLE', customer_name: 'อภิรักษ์ ลือดี',
-    customer_email: 'apirukluedee@gmail.com',
+    package_code: 'BUNDLE', amount_satang: 39900, currency: 'THB',
+    customer_name: 'ผู้ซื้อทดสอบ',
+    customer_email: 'buyer@example.invalid',
     client_request_id: 'rid-abcdefghijklmnop',
     download_token: null, token_expires_at: null,
     created_at: new Date().toISOString()
@@ -202,7 +208,7 @@ function seedOrder(over) {
   check('LAB โหลดได้เลย', r.body.items.find(i => i.title === 'VINKO WOW LAB').released === true);
   check('นิทานที่ถึงกำหนดแล้วโหลดได้', r.body.items.find(i => i.title === 'นิทานเรื่องที่ 1').released === true);
   check('นิทานที่ยังไม่ถึงกำหนดโหลดไม่ได้', r.body.items.find(i => i.title === 'นิทานเรื่องที่ 2').released === false);
-  check('ไม่คืนอีเมลลูกค้าออกมา', !JSON.stringify(r.body).includes('apirukluedee'), JSON.stringify(r.body).slice(0, 120));
+  check('ไม่คืนอีเมลลูกค้าออกมา', !JSON.stringify(r.body).includes('buyer@example.invalid'), JSON.stringify(r.body).slice(0, 120));
 
   r = mockRes(); await info(get('/api/download-info?token=' + 'x'.repeat(43)), r);
   check('token มั่วๆ -> ปฏิเสธ', r.statusCode === 404 && !r.body.ok, String(r.statusCode));
@@ -293,7 +299,7 @@ function seedOrder(over) {
   await rl(post({ token: tok5, email: 'attacker@evil.com' }), r);
   check('ส่งสำเร็จ', r.statusCode === 200 && r.body.ok, JSON.stringify(r.body));
   check('ส่งไปอีเมลเดิมเท่านั้น ไม่สนใจอีเมลที่แนบมา',
-        SENT[0].to[0] === 'apirukluedee@gmail.com', JSON.stringify(SENT[0] && SENT[0].to));
+        SENT[0].to[0] === 'buyer@example.invalid', JSON.stringify(SENT[0] && SENT[0].to));
   check('ออก token ใหม่ ไม่ใช่ตัวเดิม', DB.orders[0].download_token !== tok5);
 
   let limited = 0;
@@ -312,10 +318,94 @@ function seedOrder(over) {
   await claim(post({ order_ref: o6.order_ref, client_request_id: o6.client_request_id }), r);
   check('ข้อมูลตรงกัน -> คืนลิงก์', r.statusCode === 200 && r.body.ready && /\/download\?token=/.test(r.body.download_url));
 
+  reset(); const recovery = seedOrder();
+  r = mockRes();
+  await claim(post({ order_ref: recovery.order_ref, client_request_id: recovery.client_request_id }), r);
+  const recoveredToken = new URL(r.body.download_url, 'https://vinko.example').searchParams.get('token');
+  check('paid ไม่มี token -> ลิงก์ที่คืนตรงกับ token ที่บันทึกให้ออเดอร์จริง',
+        !!recovery.download_token && recovery.download_token === recoveredToken);
+  check('claim response ไม่ถูก cache', r.headers['cache-control'] === 'no-store');
+
   r = mockRes();
   await claim(post({ order_ref: o6.order_ref, client_request_id: 'guessed-value-1234567' }), r);
   check('เดา client_request_id ไม่ได้ -> 403', r.statusCode === 403);
   check('ไม่มี token หลุดใน response', !/download_token|token=/.test(JSON.stringify(r.body)));
+
+  /* ---- 7b. ข้อมูล purchase สำหรับ GA4 (M5) ---- */
+  section('7b. purchase สำหรับ GA4');
+  reset(); const o6b = seedOrder(); await tk.issue(o6b.id);
+  claim = load('claim-download.js');
+  r = mockRes();
+  await claim(post({ order_ref: o6b.order_ref, client_request_id: o6b.client_request_id }), r);
+  const pu = r.body.purchase;
+  check('paid + ยืนยันตัวตนแล้ว -> มีข้อมูล purchase', !!pu, JSON.stringify(r.body.purchase));
+  check('transaction_id = order_ref', pu && pu.transaction_id === 'VK-2609-0001');
+  check('แปลงสตางค์เป็นบาทถูก (39900 -> 399)', pu && pu.value === 399, pu && String(pu.value));
+  check('currency = THB', pu && pu.currency === 'THB');
+  check('test key -> purchase ระบุ test mode จาก server', pu && pu.payment_mode === 'test');
+  check('item_name มาจาก catalog ฝั่ง server', pu && /BUNDLE/.test(pu.item_name), pu && pu.item_name);
+  check('ไม่มีข้อมูลส่วนบุคคลติดไปกับ purchase',
+        !/buyer@example\.invalid|ผู้ซื้อทดสอบ|client_request_id/.test(JSON.stringify(pu)));
+
+  // ยังไม่จ่าย = ห้ามหลุดยอดเงินออกไป
+  reset(); const o6c = seedOrder({ status: 'pending' });
+  r = mockRes();
+  await claim(post({ order_ref: o6c.order_ref, client_request_id: o6c.client_request_id }), r);
+  check('ยังไม่จ่าย -> ไม่มี purchase และไม่มียอดเงิน',
+        !r.body.purchase && !/39900|399/.test(JSON.stringify(r.body)), JSON.stringify(r.body));
+
+  // เดา rid ไม่ได้ = ไม่ได้ยอดเงิน
+  reset(); const o6d = seedOrder(); await tk.issue(o6d.id);
+  r = mockRes();
+  await claim(post({ order_ref: o6d.order_ref, client_request_id: 'guessed-value-1234567' }), r);
+  check('เดา rid ไม่ได้ -> ไม่หลุดยอดเงิน', r.statusCode === 403 && !/39900|399/.test(JSON.stringify(r.body)));
+
+  // ยอดเพี้ยน = ไม่ส่ง purchase
+  reset(); const o6e = seedOrder({ amount_satang: null }); await tk.issue(o6e.id);
+  r = mockRes();
+  await claim(post({ order_ref: o6e.order_ref, client_request_id: o6e.client_request_id }), r);
+  check('ยอดเงินเพี้ยน -> ยังให้ลิงก์โหลด แต่ไม่ส่ง purchase',
+        r.body.ready === true && !r.body.purchase, JSON.stringify(r.body));
+
+  for (const invalid of [{amount_satang: 199.5}, {amount_satang: true},
+    {amount_satang: '39900'}, {amount_satang: -1}, {amount_satang: Infinity},
+    {package_code: 'INVALID'}, {currency: 'USD'}, {currency: null}]) {
+    reset(); const bad = seedOrder(invalid); await tk.issue(bad.id);
+    r = mockRes();
+    await claim(post({order_ref: bad.order_ref, client_request_id: bad.client_request_id}), r);
+    check('invalid purchase metadata suppresses analytics, preserves delivery: ' + JSON.stringify(invalid),
+      r.body.ready === true && !r.body.purchase);
+  }
+
+  for (const [code, amount] of [['LAB',19900], ['STORIES',29900], ['BUNDLE',39900]]) {
+    reset(); const valid = seedOrder({package_code: code, amount_satang: amount}); await tk.issue(valid.id);
+    r = mockRes(); await claim(post({order_ref: valid.order_ref, client_request_id: valid.client_request_id}), r);
+    check(code + ' uses server SKU and baht', r.body.purchase?.item_id === code && r.body.purchase?.value === amount / 100);
+  }
+
+  process.env.OMISE_SECRET_KEY = 'skey_live_FAKE';
+  for (const mode of [true, false, undefined, 'network-error', 'mismatch']) {
+    reset(); const paid = seedOrder({omise_charge_id: 'chrg_M5_TEST'}); await tk.issue(paid.id);
+    if (mode !== 'network-error') CHARGES.chrg_M5_TEST = {
+      object: 'charge', id: 'chrg_M5_TEST', status: 'successful', paid: true,
+      amount: mode === 'mismatch' ? 1 : 39900, currency: 'thb', livemode: mode
+    };
+    r = mockRes(); await claim(post({order_ref: paid.order_ref, client_request_id: paid.client_request_id}), r);
+    check('charge mode ' + mode + ' never blocks delivery', r.body.ready === true);
+    check('charge mode verified or unknown: ' + mode,
+      r.body.purchase?.payment_mode === (mode === true ? 'live' : mode === false ? 'test' : 'unknown'));
+  }
+  process.env.OMISE_SECRET_KEY = 'skey_test_FAKE';
+
+  /* ---- 7c. /api/order-status ต้องไม่คืนยอดเงิน (กัน regression) ---- */
+  section('7c. order-status ห้ามคืนยอดเงิน');
+  reset(); seedOrder();
+  const ost = load('order-status.js');
+  r = mockRes();
+  await ost(get('/api/order-status?ref=VK-2609-0001'), r);
+  check('คืนสถานะได้ปกติ', r.statusCode === 200 && r.body.status === 'paid');
+  check('ref เดาได้ จึงห้ามมียอดเงิน/อีเมล/ชื่อ ใน response',
+        !/39900|399|buyer@example\.invalid|ผู้ซื้อทดสอบ|amount/.test(JSON.stringify(r.body)), JSON.stringify(r.body));
 
   /* ---- 8. admin resend ---- */
   section('8. /api/admin action=resend-email');

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ชั้นหนังสือของฉัน | VINKO WOW LAB</title>
+<meta content="noindex, nofollow" name="robots"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mitr:wght@400;500;600;700&family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<link href="/assets/css/main.css" rel="stylesheet"/>
+<style>
+.lib-header {
+  background: linear-gradient(135deg, #071B5D 0%, #0d2a82 100%);
+  color: #fff;
+  padding: 28px 0 24px;
+}
+.lib-header .wrap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.lib-title { font-family: 'Fredoka', sans-serif; font-size: 28px; font-weight: 600; margin: 0; }
+.lib-email { font-size: 13px; color: #B9C4E8; font-family: 'Anuphan', sans-serif; }
+.btn-logout {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.3);
+  color: #fff;
+  font-family: 'Anuphan', sans-serif;
+  font-size: 13px;
+  padding: 7px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .2s;
+}
+.btn-logout:hover { background: rgba(255,255,255,.25); }
+
+.lib-section { padding: 36px 0; }
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+.book-card {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+}
+.book-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.book-card-top {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.book-num-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.book-info { flex: 1; min-width: 0; }
+.book-title {
+  font-family: 'Mitr', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: #12334b;
+  line-height: 1.4;
+  margin: 0 0 4px;
+}
+.book-topic {
+  font-family: 'Anuphan', sans-serif;
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+}
+.book-card-actions {
+  padding: 0 16px 16px;
+  display: flex;
+  gap: 8px;
+}
+.btn-reader {
+  flex: 1;
+  padding: 10px;
+  background: #071B5D;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-family: 'Mitr', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  display: block;
+  transition: background .2s;
+}
+.btn-reader:hover { background: #0d2a82; }
+.btn-reader.pending {
+  background: #e0e0e0;
+  color: #999;
+  cursor: default;
+}
+.pending-label {
+  font-family: 'Anuphan', sans-serif;
+  font-size: 11px;
+  color: #aaa;
+  display: block;
+  text-align: center;
+  margin-top: 4px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #888;
+}
+.empty-state h2 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 24px;
+  color: #071B5D;
+  margin: 0 0 12px;
+}
+.empty-state p {
+  font-family: 'Anuphan', sans-serif;
+  font-size: 15px;
+  margin: 0 0 24px;
+}
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  font-family: 'Anuphan', sans-serif;
+  color: #888;
+}
+</style>
+</head>
+<body class="premium">
+
+<nav class="nav">
+<div class="wrap nav-inner">
+<a aria-label="กลับหน้าแรก" class="brand" href="/"><img alt="VINKO logo" decoding="async" height="174" src="/assets/img/vinko-logo.webp" width="160"/><span>VINKO · WOW LAB</span></a>
+</div>
+</nav>
+
+<header class="lib-header">
+<div class="wrap">
+  <div>
+    <h1 class="lib-title">📚 ชั้นหนังสือของฉัน</h1>
+    <p class="lib-email" id="lib-email"></p>
+  </div>
+  <a href="/api/auth/logout" class="btn-logout">ออกจากระบบ</a>
+</div>
+</header>
+
+<section class="lib-section">
+<div class="wrap">
+
+  <!-- Loading -->
+  <div class="loading-state" id="loading-state">
+    <span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:#071B5D;width:22px;height:22px;border-width:3px"></span>
+    กำลังโหลดหนังสือของคุณ…
+  </div>
+
+  <!-- Books grid -->
+  <div id="books-section" hidden>
+    <div class="book-grid" id="book-grid"></div>
+  </div>
+
+  <!-- Empty -->
+  <div class="empty-state" id="empty-state" hidden>
+    <h2>ยังไม่มีหนังสือ</h2>
+    <p>อีเมลนี้ยังไม่มีประวัติการสั่งซื้อ<br/>ถ้าซื้อด้วยอีเมลอื่น กรุณาออกแล้วเข้าใหม่ด้วยอีเมลนั้น</p>
+    <a href="/" class="btn">ดูหนังสือทั้งหมด</a>
+    <br/><br/>
+    <a href="/api/auth/logout" style="font-size:13px;color:#888;">ออกจากระบบ / เปลี่ยนอีเมล</a>
+  </div>
+
+</div>
+</section>
+
+<script>
+(function () {
+  const BASE_URL = 'https://vinko.quest';
+
+  async function loadLibrary() {
+    let data;
+    try {
+      const r = await fetch('/api/my-library');
+      if (r.status === 401) {
+        location.href = '/login';
+        return;
+      }
+      data = await r.json();
+    } catch (e) {
+      console.error('[lib]', e);
+      document.getElementById('loading-state').textContent = 'โหลดไม่สำเร็จ กรุณาลองรีเฟรชหน้า';
+      return;
+    }
+
+    document.getElementById('loading-state').hidden = true;
+    document.getElementById('lib-email').textContent = data.email || '';
+
+    if (!data.ok || !data.books || !data.books.length) {
+      document.getElementById('empty-state').hidden = false;
+      return;
+    }
+
+    renderBooks(data.books);
+    document.getElementById('books-section').hidden = false;
+  }
+
+  function renderBooks(books) {
+    const grid = document.getElementById('book-grid');
+    grid.innerHTML = '';
+
+    for (const book of books) {
+      const readerUrl = book.available && book.reader_token
+        ? BASE_URL + '/read?story=' + book.num + '&token=' + encodeURIComponent(book.reader_token) + '&openExternalBrowser=1'
+        : null;
+
+      const card = document.createElement('div');
+      card.className = 'book-card';
+      card.innerHTML = `
+        <div class="book-card-top">
+          <div class="book-num-circle" style="background:${book.color}">${book.num}</div>
+          <div class="book-info">
+            <p class="book-title">${esc(book.title)}</p>
+            <p class="book-topic">วิทยาศาสตร์ · ${esc(book.topic)}</p>
+          </div>
+        </div>
+        <div class="book-card-actions">
+          ${readerUrl
+            ? `<a href="${esc(readerUrl)}" class="btn-reader">🎧 ฟังเสียงอ่าน · อ่านนิทาน</a>`
+            : `<div>
+                <span class="btn-reader pending">⏳ รอส่งมอบ</span>
+                ${book.delivery_date ? `<span class="pending-label">กำหนดส่ง ${book.delivery_date}</span>` : ''}
+               </div>`
+          }
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])
+    );
+  }
+
+  loadLibrary();
+})();
+</script>
+</body>
+</html>

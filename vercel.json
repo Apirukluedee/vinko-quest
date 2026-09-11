@@ -6,9 +6,18 @@
     {
       "source": "/api/unsubscribe",
       "destination": "/api/health?_route=unsubscribe"
+    },
+    {
+      "source": "/r/:token",
+      "destination": "/api/redirect?token=:token"
     }
   ],
   "redirects": [
+    {
+      "source": "/ef-checkin",
+      "destination": "/ef-check",
+      "permanent": true
+    },
     {
       "source": "/lab01",
       "destination": "/",
@@ -39,6 +48,15 @@
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/downloads/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
         }
       ]
     },

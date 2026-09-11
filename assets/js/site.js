@@ -177,23 +177,57 @@
   /* ---------- Cookie consent + tracking ---------- */
 
   var KEY = "vinko_consent";
+  var consentMemory = null;
+  var gaStarted = false;
+  var gaReady = false;
 
-  function consentValue() { try { return localStorage.getItem(KEY); } catch (e) { return null; } }
-  function saveConsent(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
+  function consentValue() { try { return localStorage.getItem(KEY) || consentMemory; } catch (e) { return consentMemory; } }
+  function saveConsent(v) { consentMemory = v; try { localStorage.setItem(KEY, v); } catch (e) {} }
+
+  /* ยิงเข้า property จากโดเมนจริงเท่านั้น
+     Vercel สร้าง preview URL ใหม่ทุกครั้งที่ push ถ้าไม่กันตรงนี้
+     ทราฟฟิกตอนทดสอบจะปนกับข้อมูลลูกค้าจริง และ GA4 ลบ event ย้อนหลังไม่ได้ */
+  function isProdHost() {
+    var h = location.hostname;
+    return h === "vinko.quest" || h === "www.vinko.quest";
+  }
+
+  /* เลือก property ตามที่อยู่ที่หน้าเว็บถูกเปิด — ห้ามปนกันเด็ดขาด
+       โดเมนจริง  -> GA4_ID       (ข้อมูลลูกค้าจริง)
+       ที่อื่น      -> GA4_TEST_ID  (localhost, preview ของ Vercel, มือถือที่ต่อเข้ามาทดสอบ)
+     GA4 ลบ event ย้อนหลังไม่ได้ ถ้าปนแล้วปนเลย รายงานเดือนแรกจะเชื่อไม่ได้ */
+  function ga4Id() {
+    var a = C.ANALYTICS || {};
+    var id = isProdHost() ? a.GA4_ID : a.GA4_TEST_ID;
+    if (typeof id !== 'string' || !/^G-[A-Z0-9]+$/.test(id)) return "";
+    if (!isProdHost() && (id === a.GA4_ID || id === 'G-W9W53C5DWS')) return "";
+    return id;
+  }
 
   function loadTracking() {
     var a = C.ANALYTICS || {};
+    var gid = ga4Id();
 
-    if (a.GA4_ID) {
+    if (gid && !gaStarted) {
+      gaStarted = true;
       var g = document.createElement("script");
       g.async = true;
-      g.src = "https://www.googletagmanager.com/gtag/js?id=" + a.GA4_ID;
-      document.head.appendChild(g);
+      g.src = "https://www.googletagmanager.com/gtag/js?id=" + gid;
       window.dataLayer = window.dataLayer || [];
       window.gtag = function () { window.dataLayer.push(arguments); };
       window.gtag("js", new Date());
-      window.gtag("config", a.GA4_ID);
+      // debug_mode ทำให้ event โผล่ใน DebugView ทันที ใช้ตอนทดสอบเท่านั้น
+      window.gtag("config", gid, isProdHost() ? {} : { debug_mode: true });
+      g.onload = function () {
+        gaReady = true;
+        try { window.dispatchEvent(new CustomEvent("vinko:analytics-ready")); } catch (e) {}
+      };
+      g.onerror = function () { gaReady = false; };
+      document.head.appendChild(g);
     }
+
+    // pixel โฆษณาโหลดบนโดเมนจริงเท่านั้น ไม่มี test pixel ให้ใช้
+    if (!isProdHost()) return;
 
     if (a.META_PIXEL_ID) {
       (function (f, b, e, v) {
@@ -241,7 +275,95 @@
 
   function hasAnyPixel() {
     var a = C.ANALYTICS || {};
+    // ไม่มีอะไรจะยิง = ไม่ต้องรบกวนคนเข้าเว็บด้วยแบนเนอร์
+    // บน local/preview จะมีก็ต่อเมื่อใส่ GA4_TEST_ID ไว้แล้วเท่านั้น
+    if (!isProdHost()) return !!ga4Id();
     return !!(a.GA4_ID || a.META_PIXEL_ID || a.TIKTOK_PIXEL_ID);
+  }
+
+  /* ---------- UTM + event ----------
+
+     เก็บ UTM "หลังได้ consent เท่านั้น" ตามที่ตกลงไว้
+     ผลที่ยอมรับ: คนที่กดยอมรับตอนอยู่หน้าที่สองแล้ว first-touch จะหายไป
+     เลือกเสียตัวเลขดีกว่าเลี่ยง consent เพื่อให้ตัวเลขครบ                    */
+
+  var ATTR_KEY = "vinko_attr";
+  var UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+
+  function readUtm() {
+    var q = new URLSearchParams(location.search);
+    var out = null;
+
+    UTM_FIELDS.forEach(function (k) {
+      var v = q.get(k);
+      if (!v) return;
+      out = out || {};
+      // lowercase กัน utm_source=Facebook กับ facebook แตกเป็นสองแถวในรายงาน
+      out[k] = String(v).slice(0, 100).toLowerCase();
+    });
+
+    /* activation_id = รอบการใช้งานของ QR หนึ่งใบ (QR_ID__EVENT_CODE__rNN)
+       เป็น parameter ของเราเอง ไม่ใช่ utm_id เพราะ Google นิยาม utm_id
+       ว่าเป็นรหัส "แคมเปญ" คนละความหมายกัน ถ้ายัดใส่ utm_id รายงาน Campaign
+       จะแตกเป็นราย QR แทนที่จะรวมเป็นงานเดียว
+       รูปแบบนี้เป็นตัวพิมพ์ใหญ่ ห้าม lowercase ไม่งั้นเทียบกลับไม่ตรง */
+    var aid = q.get("activation_id");
+    if (aid) { out = out || {}; out.activation_id = String(aid).slice(0, 100); }
+
+    return out;
+  }
+
+  function captureAttribution() {
+    if (consentValue() !== "granted") return;
+    var hit = readUtm();
+    if (!hit) return;                      // ไม่มี utm = direct ไม่ทับค่าเดิม
+    var store = {};
+    try { store = JSON.parse(localStorage.getItem(ATTR_KEY) || "{}") || {}; } catch (e) {}
+    if (typeof store !== 'object' || Array.isArray(store)) store = {};
+    hit.t = new Date().toISOString();
+    if (!store.first) store.first = hit;   // first-touch เขียนครั้งเดียวตลอดกาล
+    store.last = hit;                      // last non-direct ทับได้เรื่อยๆ
+    try { localStorage.setItem(ATTR_KEY, JSON.stringify(store)); } catch (e) {}
+  }
+
+  function attribution() {
+    if (consentValue() !== "granted") return {};
+    try {
+      var stored = JSON.parse(localStorage.getItem(ATTR_KEY) || "{}");
+      return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    } catch (e) { return {}; }
+  }
+
+  // Explicit event parameters persist across pages. These are custom dimensions,
+  // not an override of GA4's native traffic-source attribution model.
+  function attributionParams() {
+    var stored = attribution(), out = {};
+    ['first', 'last'].forEach(function (touch) {
+      var hit = stored[touch];
+      if (!hit || typeof hit !== 'object') return;
+      UTM_FIELDS.concat(['activation_id']).forEach(function (key) {
+        if (typeof hit[key] === 'string') out[touch + '_' + key] = hit[key].slice(0, 100);
+      });
+    });
+    if (stored.last && typeof stored.last.activation_id === 'string') {
+      out.activation_id = stored.last.activation_id.slice(0, 100);
+    }
+    return out;
+  }
+
+  /**
+   * ยิง event — เงียบสนิทถ้ายังไม่ได้ consent หรือ GA4 ยังไม่โหลด
+   * คืน true เฉพาะตอนที่ "เรียก gtag ไปแล้วจริง" ไม่ได้แปลว่า GA4 รับสำเร็จ
+   * ห้ามใส่ชื่อ อีเมล เบอร์โทร หรือคำตอบแบบสำรวจลง params เด็ดขาด
+   */
+  function track(name, params) {
+    if (consentValue() !== "granted") return false;
+    if (!ga4Id() || !gaReady || typeof window.gtag !== "function") return false;
+    params = params || {};
+    if (name === 'purchase' && params.payment_mode !== (isProdHost() ? 'live' : 'test')) return false;
+    var eventParams = Object.assign({}, attributionParams(), params, { send_to: ga4Id() });
+    try { window.gtag("event", name, eventParams); } catch (e) { return false; }
+    return true;
   }
 
   function consentBanner() {
@@ -261,10 +383,31 @@
       '<button class="btn light" data-vk-deny type="button">ไม่ยอมรับ</button>' +
       '<button class="btn" data-vk-allow type="button">ยอมรับ</button>' +
       '</div>';
-    document.body.appendChild(el);
+    /* วางไว้บนสุดของหน้า "ในสายเลย์เอาต์ปกติ" ไม่ใช่ position:fixed
+
+       เดิมเป็นแถบลอยก้นจอ วัดจริงบนมือถือ 375x812 หน้า /checkout แล้วพบว่า
+       มันทับปุ่ม "ชำระเงิน" และช่องยอมรับเงื่อนไข 38px กดไม่โดน
+       (elementFromPoint กลางปุ่มชี้มาที่ .vk-consent)
+
+       เคยลองแก้ด้วยการเว้น padding ท้ายหน้า แต่วัดแล้วไม่ได้ผล —
+       แถบลอยย่อมบังทุกอย่างที่เลื่อนมาอยู่ใต้มัน เป็นธรรมชาติของ fixed เอง
+       การเลื่อนหนีได้ไม่เท่ากับแก้แล้ว
+
+       อยู่ในสายเลย์เอาต์ = ดันเนื้อหาลงมา ไม่ทับอะไรเลยในทุกตำแหน่ง scroll
+       แลกกับการที่แถบเลื่อนพ้นจอไปได้ ซึ่งรับได้ เพราะยังไม่กดยอมรับ
+       = ยังไม่โหลด analytics อยู่แล้ว ไม่มีอะไรเสียหาย
+       ห้ามแก้ด้วยการซ่อนแบนเนอร์ในหน้า checkout เพราะเท่ากับเก็บข้อมูลโดยไม่ขอ */
+    el.classList.add("vk-consent-inflow");
+    document.body.insertBefore(el, document.body.firstChild);
 
     $("[data-vk-allow]", el).addEventListener("click", function () {
-      saveConsent("granted"); loadTracking(); el.remove();
+      saveConsent("granted");
+      captureAttribution();
+      loadTracking();
+      el.remove();
+      // หน้าที่ค้างงานรอ consent อยู่ (เช่น /thank-you รอยิง purchase)
+      // ต้องได้โอกาสส่งโดยไม่ต้องให้ลูกค้ารีเฟรช
+      try { window.dispatchEvent(new CustomEvent("vinko:consent-granted")); } catch (e) {}
     });
     $("[data-vk-deny]", el).addEventListener("click", function () {
       saveConsent("denied"); el.remove();
@@ -280,6 +423,7 @@
     renderBundle();
     renderContact();
     consentBanner();
+    captureAttribution();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
@@ -293,6 +437,11 @@
     priceOf: priceOf,
     promoActive: promoActive,
     storiesReady: storiesReady,
-    timelineHTML: timelineHTML
+    timelineHTML: timelineHTML,
+    track: track,
+    attribution: attribution,
+    ga4Id: ga4Id,
+    isProdHost: isProdHost,
+    consentGranted: function () { return consentValue() === "granted"; }
   };
 })();

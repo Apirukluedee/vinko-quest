@@ -317,6 +317,10 @@ module.exports = {
   lineChannelToken:   () => opt('LINE_CHANNEL_ACCESS_TOKEN', ''),
   lineAdminUserId:    () => opt('LINE_ADMIN_USER_ID', ''),
 
+  /* --- LINE Login (ไม่บังคับ — ไม่ตั้งก็ปุ่ม LINE Login จะถูก disable) --- */
+  lineLoginChannelId:     () => opt('LINE_LOGIN_CHANNEL_ID', ''),
+  lineLoginChannelSecret: () => opt('LINE_LOGIN_CHANNEL_SECRET', ''),
+
   /* HEALTH_TOKEN เป็นตัวเดียวที่อ่านได้โดยไม่ต้องผ่าน assertValid()
      เพราะ /api/health ต้องตรวจสิทธิ์ให้ได้แม้ตอนที่ config ตัวอื่นผิด
      ไม่งั้นหน้าที่ใช้วินิจฉัยจะใช้ไม่ได้พอดีตอนที่ต้องใช้มันที่สุด */

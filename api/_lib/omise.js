@@ -20,7 +20,7 @@ function secretKey() {
   return config.omiseSecretKey();
 }
 
-async function request(baseUrl, path, method, key, params) {
+async function request(baseUrl, path, method, key, params, timeoutMs) {
   const opts = {
     method: method,
     headers: {
@@ -28,6 +28,7 @@ async function request(baseUrl, path, method, key, params) {
       'Omise-Version': '2019-05-29'
     }
   };
+  if (timeoutMs) opts.signal = AbortSignal.timeout(timeoutMs);
   if (params) {
     opts.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     opts.body = encodeForm(params);
@@ -63,8 +64,8 @@ async function createCharge(params) {
  * ดึง charge จริงจาก Omise มาตรวจเอง
  * webhook handler ต้องเรียกตัวนี้เสมอ ห้ามเชื่อ payload ที่ยิงเข้ามา
  */
-async function retrieveCharge(chargeId) {
-  return request(API_MAIN, '/charges/' + encodeURIComponent(chargeId), 'GET', secretKey(), null);
+async function retrieveCharge(chargeId, timeoutMs) {
+  return request(API_MAIN, '/charges/' + encodeURIComponent(chargeId), 'GET', secretKey(), null, timeoutMs);
 }
 
 async function retrieveEvent(eventId) {

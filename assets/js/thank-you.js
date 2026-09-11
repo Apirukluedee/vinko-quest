@@ -14,6 +14,64 @@
   var ready = $("[data-vk-ty-ready]");
   var fallback = $("[data-vk-ty-email]");
 
+  /* ---------- ส่ง purchase เข้า GA4 ----------
+
+     ยอดเงินและแพ็กเกจมาจาก /api/claim-download เท่านั้น (ฝั่ง server ยืนยัน paid แล้ว)
+     ไม่อ่านจาก URL หรือ sessionStorage เพราะผู้ใช้แก้ได้
+
+     กันซ้ำสองชั้น: transaction_id ฝั่ง GA4 + ธงฝั่งเบราว์เซอร์
+     เพราะ sessionStorage.vinko_last_order ยังอยู่ตลอดอายุแท็บ
+     ลูกค้ากดรีเฟรชหน้านี้ = เรียก claim-download ใหม่ = ยิงซ้ำได้
+
+     ธงแปลว่า "เรียกส่งไปแล้ว" ไม่ใช่ "GA4 รับสำเร็จแล้ว"                      */
+
+  var pendingPurchase = null;
+  var sentInPage = {};
+
+  function sentKey(ref) { return "vinko_ga_purchase_sent:" + ref; }
+  function alreadySent(ref) {
+    if (sentInPage[ref]) return true;
+    try { return localStorage.getItem(sentKey(ref)) === "1"; } catch (e) { return false; }
+  }
+  function markSent(ref) {
+    sentInPage[ref] = true;
+    try { localStorage.setItem(sentKey(ref), "1"); } catch (e) {}
+  }
+
+  function sendPurchase(p) {
+    if (!p || !p.transaction_id) return;
+    pendingPurchase = p;
+    if (alreadySent(p.transaction_id)) return;
+
+    var V = window.VINKO;
+    if (!V || typeof V.track !== "function") return;
+
+    // ยังไม่ยอมรับคุกกี้ = ยังส่งไม่ได้ เก็บไว้รอ ไม่ตั้งธง
+    var ok = V.track("purchase", {
+      transaction_id: p.transaction_id,
+      value: p.value,
+      currency: p.currency || "THB",
+      payment_mode: p.payment_mode,
+      items: [{
+        item_id: p.item_id,
+        item_name: p.item_name,
+        price: p.value,
+        quantity: 1
+      }]
+    });
+
+    if (ok) { markSent(p.transaction_id); pendingPurchase = null; }
+    else { pendingPurchase = p; }
+  }
+
+  // ยอมรับคุกกี้ทีหลังขณะยังอยู่หน้านี้ ต้องได้ส่ง ไม่ต้องให้รีเฟรช
+  window.addEventListener("vinko:consent-granted", function () {
+    if (pendingPurchase) sendPurchase(pendingPurchase);
+  });
+  window.addEventListener("vinko:analytics-ready", function () {
+    if (pendingPurchase) sendPurchase(pendingPurchase);
+  });
+
   function showEmailOnly() {
     loading.hidden = true;
     ready.hidden = true;
@@ -70,6 +128,10 @@
           }
           loading.hidden = true;
           ready.hidden = false;
+
+          // ยิง analytics หลังลูกค้าเห็นลิงก์แล้วเท่านั้น และห้ามให้ error
+          // ของ analytics ไปขวางการรับไฟล์ของคนที่จ่ายเงินมาแล้ว
+          try { sendPurchase(d.purchase); } catch (e) {}
           return;
         }
         // webhook อาจยังทำงานไม่เสร็จ ลองใหม่ได้ถึง ~30 วินาที
