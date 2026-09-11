@@ -7,14 +7,34 @@ function genToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-/* สร้าง session พร้อม magic token สำหรับ email login */
-async function createMagicSession(email) {
+/* สร้าง session พร้อม magic token สำหรับ email login
+   line_user_id (ใส่มาเมื่อมาจากหน้า "need_email" หลัง LINE login ไม่ได้
+   อีเมล) ถูกเก็บไว้ในแถวนี้ด้วย เพื่อให้ครั้งถัดไป LINE login ตรงๆ (ไม่มี
+   อีเมลจาก LINE อีก) หา email เดิมเจอได้เอง ไม่ต้องให้กรอกซ้ำทุกครั้ง —
+   ดู findEmailByLineUserId */
+async function createMagicSession(email, line_user_id) {
   const magic_token      = genToken();
   const magic_expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-  const r = await db.insert('user_sessions', { email, magic_token, magic_expires_at });
+  const row = { email, magic_token, magic_expires_at };
+  if (line_user_id) row.line_user_id = line_user_id;
+
+  const r = await db.insert('user_sessions', row);
   if (!r.ok) throw new Error('session_create_failed: ' + JSON.stringify(r.body));
   return { magic_token };
+}
+
+/* หา email ที่เคยผูกกับ LINE user id นี้ไว้แล้ว (จาก session ก่อนหน้า
+   ไม่ว่าจะสร้างผ่าน magic link ที่แนบ line_uid มา หรือผ่าน createLineSession
+   ตรงๆ) คืน email ล่าสุดถ้าเจอ ไม่งั้นคืน null */
+async function findEmailByLineUserId(line_user_id) {
+  if (!line_user_id) return null;
+  const r = await db.select('user_sessions',
+    'line_user_id=eq.' + encodeURIComponent(line_user_id) +
+    '&email=not.is.null&select=email&order=created_at.desc&limit=1'
+  );
+  if (!r.ok || !Array.isArray(r.body) || !r.body[0]) return null;
+  return r.body[0].email;
 }
 
 /* ตรวจ magic token → คืน {email, session_token} หรือ null */
@@ -72,6 +92,7 @@ module.exports = {
   createMagicSession,
   activateMagicSession,
   createLineSession,
+  findEmailByLineUserId,
   validateSession,
   getSessionToken,
   cookieHeader

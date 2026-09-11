@@ -65,12 +65,17 @@ async function handleSendMagicLink(req, res) {
     return json(res, 400, { ok: false, error: 'email_invalid' });
   }
 
+  // line_uid มาจากหน้า login ตอน LINE ไม่ได้แชร์อีเมลมาให้ (ดู need_email
+  // ใน handleLineCallback) — เก็บไว้คู่กับอีเมลนี้เพื่อผูกบัญชีไว้ถาวร
+  const rawLineUid = (body.line_uid || '').trim();
+  const lineUid = /^U[0-9a-f]{32}$/.test(rawLineUid) ? rawLineUid : null;
+
   const resendKey = config.resendApiKey();
   if (!resendKey) return json(res, 503, { ok: false, error: 'email_not_configured' });
 
   let magic_token;
   try {
-    ({ magic_token } = await sessions.createMagicSession(email));
+    ({ magic_token } = await sessions.createMagicSession(email, lineUid));
   } catch (e) {
     console.error('[auth] createMagicSession failed:', e.message);
     return json(res, 500, { ok: false, error: 'internal' });
@@ -225,7 +230,19 @@ async function handleLineCallback(req, res) {
   }
 
   if (!email) {
-    return json(res, 200, { ok: false, error: 'need_email', line_uid: lineUserId });
+    // LINE ไม่ได้แชร์อีเมลมารอบนี้ — เช็คก่อนว่าเคยผูกอีเมลไว้กับ LINE user
+    // นี้แล้วหรือยัง (จากตอนกรอกอีเมล fallback ครั้งก่อน) ถ้าเจอ ใช้อีเมล
+    // เดิมได้เลย ไม่ต้องให้กรอกซ้ำทุกครั้งที่ login ด้วย LINE
+    let linkedEmail = null;
+    try {
+      linkedEmail = await sessions.findEmailByLineUserId(lineUserId);
+    } catch (e) {
+      console.error('[line-cb] findEmailByLineUserId failed:', e.message);
+    }
+    if (!linkedEmail) {
+      return json(res, 200, { ok: false, error: 'need_email', line_uid: lineUserId });
+    }
+    email = linkedEmail;
   }
 
   let session_token;
