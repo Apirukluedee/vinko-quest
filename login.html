@@ -269,7 +269,15 @@
     try { savedState = sessionStorage.getItem('vnk_line_state'); } catch (e) {}
     try { sessionStorage.removeItem('vnk_line_state'); } catch (e) {}
     history.replaceState({}, '', location.pathname);
-    if (!savedState || savedState !== lineState) {
+    /* "เข้าสู่ระบบด้วยแอป LINE" (ทางที่ลูกค้าส่วนใหญ่ใช้ เพราะจำอีเมล/
+       รหัสผ่าน LINE ไม่ได้) ทำให้แอป LINE เป็นคนเปิด redirect กลับมาเองใน
+       เบราว์เซอร์ในแอปของมัน ซึ่งเป็นคนละ context กับที่เริ่ม flow ไว้ —
+       sessionStorage ตามไปไม่ได้จริง ๆ (ไม่ใช่บั๊ก เป็นพฤติกรรมแอป LINE)
+       จึง error เฉพาะตอนที่มีค่าบันทึกไว้แต่ "ไม่ตรงกัน" เท่านั้น ถ้าไม่มี
+       ค่าบันทึกไว้เลย (มาจาก context อื่น) ให้ปล่อยผ่านไปแลกเป็น token
+       ต่อเลย — code จาก LINE เป็น single-use และ redirect_uri ต้องตรง
+       กับตอนขอ authorize อยู่แล้ว ยังเป็นชั้นป้องกันหลักอยู่ */
+    if (savedState && savedState !== lineState) {
       showMsg(ERROR_MSGS.line_state_mismatch, 'error');
     } else {
       completeLineLogin(lineCode);
