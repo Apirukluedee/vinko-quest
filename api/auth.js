@@ -296,11 +296,11 @@ function handleLogout(req, res) {
 /* ── my-library ──────────────────────────────────────────── */
 
 const STORY_META = {
-  'STORY-01': { num: 1, title: 'แรงโน้มถ่วงขอลาหยุด',      topic: 'ฟิสิกส์',       color: '#4e9af1' },
-  'STORY-02': { num: 2, title: 'น้ำไม่เคยหายไปไหน',         topic: 'วัฏจักรน้ำ',    color: '#41b89c' },
-  'STORY-03': { num: 3, title: 'ทำไมฟ้าถึงสีฟ้า',            topic: 'แสงและสี',      color: '#f5a623' },
-  'STORY-04': { num: 4, title: 'เสียงเดินทางได้อย่างไร',     topic: 'เสียงและคลื่น', color: '#9b59b6' },
-  'STORY-05': { num: 5, title: 'ดาวฤกษ์เกิดขึ้นได้อย่างไร', topic: 'ดาราศาสตร์',   color: '#e74c3c' }
+  'STORY-01': { num: 1, title: 'วันที่แรงโน้มถ่วงลางาน',   topic: 'แรงโน้มถ่วง',      color: '#4e9af1' },
+  'STORY-02': { num: 2, title: 'คดีสีสันที่หายไป',          topic: 'แสงและสี',         color: '#41b89c' },
+  'STORY-03': { num: 3, title: 'ใครขโมยเสียงของนิวไป?',    topic: 'เสียงและคลื่น',    color: '#f5a623' },
+  'STORY-04': { num: 4, title: 'แม่เหล็กป่วนปาร์ตี้!',       topic: 'แม่เหล็ก',         color: '#9b59b6' },
+  'STORY-05': { num: 5, title: 'อะไรอยู่ในแก้ว?',           topic: 'อากาศและความดัน', color: '#e74c3c' }
 };
 
 function thaiDate(iso) {
