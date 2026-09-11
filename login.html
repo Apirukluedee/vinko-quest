@@ -176,6 +176,24 @@
 
 <script>
 (function () {
+  /* เบราว์เซอร์ในแอป (LINE/FB/IG) เปิด access.line.me เองด้วยเบราว์เซอร์
+     คนละตัว/คนละ context เวลากดปุ่ม LINE Login ทำให้ sessionStorage ที่
+     เก็บ state ไว้หายไปตอนเด้งกลับมา — แก้ไม่ได้ด้วยการเปลี่ยนที่เก็บ
+     state (ลองมาแล้วทั้ง cookie และ sessionStorage) ต้องดีดผู้ใช้ออกไป
+     เบราว์เซอร์จริงของเครื่องตั้งแต่ก่อนเข้าหน้านี้เลย ใช้พารามิเตอร์
+     openExternalBrowser=1 ที่ LINE รู้จัก (รูปแบบเดียวกับ
+     assets/js/certificate.js / ef-check.js ที่ใช้อยู่แล้วในโปรเจกต์นี้) */
+  function isInAppBrowser() {
+    return /Line\/|FBAN|FBAV|FB_IAB|Instagram|MicroMessenger/i.test(navigator.userAgent || '');
+  }
+  const preParams = new URLSearchParams(location.search);
+  if (isInAppBrowser() && !preParams.get('openExternalBrowser') && !preParams.get('code')) {
+    const u = location.origin + location.pathname +
+      (location.search ? location.search + '&' : '?') + 'openExternalBrowser=1';
+    location.replace(u);
+    return;
+  }
+
   const params = new URLSearchParams(location.search);
   const err    = params.get('error');
   const loggedOut = params.get('logged_out');
