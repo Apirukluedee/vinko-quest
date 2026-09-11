@@ -36,8 +36,15 @@
 | 2 | บน-กลาง | ดาวน์โหลดฟรี | Link | `https://vinko.quest/free-sample?from=line` |
 | 3 | บน-ขวา | พิมพ์ใบประกาศ | Link | `https://vinko.quest/certificate` |
 | 4 | ล่าง-ซ้าย | สั่งซื้อหนังสือ | Link | `https://vinko.quest/#order` |
-| 5 | ล่าง-กลาง | ขอลิงก์ดาวน์โหลด | Link | `https://vinko.quest/resend-link` |
+| 5 | ล่าง-กลาง | หนังสือของฉัน | Link | `https://vinko.quest/library?openExternalBrowser=1` |
 | 6 | ล่าง-ขวา | สอบถาม | **Text** | ส่งข้อความ `สอบถามเรื่องหนังสือ` |
+
+**เปลี่ยนแล้ว (2026-09-12): ช่อง 5 เดิมคือ "ขอลิงก์ดาวน์โหลด" → สลับเป็น "หนังสือของฉัน"**
+ลิงก์ไปหน้า `/library` ตรงๆ (ไม่ใช่ `/login`) เพราะ `library.html` เช็ค auth เอง
+อยู่แล้ว — ถ้ายังไม่ login จะเด้งไป `/login` ให้อัตโนมัติ (`r.status === 401 →
+location.href = '/login'`), ถ้า login ค้างไว้แล้วจะเห็นหนังสือทันที ไม่ต้อง
+กดซ้ำ 2 ต่อ ต้องมี `openExternalBrowser=1` เพราะเปิดจาก LINE รวมเมนูเสมอ
+(เหมือนช่องอื่นที่มีลิงก์ไปเว็บ)
 
 **ห้ามลืม `?from=line` ในช่อง 2** — ถ้าไม่ใส่ คนที่กดมาจากเมนู (ซึ่งเป็นเพื่อนอยู่แล้ว)
 จะเจอหน้าที่เขียนว่า "เพิ่มเพื่อน LINE ก่อน" พร้อม QR แล้วงงว่าให้แอดอะไรอีก
@@ -242,7 +249,7 @@ drop shadow box frame, text, letters, numbers, Thai characters, labels, watermar
 icons, app buttons.
 ```
 
-### ช่อง 5 — ขอลิงก์ดาวน์โหลด  (ซัน)
+### ช่อง 5 — หนังสือของฉัน  (ซัน) — เปลี่ยนจาก "ขอลิงก์ดาวน์โหลด" เมื่อ 2026-09-12
 
 ```
 Soft-shaded children's book illustration, square 1:1 format, soft gradients and gentle
@@ -252,20 +259,19 @@ generous empty space around it, clean and uncluttered like a sticker, no text, n
 no watermark.
 Scene: a Thai boy about 6 years old, short black hair, round dark brown eyes, MUST be
 wearing a white lab coat with a front chest pocket and a pen clipped in the pocket, grey
-t-shirt visible underneath the coat, navy blue shorts #003087, red sandals — standing and
-holding out a large puffy rounded envelope toward the viewer with both hands, the envelope
-glowing warm orange as if something bright is sealed inside it, a small soft aura radiating
-outward from the envelope's edges, the boy's expression friendly and eager as if handing
-over something precious; three tiny star-sparkles floating around the envelope.
+t-shirt visible underneath the coat, navy blue shorts #003087, red sandals — sitting
+cross-legged and happily reading a small open storybook held in both hands, warm content
+smile, eyes on the page; beside him a neat small stack of two closed books in warm orange
+and deep navy sits on the ground; a soft glowing sky-blue star-sparkle floats just above
+the open book as if it's magical.
 Composition: subject occupies the upper two-thirds of the square; the bottom third is plain
 low-detail background reserved for a text label added later; 8% empty safety margin on all
 four edges, nothing important touching the edges.
 Negative: flat vector style, no gradients, painterly watercolor texture, photorealistic
-rendering, boy without white lab coat, boy in plain t-shirt only, download arrow icon,
-chain link icon, email app interface, open envelope showing contents, QR code, extra limbs,
-cluttered background, busy patterned background, subject filling the bottom third, drop
-shadow box frame, text, letters, numbers, Thai characters, labels, watermark, logo, UI
-icons, app buttons.
+rendering, boy without white lab coat, boy in plain t-shirt only, extra limbs, cluttered
+background, busy patterned background, subject filling the bottom third, drop shadow box
+frame, text, letters, numbers, Thai characters, labels, watermark, logo, UI icons, app
+buttons.
 ```
 
 ### ช่อง 6 — สอบถาม  (นิว)
