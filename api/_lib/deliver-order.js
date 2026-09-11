@@ -45,7 +45,8 @@ async function deliver(orderRef, opts) {
     token:        token,
     expiresAt:    expiresAt,
     items:        items,
-    readerToken:  readerToken
+    readerToken:  readerToken,
+    customerEmail: order.customer_email
   });
 
   const out = await email.send('purchase', order.customer_email, payload, { orderId: order.id });

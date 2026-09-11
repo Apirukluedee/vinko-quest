@@ -14,6 +14,7 @@ const sessions = require('./_lib/sessions');
 const config   = require('./_lib/config');
 const db       = require('./_lib/supabase');
 const { json } = require('./_lib/util');
+const signedToken = require('./_lib/signed_token');
 
 function base() { return config.appBaseUrl() || 'https://vinko.quest'; }
 
@@ -129,20 +130,38 @@ async function handleVerifyMagic(req, res) {
 }
 
 /* ── line-start ──────────────────────────────────────────────────────
-   คืน JSON (ไม่ redirect ตรง ๆ แล้ว) — ฝั่ง client เป็นคนสร้าง state,
-   เก็บไว้ใน sessionStorage เอง แล้วค่อย navigate ไป LINE เอง จุดเดียวกับ
-   ที่เขียน sessionStorage และที่ navigate ต้องเป็น "คลิกเดียวกัน" ฝั่ง
-   หน้าเว็บ ไม่งั้นจะพึ่ง cookie แบบเดิมซึ่งพังในเบราว์เซอร์ในแอป (LINE/Gmail
-   in-app browser คนละ cookie jar กับตอนเด้งกลับมา ทำให้ state ไม่ตรงกัน
-   เป็น error ที่ลูกค้าเจอจริง — ดูโน้ตใน login.html) */
+   state ของ OAuth เซ็นด้วย HMAC (signed_token.js) ฝัง payload+ลายเซ็น
+   ไว้ในตัวเอง ไม่ต้องพึ่ง cookie หรือ sessionStorage มาเทียบค่าอีกต่อไป
+   — แก้ปัญหาที่เจอจริง: ตอนลูกค้ากด "เข้าสู่ระบบด้วยแอป LINE" (ทางหลักที่
+   คนส่วนใหญ่ใช้เพราะจำอีเมล/รหัสผ่าน LINE ไม่ได้) แอป LINE จะเปิด
+   redirect กลับมาเองในเบราว์เซอร์ในแอปของมัน คนละ context กับที่เริ่ม
+   flow ไว้เสมอ ทำให้ sessionStorage/cookie ตามไปไม่ได้จริง ไม่ว่าจะ
+   เก็บด้วยวิธีไหนก็ตาม — signature ตรวจได้จาก secret ฝั่ง server ล้วนๆ
+   จึงไม่มีปัญหานี้อีกเลย
+
+   query param `connect_token` (มาจากลิงก์ "เชื่อมบัญชี LINE" ในอีเมล
+   ยืนยันคำสั่งซื้อ — ดู email.js:connectLineUrl) ถ้ามีและยังไม่หมดอายุ
+   จะฝังอีเมลนั้นไว้ใน state ไปด้วย ทำให้ callback รู้ทันทีว่าต้องผูก LINE
+   เข้ากับอีเมลไหน ไม่ต้องถามลูกค้าเลย (ข้ามขั้น need_email ไปเลย) */
 
 function handleLineStart(req, res) {
   if (req.method !== 'GET') { res.status(405).end(); return; }
 
   const channelId = config.lineLoginChannelId();
-  if (!channelId) return json(res, 200, { ok: false, error: 'line_not_configured' });
+  const secret    = config.lineLoginChannelSecret();
+  if (!channelId || !secret) return json(res, 200, { ok: false, error: 'line_not_configured' });
 
-  const state      = crypto.randomBytes(16).toString('hex');
+  const statePayload = { p: 'oauth', n: crypto.randomBytes(8).toString('hex'), exp: Date.now() + 10 * 60 * 1000 };
+
+  const connectTokenRaw = ((req.query && req.query.connect_token) || '').trim();
+  if (connectTokenRaw) {
+    const connectPayload = signedToken.verify(connectTokenRaw, secret);
+    if (connectPayload && connectPayload.p === 'connect' && connectPayload.email) {
+      statePayload.email = connectPayload.email;
+    }
+  }
+
+  const state       = signedToken.sign(statePayload, secret);
   const redirectUri = base() + '/login';
 
   const params = new URLSearchParams({
@@ -156,7 +175,6 @@ function handleLineStart(req, res) {
 
   return json(res, 200, {
     ok: true,
-    state: state,
     authorizeUrl: 'https://access.line.me/oauth2/v2.1/authorize?' + params.toString()
   });
 }
@@ -164,10 +182,9 @@ function handleLineStart(req, res) {
 /* ── line-callback ──────────────────────────────────────────────────
    POST จาก JS ของ login.html เท่านั้น (ไม่ใช่ LINE redirect ตรงมาแล้ว —
    redirect_uri ที่จดใน LINE Developers console คือ /login ธรรมดา)
-   client เช็ค state ตรงกับ sessionStorage เองก่อนแล้วค่อยเรียกมาที่นี่
-   ดังนั้นที่นี่ไม่ต้องเช็ค state ซ้ำ (ไม่มี cookie ให้เช็คอยู่แล้ว) —
-   ตัว code เองเป็น single-use/short-lived จาก LINE และ redirect_uri ต้อง
-   ตรงกับตอนขอ authorize พอดี นั่นคือชั้นป้องกันความถูกต้องของคำขอนี้ */
+   client แค่ forward code+state ที่ได้กลับมาจาก LINE ตรงๆ ไม่ต้องเช็ค
+   อะไรเองแล้ว — ที่นี่ verify ลายเซ็นของ state เองทั้งหมด (ดูโน้ตที่
+   handleLineStart ว่าทำไมถึงเลิกพึ่ง cookie/sessionStorage) */
 
 async function handleLineCallback(req, res) {
   if (req.method !== 'POST') { res.status(405).end(); return; }
@@ -185,10 +202,17 @@ async function handleLineCallback(req, res) {
 
   const code        = (body.code || '').trim();
   const redirectUri = (body.redirect_uri || '').trim();
+  const stateRaw     = (body.state || '').trim();
 
   if (!code || !redirectUri) {
     return json(res, 200, { ok: false, error: 'invalid_link' });
   }
+
+  const statePayload = signedToken.verify(stateRaw, secret);
+  if (!statePayload || statePayload.p !== 'oauth') {
+    return json(res, 200, { ok: false, error: 'line_state_mismatch' });
+  }
+  const connectEmail = statePayload.email || null;
 
   let lineToken;
   try {
@@ -228,6 +252,11 @@ async function handleLineCallback(req, res) {
     console.error('[line-cb] profile failed:', e.message);
     return json(res, 200, { ok: false, error: 'line_profile_failed' });
   }
+
+  // ลำดับความสำคัญของอีเมล: connect_token จากลิงก์ในอีเมลคำสั่งซื้อ (ความ
+  // ตั้งใจชัดเจนที่สุด — ลูกค้ากดลิงก์นี้เพื่อผูกบัญชีกับอีเมลนี้โดยเฉพาะ)
+  // > อีเมลที่ LINE แชร์มาเอง > อีเมลที่เคยผูกไว้จาก need_email รอบก่อน
+  if (connectEmail) email = connectEmail;
 
   if (!email) {
     // LINE ไม่ได้แชร์อีเมลมารอบนี้ — เช็คก่อนว่าเคยผูกอีเมลไว้กับ LINE user

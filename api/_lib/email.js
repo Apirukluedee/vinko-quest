@@ -12,6 +12,7 @@
 
 const db = require('./supabase');
 const config = require('./config');
+const signedToken = require('./signed_token');
 
 const FROM = 'VINKO <hello@mail.vinko.quest>';
 const BRAND_ORANGE = '#F59A23';
@@ -41,6 +42,27 @@ function downloadUrl(token) {
 
 function readerUrl(storyNum, readerToken) {
   return baseUrl() + '/read?story=' + storyNum + '&token=' + encodeURIComponent(readerToken) + '&openExternalBrowser=1';
+}
+
+/**
+ * ลิงก์ "เชื่อมบัญชี LINE" — ฝังอีเมลของคำสั่งซื้อนี้ไว้ใน token ที่เซ็น
+ * ด้วย HMAC (signed_token.js) ตอนลูกค้ากดลิงก์นี้แล้วเลือก login ด้วย
+ * LINE ระบบจะผูก LINE account เข้ากับอีเมลนี้ทันทีโดยไม่ต้องพิมพ์อีเมล
+ * เองเลย (ข้าม need_email ไปเลย — ดู api/auth.js handleLineCallback)
+ *
+ * คืน null ถ้า LINE Login ยังไม่ได้ตั้งค่า (channel id/secret ว่าง) —
+ * ผู้เรียกต้องเช็คก่อนเอาไปใส่ปุ่มในอีเมล ไม่งั้นลูกค้าจะกดแล้วเจอ
+ * line_not_configured เปล่าๆ
+ */
+function connectLineUrl(customerEmail) {
+  const secret = config.lineLoginChannelSecret();
+  if (!config.lineLoginChannelId() || !secret || !customerEmail) return null;
+  const token = signedToken.sign({
+    p: 'connect',
+    email: String(customerEmail).trim().toLowerCase(),
+    exp: Date.now() + 30 * 24 * 3600 * 1000 // 30 วัน — อีเมลอาจถูกเปิดอ่านช้าได้
+  }, secret);
+  return baseUrl() + '/login?connect_token=' + encodeURIComponent(token) + '&openExternalBrowser=1';
 }
 
 function storyNumFromCode(productCode) {
@@ -143,11 +165,28 @@ const SUBJECT_NAME = {
   BUNDLE:  'VINKO WOW LAB + STORIES'
 };
 
+/* กล่อง "เชื่อมบัญชี LINE" — เผื่อไม่ได้ตั้งค่า LINE Login ไว้
+   (connectLineUrl คืน null) จะไม่แสดงกล่องนี้เลย ไม่ใช่แสดงปุ่มพังๆ */
+function connectLineBox(url) {
+  return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" ' +
+    'style="background:' + BRAND_NAVY + ';border-radius:12px;margin:20px 0;">' +
+    '<tr><td style="padding:18px 20px;">' +
+    '<p style="margin:0 0 4px;color:' + BRAND_ORANGE + ';font-size:11px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">เข้าดูหนังสือเร็วขึ้นในครั้งหน้า</p>' +
+    '<p style="margin:0 0 6px;color:#ffffff;font-size:16px;font-weight:bold;line-height:1.4;">🔗 เชื่อมบัญชี LINE กับคำสั่งซื้อนี้</p>' +
+    '<p style="margin:0 0 14px;color:#B9C4E8;font-size:13.5px;line-height:1.6;">กดครั้งเดียว ครั้งต่อไปกด "เข้าสู่ระบบด้วย LINE" เข้า My Library ได้เลย ไม่ต้องเปิดอีเมลหาอีกแล้ว</p>' +
+    '<table role="presentation" cellpadding="0" cellspacing="0" border="0">' +
+    '<tr><td align="center" bgcolor="' + BRAND_ORANGE + '" style="border-radius:999px;">' +
+    '<a href="' + esc(url) + '" style="display:inline-block;padding:11px 26px;color:#ffffff;font-size:15px;font-weight:bold;text-decoration:none;border-radius:999px;">เชื่อมบัญชี LINE</a>' +
+    '</td></tr></table>' +
+    '</td></tr></table>';
+}
+
 function purchaseEmail(o) {
   const url = downloadUrl(o.token);
   const pkgName = SUBJECT_NAME[o.packageCode] || 'VINKO';
   const hasPreorderStories = o.packageCode === 'BUNDLE' || o.packageCode === 'STORIES';
   const preorders = (o.items || []).filter(function (i) { return i.delivery_type === 'preorder'; });
+  const connectUrl = o.customerEmail ? connectLineUrl(o.customerEmail) : null;
 
   let inner =
     '<p style="margin:0 0 12px;font-size:19px;font-weight:bold;color:' + BRAND_NAVY + ';">ขอบคุณมากครับ 🎉</p>' +
@@ -181,6 +220,8 @@ function purchaseEmail(o) {
     }
   }
 
+  if (connectUrl) inner += connectLineBox(connectUrl);
+
   inner += '<p style="margin:18px 0 0;color:#6B7285;font-size:13px;line-height:1.7;">' +
     'ไฟล์ของคุณมีลายน้ำระบุชื่อและเลขที่คำสั่งซื้อกำกับไว้ทุกหน้า ' +
     'เพื่อให้เราดูแลผลงานได้ต่อไป รบกวนเก็บไว้ใช้ในครอบครัวนะครับ 🙏</p>';
@@ -197,6 +238,7 @@ function purchaseEmail(o) {
           return '  - ' + i.title + ' : ' + (thaiDate(i.scheduled_delivery_date) || 'รอกำหนด');
         }).join('\n') + '\n\n'
       : '') +
+    (connectUrl ? 'เชื่อมบัญชี LINE เพื่อเข้าดูหนังสือได้เร็วขึ้นครั้งหน้า: ' + connectUrl + '\n\n' : '') +
     'ไฟล์มีลายน้ำระบุตัวผู้ซื้อทุกหน้า กรุณาเก็บไว้ใช้ในครอบครัว\n\n' +
     seller().name + (seller().email ? ' · ' + seller().email : '') + '\n' + seller().line + '\n';
 
@@ -328,6 +370,6 @@ async function logEvent(rec) {
 }
 
 module.exports = {
-  FROM, purchaseEmail, storyEmail, resendEmail, send,
+  FROM, purchaseEmail, storyEmail, resendEmail, send, connectLineUrl,
   thaiDate, thaiDateTime, maskless: esc
 };

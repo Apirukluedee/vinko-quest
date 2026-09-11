@@ -199,6 +199,8 @@
   const loggedOut = params.get('logged_out');
   const lineCode  = params.get('code');
   const lineState = params.get('state');
+  // ลิงก์ "เชื่อมบัญชี LINE" จากอีเมลยืนยันคำสั่งซื้อ — ดู email.js:connectLineUrl
+  const connectToken = params.get('connect_token');
 
   /* need_email มาจาก JSON response ของ line-callback (ไม่ได้ redirect
      พร้อม query string เหมือนเดิมแล้ว) จึงเก็บ line_uid ไว้ใน
@@ -206,7 +208,8 @@
      แท็บ Safari ที่ถูก background ไว้ พอกลับมาตัวแปร JS หายหมด ทำให้
      ส่ง magic-link ไปโดยไม่มี line_uid ติดไปด้วย (เจอจริงจากข้อมูลใน DB —
      แถวที่ส่งมาล่าสุดก็ line_user_id เป็น null) sessionStorage รอดจาก
-     reload หน้าเดิมได้ ตัวแปรในหน่วยความจำไม่รอด */
+     reload หน้าเดิมได้ ตัวแปรในหน่วยความจำไม่รอด — ทางนี้ยังจำเป็นอยู่
+     สำหรับเคสที่ LINE ไม่แชร์อีเมลมาเลยและไม่ได้มาจากลิงก์ connect_token */
   let storedLineUid = null;
   try { storedLineUid = sessionStorage.getItem('vnk_need_email_line_uid'); } catch (e) {}
   let lineUid   = params.get('line_uid') || storedLineUid;
@@ -218,7 +221,7 @@
     expired_link:        'ลิงก์หมดอายุแล้ว กรุณาขอลิงก์ใหม่',
     invalid_link:        'ลิงก์ไม่ถูกต้อง',
     line_not_configured: 'LINE Login ยังไม่พร้อมใช้งาน กรุณาใช้อีเมลแทน',
-    line_state_mismatch: 'เกิดข้อผิดพลาด กรุณาลองใหม่',
+    line_state_mismatch: 'ลิงก์หมดอายุหรือไม่ถูกต้อง กรุณาลองใหม่',
     line_token_failed:   'เชื่อมต่อ LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     line_profile_failed: 'เชื่อมต่อ LINE ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     internal:            'เกิดข้อผิดพลาดภายใน กรุณาลองใหม่'
@@ -227,34 +230,35 @@
   if (loggedOut) showMsg('ออกจากระบบแล้ว', 'success');
   if (needEmail) {
     showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
+  } else if (connectToken && !lineCode) {
+    showMsg('กดปุ่ม "เข้าสู่ระบบด้วย LINE" ด้านล่างเพื่อเชื่อมบัญชี LINE กับคำสั่งซื้อนี้', 'success');
   }
   if (err) showMsg(ERROR_MSGS[err] || 'เกิดข้อผิดพลาด: ' + err, 'error');
 
-  /* ── LINE Login: client สร้าง+เก็บ state เอง (sessionStorage) แทน
-     cookie ฝั่ง server — ป้องกันปัญหา state หายเมื่อเปิดจากเบราว์เซอร์
-     ในแอป (LINE/Gmail in-app browser) ซึ่งเป็นสาเหตุจริงของ
-     line_state_mismatch ที่ลูกค้าเจอ ดูรูปแบบเดียวกันใน
-     skyhousepet.com (assets/js/rewards-api.js) */
+  /* ── LINE Login: state เซ็นด้วย HMAC ฝั่ง server (signed_token.js) —
+     ไม่ต้องเก็บอะไรไว้ฝั่ง client เลยตอนนี้ ตรวจสอบได้เองจากลายเซ็น
+     แก้ปัญหา state หายตอนแอป LINE เปิด redirect กลับมาคนละ context
+     (ลองมาแล้วทั้ง cookie และ sessionStorage เจอปัญหาเดิมทุกครั้ง) */
   window.beginLineLogin = function () {
     const btn = document.getElementById('btn-line');
     btn.disabled = true;
-    fetch('/api/auth/line-start')
+    const qs = connectToken ? ('?connect_token=' + encodeURIComponent(connectToken)) : '';
+    fetch('/api/auth/line-start' + qs)
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (!data.ok) { showMsg(ERROR_MSGS[data.error] || 'เกิดข้อผิดพลาด', 'error'); btn.disabled = false; return; }
-        try { sessionStorage.setItem('vnk_line_state', data.state); } catch (e) {}
         location.href = data.authorizeUrl;
       })
       .catch(function () { showMsg('เกิดข้อผิดพลาด กรุณาลองใหม่', 'error'); btn.disabled = false; });
   };
 
-  function completeLineLogin(code) {
+  function completeLineLogin(code, state) {
     const btn = document.getElementById('btn-line');
     if (btn) btn.disabled = true;
     fetch('/api/auth/line-callback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: code, redirect_uri: location.origin + location.pathname })
+      body: JSON.stringify({ code: code, state: state, redirect_uri: location.origin + location.pathname })
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -276,23 +280,8 @@
   }
 
   if (lineCode) {
-    let savedState = null;
-    try { savedState = sessionStorage.getItem('vnk_line_state'); } catch (e) {}
-    try { sessionStorage.removeItem('vnk_line_state'); } catch (e) {}
     history.replaceState({}, '', location.pathname);
-    /* "เข้าสู่ระบบด้วยแอป LINE" (ทางที่ลูกค้าส่วนใหญ่ใช้ เพราะจำอีเมล/
-       รหัสผ่าน LINE ไม่ได้) ทำให้แอป LINE เป็นคนเปิด redirect กลับมาเองใน
-       เบราว์เซอร์ในแอปของมัน ซึ่งเป็นคนละ context กับที่เริ่ม flow ไว้ —
-       sessionStorage ตามไปไม่ได้จริง ๆ (ไม่ใช่บั๊ก เป็นพฤติกรรมแอป LINE)
-       จึง error เฉพาะตอนที่มีค่าบันทึกไว้แต่ "ไม่ตรงกัน" เท่านั้น ถ้าไม่มี
-       ค่าบันทึกไว้เลย (มาจาก context อื่น) ให้ปล่อยผ่านไปแลกเป็น token
-       ต่อเลย — code จาก LINE เป็น single-use และ redirect_uri ต้องตรง
-       กับตอนขอ authorize อยู่แล้ว ยังเป็นชั้นป้องกันหลักอยู่ */
-    if (savedState && savedState !== lineState) {
-      showMsg(ERROR_MSGS.line_state_mismatch, 'error');
-    } else {
-      completeLineLogin(lineCode);
-    }
+    completeLineLogin(lineCode, lineState);
   }
 
   window.sendMagicLink = async function () {
