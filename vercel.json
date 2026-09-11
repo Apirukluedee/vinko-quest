@@ -97,6 +97,12 @@
   "functions": {
     "api/download.js": {
       "maxDuration": 60
+    },
+    "api/auth/*.js": {
+      "maxDuration": 10
+    },
+    "api/my-library.js": {
+      "maxDuration": 10
     }
   }
 }
