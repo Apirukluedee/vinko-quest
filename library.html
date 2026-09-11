@@ -143,6 +143,12 @@
   font-family: 'Anuphan', sans-serif;
   color: #888;
 }
+/* .loading-state{display:flex} ชนะ [hidden]{display:none} ของเบราว์เซอร์
+   เสมอ (author CSS ชนะ user-agent CSS ไม่ว่า specificity เท่าไหร่) ทำให้
+   loadingEl.hidden = true ใน script ด้านล่างไม่มีผลจริง สปินเนอร์ค้างแสดง
+   ตลอดแม้โหลดเสร็จแล้วและการ์ดหนังสือ render ออกมาด้านล่างแล้วก็ตาม —
+   ต้องมี override เฉพาะนี้ ไม่งั้น [hidden] เฉยๆ ไม่พอ */
+.loading-state[hidden] { display: none; }
 </style>
 </head>
 <body class="premium">
