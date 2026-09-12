@@ -491,12 +491,45 @@ const SB_KEY = 'sb_publishable_QbQ2cvGe5cfFcV61FhEtjQ_KbVsYKZ_';
 // Background music URL — ใส่ URL เพลงที่นี่เมื่อมีไฟล์
 const BGM_URL = 'https://snhfobhkrkuntohybnrh.supabase.co/storage/v1/object/public/story-reader/bgm/background.mp3';
 
+// extra: page-index (0-based) → { audio: basename, bi: bilingual (has _en.wav) }
 const STORIES = {
-  '1': { title: 'นิทานเล่ม 1', pages: buildPages(20, 14, 2) },
-  '2': { title: 'นิทานเล่ม 2', pages: buildPages(21, 16, 2) },
-  '3': { title: 'นิทานเล่ม 3', pages: buildPages(20, 14, 2) },
-  '4': { title: 'นิทานเล่ม 4', pages: buildPages(21, 15, 2) },
-  '5': { title: 'นิทานเล่ม 5', pages: buildPages(21, 15, 2) }
+  '1': { title: 'นิทานเล่ม 1', pages: buildPages(20, 14, 2), extra: {
+    0:  { audio: 'extra_cover',    bi: false },
+    1:  { audio: 'extra_chars',    bi: false },
+    17: { audio: 'extra_newwords', bi: false },
+    18: { audio: 'extra_parents',  bi: false },
+  }},
+  '2': { title: 'นิทานเล่ม 2', pages: buildPages(21, 14, 2), extra: {
+    0:  { audio: 'extra_cover',              bi: false },
+    1:  { audio: 'extra_chars',              bi: false },
+    16: { audio: 'extra_newwords',           bi: false },
+    17: { audio: 'extra_page11_tryit',       bi: true  },
+    18: { audio: 'extra_page10_sciencepopup', bi: true  },
+    19: { audio: 'extra_parents',            bi: false },
+  }},
+  '3': { title: 'นิทานเล่ม 3', pages: buildPages(20, 14, 2), extra: {
+    0:  { audio: 'extra_cover',    bi: false },
+    1:  { audio: 'extra_chars',    bi: false },
+    16: { audio: 'extra_wowlab',   bi: true  },
+    17: { audio: 'extra_newwords', bi: false },
+    18: { audio: 'extra_parents',  bi: false },
+  }},
+  '4': { title: 'นิทานเล่ม 4', pages: buildPages(21, 14, 2), extra: {
+    0:  { audio: 'extra_cover',          bi: false },
+    1:  { audio: 'extra_chars',          bi: false },
+    16: { audio: 'extra_newwords',       bi: false },
+    17: { audio: 'extra_tryityourself',  bi: true  },
+    18: { audio: 'extra_sciencecorner',  bi: true  },
+    19: { audio: 'extra_parents',        bi: false },
+  }},
+  '5': { title: 'นิทานเล่ม 5', pages: buildPages(21, 14, 2), extra: {
+    0:  { audio: 'extra_cover',          bi: false },
+    1:  { audio: 'extra_chars',          bi: false },
+    16: { audio: 'extra_newwords',       bi: false },
+    17: { audio: 'extra_tryityourself',  bi: true  },
+    18: { audio: 'extra_sciencecorner',  bi: true  },
+    19: { audio: 'extra_parents',        bi: false },
+  }},
 };
 
 // buildPages: image pages 1..total, audio pages 1..audioCount (1-indexed, offset shifts which image starts audio)
@@ -516,6 +549,7 @@ function buildPages(total, audioCount, audioStartAt) {
 const params  = new URLSearchParams(location.search);
 const storyId = params.get('story') || '1';
 let story, currentLang = 'th', currentPage = 0, autoPlay = false, playing = false, bgmOn = false;
+let curAudioBase = null, curAudioBi = true;  // set in showPage, read by playLang/startAudio
 
 const player    = document.getElementById('player');
 const bgmEl     = document.getElementById('bgm');
@@ -603,7 +637,7 @@ function showPage(idx, onLoad, flipDir) {
       void imgEl.offsetWidth;
       imgEl.classList.add('page-fade-in');
       if (onLoad) onLoad();
-      if (autoPlay && pg.audio) startAudio(pg);
+      if (autoPlay && curAudioBase) startAudio();
     };
     imgEl.onerror = () => { if (onLoad) onLoad(); };
     imgEl.src = `${SB}/images/STORY-0${storyId}/${pg.img}`;
@@ -619,14 +653,17 @@ function showPage(idx, onLoad, flipDir) {
   document.getElementById('btn-rew').disabled  = idx === 0;
   document.getElementById('btn-fwd').disabled  = idx === story.pages.length - 1;
 
-  // audio
-  const hasAudio = !!pg.audio;
-  btnPlay.disabled = !hasAudio;
-  btnPlayTh.disabled = !hasAudio;
-  btnPlayEn.disabled = !hasAudio;
+  // audio — story pages use pg.audio; special pages fall back to story.extra[idx]
+  const xtra = story.extra && story.extra[idx];
+  curAudioBase = pg.audio || (xtra && xtra.audio) || null;
+  curAudioBi   = pg.audio ? true : (xtra ? xtra.bi : true);
+  const hasAudio = !!curAudioBase;
+  btnPlay.disabled    = !hasAudio;
+  btnPlayTh.disabled  = !hasAudio;
+  btnPlayEn.disabled  = !hasAudio || !curAudioBi;
   if (hasAudio) {
-    const url = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${currentLang}.wav`;
-    player.src = url;
+    const lang = curAudioBi ? currentLang : 'th';
+    player.src = `${SB}/audio/STORY-0${storyId}/${curAudioBase}_${lang}.wav`;
     player.load();
     playing = false;
     setPlayIcon(false);
@@ -653,9 +690,10 @@ function togglePlay() {
   }
 }
 
-function startAudio(pg) {
-  if (!pg.audio) return;
-  player.src = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${currentLang}.wav`;
+function startAudio() {
+  if (!curAudioBase) return;
+  const lang = curAudioBi ? currentLang : 'th';
+  player.src = `${SB}/audio/STORY-0${storyId}/${curAudioBase}_${lang}.wav`;
   player.load();
   player.play().then(() => { playing = true; updateLangButtons(true); }).catch(() => {});
 }
@@ -679,8 +717,8 @@ function setPlayIcon(isPlaying) {
 
 // ── Language buttons on image ─────────────────────────────────────────────────
 function playLang(l) {
-  const pg = story.pages[currentPage];
-  if (!pg.audio) return;
+  if (!curAudioBase) return;
+  if (!curAudioBi && l === 'en') return;  // TH-only page
 
   // If already playing this lang → pause
   if (playing && currentLang === l) {
@@ -690,7 +728,8 @@ function playLang(l) {
 
   currentLang = l;
   stopAudio();
-  player.src = `${SB}/audio/STORY-0${storyId}/${pg.audio}_${l}.wav`;
+  const lang = curAudioBi ? l : 'th';
+  player.src = `${SB}/audio/STORY-0${storyId}/${curAudioBase}_${lang}.wav`;
   player.load();
   player.play().then(() => {
     playing = true;
