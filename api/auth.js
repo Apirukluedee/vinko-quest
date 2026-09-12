@@ -340,11 +340,12 @@ async function handleMyLibrary(req, res) {
   );
   const items = Array.isArray(itemsRes.body) ? itemsRes.body : [];
 
-  // reader_token อยู่ในผลลัพธ์ orders ชุดแรกอยู่แล้ว ไม่ต้อง query ซ้ำ
-  // (จุดนี้เคย query orders ซ้ำอีกรอบเฉพาะเพื่อดึง reader_token — ทำให้หน้า
-  // My Library ช้าโดยไม่จำเป็น เสีย round-trip ไป Supabase ฟรีๆ 1 ครั้ง)
-  const orderWithToken = orders.find(function(o) { return o.reader_token; });
-  const readerToken = orderWithToken ? orderWithToken.reader_token : null;
+  // reader_token ต้องผูกกับออเดอร์ของ item นั้นๆ เอง ไม่ใช่หยิบจากออเดอร์
+  // ไหนก็ได้ที่มี reader_token — ลูกค้าที่มีหลายออเดอร์ (เช่นซื้อซ้ำ หรือ
+  // มีออเดอร์ทดสอบปนอยู่) เคยโดนจับคู่ item ของออเดอร์หนึ่งกับ token ของ
+  // อีกออเดอร์หนึ่งโดยบังเอิญ ทำให้ปุ่มดาวน์โหลด PDF ใช้ไม่ได้
+  const tokenByOrderId = {};
+  orders.forEach(function(o) { tokenByOrderId[o.id] = o.reader_token || null; });
 
   const books = [];
   for (const [code, meta] of Object.entries(STORY_META)) {
@@ -360,7 +361,7 @@ async function handleMyLibrary(req, res) {
       delivery_date: item.delivery_type === 'preorder'
         ? thaiDate(item.scheduled_delivery_date)
         : null,
-      reader_token:  item.delivery_type === 'instant' ? readerToken : null,
+      reader_token:  item.delivery_type === 'instant' ? tokenByOrderId[item.order_id] : null,
       item_id:       item.delivery_type === 'instant' ? item.id : null
     });
   }
@@ -380,7 +381,7 @@ async function handleMyLibrary(req, res) {
       delivery_date: item.delivery_type === 'preorder'
         ? thaiDate(item.scheduled_delivery_date)
         : null,
-      reader_token:  item.delivery_type === 'instant' ? readerToken : null,
+      reader_token:  item.delivery_type === 'instant' ? tokenByOrderId[item.order_id] : null,
       item_id:       item.delivery_type === 'instant' ? item.id : null
     });
   }

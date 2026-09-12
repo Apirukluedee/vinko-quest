@@ -210,8 +210,16 @@
      แถวที่ส่งมาล่าสุดก็ line_user_id เป็น null) sessionStorage รอดจาก
      reload หน้าเดิมได้ ตัวแปรในหน่วยความจำไม่รอด — ทางนี้ยังจำเป็นอยู่
      สำหรับเคสที่ LINE ไม่แชร์อีเมลมาเลยและไม่ได้มาจากลิงก์ connect_token */
+  // ค่าเก่าใน sessionStorage อาจค้างมาจากรอบ need_email ก่อนหน้า (คนละวัน
+  // คนละคำสั่งซื้อ) ถ้าตอนนี้มาจากลิงก์ "เชื่อมบัญชี LINE" (connectToken)
+  // ซึ่งเป็นคนละ flow กันโดยสิ้นเชิง ต้องเคลียร์ทิ้ง ไม่งั้นหน้านี้จะโชว์
+  // ข้อความ "LINE ไม่แชร์อีเมล" ผิดๆ ทันทีที่โหลด ทั้งที่ยังไม่ได้ลองกด
+  // ปุ่ม LINE Login รอบนี้เลยด้วยซ้ำ
+  if (connectToken) {
+    try { sessionStorage.removeItem('vnk_need_email_line_uid'); } catch (e) {}
+  }
   let storedLineUid = null;
-  try { storedLineUid = sessionStorage.getItem('vnk_need_email_line_uid'); } catch (e) {}
+  try { storedLineUid = connectToken ? null : sessionStorage.getItem('vnk_need_email_line_uid'); } catch (e) {}
   let lineUid   = params.get('line_uid') || storedLineUid;
   let needEmail = params.get('need_email') === '1' || !!lineUid;
 

@@ -43,6 +43,36 @@
 }
 .vk-books-or::before { left: 0; }
 .vk-books-or::after { right: 0; }
+
+/* ราคา 2 บรรทัด (ราคาปกติขีดฆ่า + ราคาเปิดตัว) ในคอลัมน์ราคาแคบของ
+   .vk-choice — ต้องเป็นคอลัมน์แนวตั้งแยกจาก .vk-choice-price ปกติที่เป็น
+   บรรทัดเดียว nowrap ไม่งั้นล้นขอบจอที่ 320px แน่นอน */
+.vk-choice-price-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  white-space: nowrap;
+}
+.vk-choice-price-stack .vk-price-old { font-size: 12px; }
+.vk-choice-price-stack .vk-price-tag { font-size: 11px; margin: 0; }
+.vk-choice-tag {
+  font-weight: 800;
+  color: var(--orange);
+  font-size: 12.5px;
+}
+.vk-choice-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.vk-choice-badges .vk-badge { font-size: 11px; padding: 4px 10px; }
+.vk-books-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: -6px 0 14px;
+}
 </style>
 </head>
 <body class="premium">
@@ -59,8 +89,8 @@
 <header class="vk-page-head">
 <div class="wrap">
 <p class="vk-breadcrumb"><a href="/">หน้าแรก</a> · สั่งซื้อ</p>
-<h1>สั่งซื้อ VINKO WOW LAB</h1>
-<p class="lead">เลือกซื้อเป็นชุด หรือเลือกซื้อ VINKO STORIES แยกเป็นเล่มๆ ก็ได้</p>
+<h1>เลือกซื้อหนังสือ VINKO</h1>
+<p class="lead">เลือกแพ็กเกจที่เหมาะกับครอบครัว หรือเลือกซื้อ VINKO STORIES รายเล่มได้ตามต้องการ</p>
 </div>
 </header>
 
@@ -68,39 +98,51 @@
 <div class="wrap">
 <div class="vk-panel" style="max-width:640px;margin:0 auto">
 
-<h3>เลือกแบบชุด</h3>
+<h3>เลือกแพ็กเกจ</h3>
 <div class="vk-choice" id="vk-pkg-list">
 <label>
 <input name="pkg" type="radio" value="lab"/>
-<span class="vk-choice-name">VINKO WOW LAB<small>10 ภารกิจสุดว้าว · ได้ 2 ไฟล์ เล่มเต็ม + ใบงาน · ดาวน์โหลดทันที</small></span>
+<span class="vk-choice-name">VINKO WOW LAB<small>10 ภารกิจวิทยาศาสตร์ในหนังสือดิจิทัล 2 เล่ม พร้อมใบงาน ดาวน์โหลดได้ทันที</small></span>
 <span class="vk-choice-price"><span data-vk-price="lab">199</span> บาท</span>
 </label>
 <label data-vk-bundle hidden>
 <input name="pkg" type="radio" value="stories"/>
-<span class="vk-choice-name">VINKO STORIES · เอ๊ะ? อ๋อ! / Why? Wow! (5 เล่ม)<small>5 Ebook + เสียงอ่านไทย/อังกฤษ · ได้ทันทีหลังชำระเงิน</small></span>
-<span class="vk-choice-price"><span data-vk-price="stories">199</span> บาท</span>
+<span class="vk-choice-name">VINKO STORIES: เอ๊ะ? จนอ๋อ! / WHY? WOW! <span class="vk-choice-tag">ครบชุด 5 เล่ม</span>
+<small>หนังสือสองภาษา 5 เล่ม พร้อมเสียงอ่านภาษาไทยและภาษาอังกฤษ เปิดอ่านได้ทั้ง PDF และ VINKO Reader Book</small>
+<span class="vk-choice-badges" data-vk-launch-only="stories"><span class="vk-badge best">ประหยัด 96 บาท เมื่อเทียบกับการซื้อรายเล่ม</span></span>
+</span>
+<span class="vk-choice-price vk-choice-price-stack">
+<span class="vk-price-old" data-vk-launch-only="stories"><span data-vk-price-normal="stories">249</span> บาท</span>
+<span class="vk-price-tag" data-vk-launch-only="stories">ราคาเปิดตัว</span>
+<span><span data-vk-price="stories">199</span> บาท</span>
+</span>
 </label>
 <label data-vk-bundle hidden>
 <input name="pkg" type="radio" value="bundle"/>
-<span class="vk-choice-name">BUNDLE: LAB + VINKO STORIES (5 เล่ม)<small>LAB 2 ไฟล์ + 5 Ebook + เสียงอ่านไทย/อังกฤษ · ได้ทันทีหลังชำระเงิน</small></span>
+<span class="vk-choice-name">แพ็กเกจครบชุด: WOW LAB + VINKO STORIES
+<small>WOW LAB 2 เล่ม + ใบงาน + VINKO STORIES 5 เล่ม พร้อมเสียงอ่านภาษาไทยและภาษาอังกฤษ<br/>พร้อมใบประกาศนักวิทย์น้อย รับผ่าน LINE และพิมพ์เองได้</small>
+<span class="vk-choice-badges"><span class="vk-badge best">คุ้มค่าที่สุด</span></span>
+</span>
 <span class="vk-choice-price"><span data-vk-price="bundle">349</span> บาท</span>
 </label>
 </div>
 
-<div class="vk-books-or" data-vk-bundle hidden>หรือ</div>
+<div class="vk-books-or" data-vk-bundle hidden>หรือเลือกซื้อเฉพาะเรื่อง</div>
 
 <div data-vk-bundle hidden>
-<h3>เลือกซื้อ VINKO STORIES แยกเล่ม (59 บาท/เล่ม)</h3>
+<h3>เลือกซื้อ VINKO STORIES รายเล่ม</h3>
+<p class="vk-books-sub">เลือกได้มากกว่า 1 เรื่อง • ราคาเล่มละ 59 บาท</p>
 <div class="vk-choice" id="vk-book-list"></div>
 </div>
 
+<h3 id="vk-books-summary-heading" hidden style="margin-top:24px">รายการที่เลือก</h3>
 <div class="vk-books-total">
-<span id="vk-books-summary-label">ยังไม่ได้เลือก</span>
+<span id="vk-books-summary-label">กรุณาเลือกสินค้าที่ต้องการ</span>
 <span id="vk-books-summary-price"></span>
 </div>
 
 <button class="btn vk-submit" id="vk-books-buy" type="button" disabled style="width:100%;margin-top:18px">
-เลือกอย่างใดอย่างหนึ่งก่อน
+กรุณาเลือกสินค้าก่อน
 </button>
 
 </div>
@@ -124,16 +166,17 @@
   var stories = C.STORY_DELIVERY || [];
   var bookPrice = C.SINGLE_BOOK_PRICE || 59;
 
-  var pkgList  = document.getElementById("vk-pkg-list");
-  var bookList = document.getElementById("vk-book-list");
-  var buyBtn   = document.getElementById("vk-books-buy");
-  var sumLabel = document.getElementById("vk-books-summary-label");
-  var sumPrice = document.getElementById("vk-books-summary-price");
+  var pkgList   = document.getElementById("vk-pkg-list");
+  var bookList  = document.getElementById("vk-book-list");
+  var buyBtn    = document.getElementById("vk-books-buy");
+  var sumHeading = document.getElementById("vk-books-summary-heading");
+  var sumLabel  = document.getElementById("vk-books-summary-label");
+  var sumPrice  = document.getElementById("vk-books-summary-price");
 
   var PKG_NAMES = {
     lab:     "VINKO WOW LAB",
-    stories: "VINKO STORIES (5 เล่ม)",
-    bundle:  "BUNDLE: LAB + VINKO STORIES"
+    stories: "VINKO STORIES: เอ๊ะ? จนอ๋อ! / WHY? WOW! (ครบชุด 5 เล่ม)",
+    bundle:  "แพ็กเกจครบชุด: WOW LAB + VINKO STORIES"
   };
 
   stories.forEach(function (s) {
@@ -165,21 +208,26 @@
 
     if (pkg) {
       var price = V.priceOf ? V.priceOf(pkg) : null;
+      var priceText = price != null ? (V.baht ? V.baht(price) : price) : null;
+      sumHeading.hidden = false;
       sumLabel.textContent = PKG_NAMES[pkg];
-      sumPrice.textContent = price != null ? (V.baht ? V.baht(price) : price) + " บาท" : "";
+      sumPrice.textContent = priceText != null ? priceText + " บาท" : "";
       buyBtn.disabled = false;
-      buyBtn.textContent = "สั่งซื้อ " + PKG_NAMES[pkg];
+      buyBtn.textContent = priceText != null ? "ดำเนินการชำระเงิน • " + priceText + " บาท" : "ดำเนินการชำระเงิน";
     } else if (books.length) {
       var total = books.length * bookPrice;
+      var totalText = V.baht ? V.baht(total) : total;
+      sumHeading.hidden = false;
       sumLabel.textContent = "รวม " + books.length + " เล่ม";
-      sumPrice.textContent = (V.baht ? V.baht(total) : total) + " บาท";
+      sumPrice.textContent = totalText + " บาท";
       buyBtn.disabled = false;
-      buyBtn.textContent = "สั่งซื้อ " + books.length + " เล่มที่เลือก";
+      buyBtn.textContent = "ดำเนินการชำระเงิน • " + totalText + " บาท";
     } else {
-      sumLabel.textContent = "ยังไม่ได้เลือก";
+      sumHeading.hidden = true;
+      sumLabel.textContent = "กรุณาเลือกสินค้าที่ต้องการ";
       sumPrice.textContent = "";
       buyBtn.disabled = true;
-      buyBtn.textContent = "เลือกอย่างใดอย่างหนึ่งก่อน";
+      buyBtn.textContent = "กรุณาเลือกสินค้าก่อน";
     }
   }
 
