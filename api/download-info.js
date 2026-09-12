@@ -18,6 +18,16 @@ const tokens = require('./_lib/tokens');
 const catalog = require('./_lib/catalog');
 const { json, fail, requireEnv } = require('./_lib/util');
 
+// ลายน้ำเดิมโชว์อีเมลเต็ม — เกินความจำเป็นสำหรับแค่ deter การแชร์ต่อ
+// เหลือแค่ 2 ตัวแรกของ local-part + โดเมนเต็ม (เพียงพอให้เจ้าของรู้ว่า
+// เป็นสำเนาของตัวเอง แต่ไม่เปิดเผยอีเมลเต็มถ้าหลุดไปในภาพแคปหน้าจอ)
+function maskEmail(email) {
+  const parts = String(email || '').split('@');
+  if (parts.length !== 2) return email || '';
+  const local = parts[0].length <= 2 ? parts[0] : parts[0].slice(0, 2) + '***';
+  return local + '@' + parts[1];
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return fail(res, 405, 'วิธีเรียกไม่ถูกต้อง');
   try {
@@ -34,7 +44,7 @@ module.exports = async function handler(req, res) {
     if (!rt.ok) return json(res, 200, { ok: false });
     return json(res, 200, {
       ok: true,
-      watermark: rt.order.customer_email + ' · ' + rt.order.order_ref
+      watermark: maskEmail(rt.order.customer_email) + ' · ' + rt.order.order_ref
     });
   }
 

@@ -2,8 +2,11 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VINKO WOW LAB — อ่านนิทาน</title>
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600;700&family=Anuphan:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -14,13 +17,19 @@
     --gold: #f5a623;
     --text: #eee;
     --muted: #888;
-    --bar-h: 64px;
+    /* ลดจาก 64px ~16% — ปุ่มวงกลม/pill ในแถบล่างก็ลดเหลือ 44px (ดู
+       .ctrl-btn) ยังเกิน touch target ขั้นต่ำ 44px */
+    --bar-h: 54px;
+    /* ระบบ radius/shadow กลาง กันแต่ละปุ่มเลือกค่าคนละแบบโดยไม่มีเหตุผล */
+    --radius-pill: 999px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 2px 6px #0007;
   }
 
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: 'Sarabun', 'Noto Sans Thai', sans-serif;
+    font-family: 'Mitr', 'Anuphan', 'Sarabun', 'Noto Sans Thai', sans-serif;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -46,8 +55,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
     background: #ffffff18;
     flex-shrink: 0;
@@ -73,8 +82,9 @@
     background: #ffffff18;
     color: var(--muted);
     font-size: 13px;
-    padding: 5px 12px;
-    border-radius: 20px;
+    padding: 10px 14px;
+    min-height: 36px;
+    border-radius: var(--radius-pill);
     cursor: pointer;
     transition: all .2s;
     white-space: nowrap;
@@ -109,38 +119,45 @@
     inset: 0;
     z-index: 6;
     pointer-events: none;
-    background-repeat: repeat;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
     mix-blend-mode: difference;
-    opacity: .4;
+    opacity: .22;
   }
 
   /* Page transition — slow fade in */
   @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
   .page-fade-in { animation: pageFadeIn 800ms ease-out forwards; }
 
-  /* nav arrows */
+  /* nav arrows — เก็บไว้บนจอกว้าง (desktop/iPad) เป็นทางลัด, บนมือถือซ่อน
+     เพราะซ้ำซ้อนกับปุ่ม prev/next ใน bottom bar อยู่แล้ว (ทั้งคู่เรียก
+     goPage() ตัวเดียวกัน) — mobile ยังมี swipe รองรับด้วย */
   .nav-btn {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: #00000060;
+    background: #00000055;
     border: none;
     color: #fff;
-    font-size: 28px;
-    width: 48px;
-    height: 80px;
-    border-radius: 6px;
+    font-size: 22px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background .2s;
+    transition: background .2s, opacity .2s;
+    opacity: .7;
     z-index: 10;
   }
-  .nav-btn:hover { background: #00000099; }
-  .nav-btn:disabled { opacity: 0.2; cursor: default; }
-  #btn-prev { left: 8px; }
-  #btn-next { right: 8px; }
+  .nav-btn:hover { background: #00000090; opacity: 1; }
+  .nav-btn:disabled { opacity: 0.15; cursor: default; }
+  #btn-prev { left: 10px; }
+  #btn-next { right: 10px; }
+  @media (max-width: 767px) {
+    .nav-btn { display: none; }
+  }
 
   /* page counter — มุมบนซ้าย กันชนกับปุ่มไทย/English ที่ลอยอยู่มุมล่าง
      (เดิมอยู่กึ่งกลางล่าง ซ้อนทับปุ่มภาษาที่ใหญ่กว่า มองเลขหน้าไม่เห็น) */
@@ -148,11 +165,11 @@
     position: absolute;
     top: 12px;
     left: 12px;
-    background: #00000080;
-    color: #ffffffcc;
-    font-size: 13px;
-    padding: 4px 14px;
-    border-radius: 20px;
+    background: #00000070;
+    color: #ffffffbb;
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: var(--radius-pill);
     pointer-events: none;
   }
 
@@ -177,13 +194,21 @@
     font-weight: 700;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: clamp(4px, 0.6vw, 8px);
+    /* ความกว้างขั้นต่ำเท่ากันทั้งคู่ — "English" ยาวกว่า "ไทย" มาก
+       ถ้าปล่อยตาม content เฉยๆ ปุ่มจะดูไม่สมดุลกัน */
+    min-width: clamp(64px, 9vw, 96px);
     backdrop-filter: blur(6px);
     transition: all .2s;
-    box-shadow: 0 2px 8px #0006;
+    box-shadow: var(--shadow-sm);
   }
   .lang-btn.th-btn {
-    background: #a50d3bcc;
+    /* เดิมใช้ #a50d3b คนละเฉดกับ --accent ที่ปุ่มเล่นใช้ — รวมเป็นสีแดง
+       เฉดเดียวกันทั้งไฟล์ (เลขเดียวกับ --accent ตอน hover) ไม่ให้มีสีแดง/
+       ชมพู 2 เฉดแข่งกัน — เขียนเป็น hex ตรงๆ แทน color-mix() กัน LINE
+       in-app webview รุ่นเก่าที่ยังไม่รองรับฟังก์ชันนี้ */
+    background: #c73350cc;
     color: #fff;
   }
   .lang-btn.en-btn {
@@ -201,24 +226,36 @@
   }
   .lang-btn .flag { font-size: clamp(13px, 1.8vw, 19px); line-height: 1; }
 
-  /* audio status */
+  /* audio status — เดิมเป็น pill ข้อความเต็ม "กำลังเล่น..." ซึ่งซ้ำซ้อนกับ
+     ไอคอน play/pause ที่เปลี่ยนรูปอยู่แล้ว ลดเหลือ badge เล็กมาก แค่
+     ยืนยันว่ากำลังมีเสียงอยู่ ไม่ใช่ control หลัก */
   #audio-badge {
     position: absolute;
     top: 12px;
     right: 12px;
-    background: #00000080;
-    color: #ffffffaa;
+    background: #00000070;
+    color: #ffffffbb;
     font-size: 12px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    pointer-events: none;
+    line-height: 1;
+    padding: 6px;
+    width: 24px;
+    height: 24px;
     display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    pointer-events: none;
   }
-  #audio-badge.visible { display: block; }
+  #audio-badge.visible { display: flex; }
 
-  /* ── Bottom bar ── */
+  /* ── Bottom bar ──
+     LINE in-app browser (และ iOS มือถือทั่วไป) มี browser chrome/home
+     indicator ชิดขอบล่างจอ ปุ่มเดิมไม่มี safe-area padding เลยรู้สึกติด/
+     ถูกบัง — เพิ่ม env(safe-area-inset-bottom) เป็น padding และบวกเข้า
+     height ด้วย calc() กัน padding ไปกินพื้นที่ปุ่มแทน (มี fallback 0px
+     สำหรับ browser ที่ไม่รองรับ) */
   #bottombar {
-    height: var(--bar-h);
+    height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
     background: var(--surface);
     display: flex;
     align-items: center;
@@ -226,71 +263,86 @@
     gap: 20px;
     flex-shrink: 0;
     border-top: 1px solid #ffffff18;
-    padding: 0 16px;
+    padding: 0 16px calc(env(safe-area-inset-bottom, 0px));
   }
 
   .ctrl-btn {
     background: none;
     border: none;
     color: var(--text);
-    font-size: 26px;
+    font-size: 20px;
     cursor: pointer;
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: background .15s;
   }
+  .ctrl-btn svg { width: 20px; height: 20px; display: block; }
   .ctrl-btn:hover { background: #ffffff14; }
   .ctrl-btn:disabled { opacity: .3; cursor: default; }
   .ctrl-btn:disabled:hover { background: none; }
 
+  /* Play/Pause — เดิมสีชมพู/แดงจัด #e94560 ขนาด 58px แย่ง attention จาก
+     ภาพหนังสือมากเกินไป (ดูเหมือนปุ่ม record/emergency) ลดขนาดลง ~20%
+     และเปลี่ยนพื้นเป็น navy ของ surface เข้ม + ขอบบาง ให้ accent สื่อผ่าน
+     ไอคอนแทนพื้นทั้งวง ยังหาเจอง่ายเพราะใหญ่กว่าปุ่มข้างๆ อยู่ดี */
   #btn-play-pause {
-    font-size: 32px;
-    width: 58px;
-    height: 58px;
-    background: var(--accent);
-    color: #fff;
+    width: 46px;
+    height: 46px;
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    color: var(--accent);
     border-radius: 50%;
     flex-shrink: 0;
   }
-  #btn-play-pause:hover { background: #c73350; }
-  #btn-play-pause:disabled { background: #555; }
+  #btn-play-pause svg { width: 18px; height: 18px; }
+  #btn-play-pause:hover { background: #ffffff10; }
+  #btn-play-pause:disabled { border-color: #555; color: #555; }
 
-  /* auto-label ลอยด้วย absolute ใต้ปุ่ม ไม่กินพื้นที่ใน flex ของแถบล่าง
-     เดิมใช้ flex-direction:column ทำให้กล่องนี้สูงกว่าปุ่มอื่น พอ #bottombar
-     สั่ง align-items:center ปุ่มวงกลมข้างในเลยถูกดันขึ้นสูงกว่าปุ่มข้างๆ ที่ไม่มี label */
-  .auto-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
+  /* "ต่อเนื่อง" — เดิมเป็นวงกลม 48px + label ลอยด้วย absolute ใต้ปุ่ม ซึ่ง
+     ชนขอบล่างของ #bottombar พอดี (label สูงกว่าระยะขอบที่มีจริง ~13px
+     ทำให้ body{overflow:hidden} ตัดข้อความทิ้งเกือบหมด) — เปลี่ยนเป็น pill
+     แนวนอน icon+ข้อความอยู่ในบรรทัดเดียว สูงเท่า .ctrl-btn วงกลมอื่น (44px)
+     พอดี ทำให้ baseline ตรงกับปุ่มข้างๆ โดยธรรมชาติ ไม่ต้องใช้ absolute
+     positioning เลย และเห็น label ได้ตลอดเวลาไม่ใช่แค่ตอน active */
+  .auto-pill {
+    width: auto;
+    padding: 0 14px 0 11px;
+    border-radius: var(--radius-pill);
+    gap: 6px;
   }
+  .auto-pill .auto-icon { font-size: 18px; line-height: 1; }
   .auto-label {
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 11px;
+    font-size: 12px;
     color: var(--muted);
     white-space: nowrap;
-    margin-top: 2px;
   }
-  #btn-auto.on { color: var(--gold); }
+  /* เดิมตอน ON เปลี่ยนแค่สี icon เป็น gold — subtle เกินไป ผู้ใช้อาจไม่ทัน
+     สังเกต เพิ่ม background pill จางๆ ให้ต่างจากสถานะ OFF ชัดขึ้น ไม่พึ่ง
+     สีอย่างเดียว (label ข้อความเปลี่ยนอยู่แล้วด้วย) */
+  #btn-auto.on {
+    color: var(--gold);
+    background: #f5a62322;
+  }
+  #btn-auto.on .auto-label { color: var(--gold); }
 
   /* progress bar */
   #progress-wrap {
     position: absolute;
-    bottom: var(--bar-h);
+    bottom: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
     left: 0;
     right: 0;
     height: 3px;
     background: #ffffff20;
   }
+  /* เดิมใช้ --accent (แดง/ชมพู) ตัวเดียวกับปุ่มเล่น ทำให้สีแดงโผล่ซ้ำอีกจุด
+     บนจอเดียวกันตลอดเวลา เปลี่ยนเป็น gold ให้บทบาท "accent" ไม่ทับกัน */
   #progress-fill {
     height: 100%;
-    background: var(--accent);
+    background: var(--gold);
     transition: width .3s;
   }
 
@@ -382,7 +434,7 @@
   <a id="btn-home" href="/library?openExternalBrowser=1" title="กลับไปชั้นหนังสือของฉัน">&#8249;</a>
   <span class="logo">VINKO</span>
   <span id="story-title" class="story-title">WOW LAB</span>
-  <button id="btn-bgm" onclick="toggleBgm()" title="เพลงประกอบ">♪ เพลง</button>
+  <button id="btn-bgm" onclick="toggleBgm()" title="ดนตรีประกอบ">♪ ดนตรี</button>
 </div>
 
 <!-- Stage -->
@@ -392,7 +444,7 @@
   <div id="watermark-layer"></div>
   <button class="nav-btn" id="btn-next" onclick="goPage(1)">&#8250;</button>
   <div id="page-counter">1 / 1</div>
-  <div id="audio-badge">🔊 กำลังเล่น...</div>
+  <div id="audio-badge" title="กำลังเล่นเสียง">🔊</div>
 
   <!-- Language audio buttons overlaid on image -->
   <div id="lang-overlay">
@@ -412,13 +464,16 @@
 
 <!-- Bottom bar -->
 <div id="bottombar">
-  <button class="ctrl-btn" id="btn-rew" onclick="goPage(-1)" title="หน้าก่อน">&#10094;&#10094;</button>
-  <button class="ctrl-btn" id="btn-play-pause" onclick="togglePlay()" title="เล่น/หยุด">&#9654;</button>
-  <button class="ctrl-btn" id="btn-fwd" onclick="goPage(1)" title="หน้าถัดไป">&#10095;&#10095;</button>
-  <div class="auto-wrap">
-    <button class="ctrl-btn" id="btn-auto" onclick="toggleAuto()" title="เล่นต่อเนื่อง">&#8635;</button>
-    <span class="auto-label" id="auto-label">ต่อเนื่อง</span>
-  </div>
+  <!-- เดิมใช้ ❮❮ ❯❯ (double chevron) สื่อ rewind/fast-forward แบบ media
+       player — แต่ function จริงคือเปลี่ยนหน้าเฉยๆ ไม่มีการ seek เสียง
+       เปลี่ยนเป็น chevron เดี่ยวตัวเดียวกับลูกศรข้างภาพ ให้สื่อ "หน้าก่อน/
+       หน้าถัดไป" ชัดกว่า -->
+  <button class="ctrl-btn" id="btn-rew" onclick="goPage(-1)" title="หน้าก่อน">&#8249;</button>
+  <button class="ctrl-btn" id="btn-play-pause" onclick="togglePlay()" title="เล่น/หยุด"></button>
+  <button class="ctrl-btn" id="btn-fwd" onclick="goPage(1)" title="หน้าถัดไป">&#8250;</button>
+  <button class="ctrl-btn auto-pill" id="btn-auto" onclick="toggleAuto()" title="เล่นต่อเนื่องอัตโนมัติ">
+    <span class="auto-icon">&#8635;</span><span class="auto-label" id="auto-label">ต่อเนื่อง</span>
+  </button>
 </div>
 
 <audio id="player" preload="none"></audio>
@@ -613,8 +668,13 @@ function stopAudio() {
   setPlayIcon(false);
 }
 
+// ใช้ inline SVG แทน unicode ▶/▮▮ — ▶ ของฟอนต์ไม่ optical-center (เห็นเอียง
+// ไปทางซ้ายในวงกลม) จุดสามเหลี่ยม path นี้เยื้องขวา 1 unit จากกึ่งกลาง
+// bounding box โดยตั้งใจ เพื่อชดเชยน้ำหนักภาพที่เอียงซ้ายตามธรรมชาติของรูปสามเหลี่ยม
+const ICON_PLAY  = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 6L8 18L18 12Z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="6" width="3.5" height="12"/><rect x="13.5" y="6" width="3.5" height="12"/></svg>';
 function setPlayIcon(isPlaying) {
-  btnPlay.innerHTML = isPlaying ? '&#9646;&#9646;' : '&#9654;';
+  btnPlay.innerHTML = isPlaying ? ICON_PAUSE : ICON_PLAY;
 }
 
 // ── Language buttons on image ─────────────────────────────────────────────────
@@ -696,15 +756,27 @@ function escXml(s) {
 
 // เรียกแยกจาก checkAccess (คนละ endpoint คนละจุดประสงค์) — ขอลิงก์ไม่ได้ก็แค่
 // ไม่มีลายน้ำ ไม่บล็อกการอ่านของลูกค้า (checkAccess ต่างหากที่เป็นด่านสิทธิ์จริง)
+// เดิม tile ลายน้ำซ้ำเต็มหน้า (background-repeat:repeat) ทำให้ตัวหนังสือ
+// พาดผ่านภาพประกอบ/ใบหน้าตัวละครหลายจุดมาก ดูเหมือนไฟล์ proof มากกว่า
+// สินค้าที่ซื้อแล้ว — เปลี่ยนเป็น 3 ตำแหน่งคงที่แบบทแยง (บนซ้าย/กลาง/
+// ล่างขวา) ไม่ทับกึ่งกลางภาพที่มักเป็นตัวละคร/ข้อความหลัก, ลด opacity
+// ใน CSS ไปแล้วด้วย (.22 จากเดิม .4) ยังพอเห็นได้เวลาแคปหน้าจอ
 async function applyWatermark(token) {
   try {
     const r = await fetch('/api/download-info?rtoken=' + encodeURIComponent(token));
     const d = await r.json();
     if (!d || !d.ok || !d.watermark) return;
     const label = escXml(d.watermark);
-    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="340" height="200">' +
-      '<text x="0" y="110" transform="rotate(-27 170 100)" font-family="sans-serif" ' +
-      'font-size="15" fill="#fff">' + label + '</text></svg>';
+    const spots = [
+      { x: 40,  y: 130, rot: -27 },
+      { x: 430, y: 620, rot: -27 },
+      { x: 120, y: 1120, rot: -27 }
+    ];
+    const texts = spots.map(function (s) {
+      return '<text x="' + s.x + '" y="' + s.y + '" transform="rotate(' + s.rot + ' ' + s.x + ' ' + s.y + ')" ' +
+        'font-family="sans-serif" font-size="15" fill="#fff">' + label + '</text>';
+    }).join('');
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 1240">' + texts + '</svg>';
     document.getElementById('watermark-layer').style.backgroundImage =
       'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
   } catch (e) { /* เงียบไว้ ลายน้ำเป็นแค่ตัวป้องกันเสริม ไม่ใช่ด่านหลัก */ }
