@@ -23,6 +23,7 @@ window.VINKO_CONFIG = {
     bundle:  { normal: 349, launch: 349 }
   },
   UPGRADE_PRICE: 249,          // อัปเกรด LAB -> BUNDLE ภายหลัง
+  SINGLE_BOOK_PRICE: 59,       // ซื้อแยกเล่มที่หน้า /books ราคาเดียว ไม่มีส่วนลด
 
   /* ---- จำนวนจำกัดของ pre-order ---------------------------
      ใส่ทั้งคู่ถึงจะแสดง ถ้าเว้น null ไว้ = ซ่อนตัวนับ

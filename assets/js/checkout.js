@@ -27,6 +27,53 @@
   var pollTimer = null;
   var expireTimer = null;
 
+  /* ---------- ซื้อแยกเล่ม (มาจาก /books ผ่าน ?items=STORY-01,STORY-03) ---------- */
+  var cartCodes = null;   // null = โหมดแพ็กเกจปกติ, array = โหมดตะกร้าเล่มที่เลือกเอง
+
+  function parseCartQuery() {
+    var m = /[?&]items=([^&]+)/i.exec(window.location.search);
+    if (!m) return null;
+    var codes = decodeURIComponent(m[1]).split(",").map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
+    return codes.length ? codes : null;
+  }
+
+  function titleForCode(code) {
+    var deliv = (V.cfg && V.cfg.STORY_DELIVERY) || [];
+    var no = parseInt(code.replace(/^STORY-0*/, ""), 10);
+    var s = deliv.filter(function (d) { return d.no === no; })[0];
+    return s ? "เล่ม " + s.no + " " + s.title : code;
+  }
+
+  function applyCart() {
+    var pkgSection  = $("#vk-pkg-section");
+    var cartSection = $("#vk-cart-section");
+    if (pkgSection)  pkgSection.hidden = true;
+    if (cartSection) cartSection.hidden = false;
+
+    var list = $("#vk-cart-list");
+    if (list) {
+      list.innerHTML = "";
+      cartCodes.forEach(function (code) {
+        var li = document.createElement("li");
+        li.textContent = titleForCode(code);
+        list.appendChild(li);
+      });
+    }
+
+    var price = (V.cfg && V.cfg.SINGLE_BOOK_PRICE) || 59;
+    var total = cartCodes.length * price;
+    var set = function (sel, val) { var e = $(sel); if (e) e.textContent = val; };
+    set("[data-vk-sum-name]",      cartCodes.length + " เล่มที่เลือก");
+    set("[data-vk-sum-price]",     V.baht(total));
+    set("[data-vk-sum-total]",     V.baht(total));
+    set("[data-vk-submit-amount]", V.baht(total));
+    set("[data-vk-qr-amount]",     V.baht(total));
+
+    $$("[data-vk-launch-only], [data-vk-preorder-notice], [data-vk-check-preorder], [data-vk-sum-preorder]").forEach(function (el) {
+      el.hidden = true;
+    });
+  }
+
   /* ---------- ตั้งค่า Omise.js ---------- */
 
   var omiseReady = false;
@@ -111,6 +158,8 @@
   /* ---------- รับค่าจาก query string ---------- */
 
   function applyQuery() {
+    cartCodes = parseCartQuery();
+    if (cartCodes) return;   // โหมดตะกร้า ไม่ต้องอ่าน ?pkg=
     var m = /[?&]pkg=([a-z]+)/i.exec(window.location.search);
     if (!m) return;
     var want = m[1].toLowerCase();
@@ -246,23 +295,26 @@
     var prep = method === "card" ? tokenizeCard() : Promise.resolve(null);
 
     prep.then(function (token) {
+      var body = {
+        payment_method: method,
+        card_token: token,
+        customer_name: $('[name="name"]', form).value.trim(),
+        customer_email: $('[name="email"]', form).value.trim(),
+        customer_phone: $('[name="phone"]', form).value.trim(),
+        consent_terms: $('[name="agree_terms"]', form).checked,
+        consent_privacy: $('[name="agree_privacy"]', form).checked,
+        consent_preorder: !!($('[name="agree_preorder"]', form) || {}).checked,
+        consent_marketing: !!($('[name="agree_marketing"]', form) || {}).checked,
+        client_request_id: clientRequestId
+      };
+      // ตะกร้าเล่มที่เลือกเอง ส่ง items แทน package_code — ราคา server เปิดตารางเองเสมอ
+      if (cartCodes) body.items = cartCodes;
+      else body.package_code = PKG_CODE[selectedPkg()];
+
       return fetch("/api/create-charge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          // ส่งแค่รหัสแพ็กเกจ ไม่ส่งราคา — ราคา server เปิดตารางเอง
-          package_code: PKG_CODE[selectedPkg()],
-          payment_method: method,
-          card_token: token,
-          customer_name: $('[name="name"]', form).value.trim(),
-          customer_email: $('[name="email"]', form).value.trim(),
-          customer_phone: $('[name="phone"]', form).value.trim(),
-          consent_terms: $('[name="agree_terms"]', form).checked,
-          consent_privacy: $('[name="agree_privacy"]', form).checked,
-          consent_preorder: !!($('[name="agree_preorder"]', form) || {}).checked,
-          consent_marketing: !!($('[name="agree_marketing"]', form) || {}).checked,
-          client_request_id: clientRequestId
-        })
+        body: JSON.stringify(body)
       });
     }).then(function (res) {
       return res.json().then(function (d) { return { status: res.status, data: d }; });
@@ -427,7 +479,7 @@
 
   function start() {
     applyQuery();
-    applyPackage();
+    if (cartCodes) applyCart(); else applyPackage();
     applyMethod();
     setupOmise();
   }

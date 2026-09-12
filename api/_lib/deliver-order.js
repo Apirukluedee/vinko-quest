@@ -36,12 +36,15 @@ async function deliver(orderRef, opts) {
 
   const items = await tokens.itemsFor(order.id);
   const pkg   = catalog.getPackage(order.package_code);
+  // package_code === 'CUSTOM' (ซื้อแยกเล่มจาก /books) ไม่มีอยู่ใน catalog
+  // ต่อชื่อเล่มที่ซื้อจริงแทน ไม่งั้นอีเมลจะโชว์คำว่า "CUSTOM" ตรงๆ
+  const packageTitle = pkg ? pkg.title : items.map(function(i) { return i.title; }).join(' + ');
   const readerToken = await tokens.getOrCreateReaderToken(order).catch(function() { return null; });
 
   const payload = email.purchaseEmail({
     orderRef:     order.order_ref,
     packageCode:  order.package_code,
-    packageTitle: (pkg && pkg.title) || order.package_code,
+    packageTitle: packageTitle,
     token:        token,
     expiresAt:    expiresAt,
     items:        items,

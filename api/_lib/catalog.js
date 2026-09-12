@@ -78,6 +78,40 @@ function getPackage(code) {
   return CATALOG[code.toUpperCase()] || null;
 }
 
+/* ============================================================
+   ซื้อแยกเล่ม — เล่มละ 59 บาท (หน้า /books)
+   ใช้ title ตัวเดียวกับใน STORIES.items เสมอ กันชื่อสองชุดเพี้ยนกัน
+   ============================================================ */
+const SINGLE_BOOK_SATANG = 5900;
+const SINGLE_SELLABLE_CODES = CATALOG.STORIES.items.map(it => it.product_code);
+
+function isSingleSellable(code) {
+  return SINGLE_SELLABLE_CODES.includes(String(code || '').toUpperCase());
+}
+
+function singleBookTitle(code) {
+  const it = CATALOG.STORIES.items.find(i => i.product_code === code);
+  return it ? it.title : null;
+}
+
+/** ราคารวมของตะกร้าเล่มที่เลือกเอง (สตางค์) — ตัดโค้ดซ้ำและโค้ดที่ขายแยกไม่ได้ทิ้ง */
+function customCartTotal(codes) {
+  const uniq = Array.from(new Set((codes || []).map(c => String(c).toUpperCase()).filter(isSingleSellable)));
+  return uniq.length * SINGLE_BOOK_SATANG;
+}
+
+/** แปลงรายการโค้ดที่เลือกเองเป็นแถว order_items เหมือน buildItems() แต่ไม่ผูกกับแพ็กเกจสำเร็จรูป */
+function buildCustomItems(codes, orderId) {
+  const uniq = Array.from(new Set((codes || []).map(c => String(c).toUpperCase()).filter(isSingleSellable)));
+  return uniq.map(code => ({
+    order_id: orderId,
+    product_code: code,
+    title: singleBookTitle(code),
+    delivery_type: 'instant',
+    scheduled_delivery_date: null
+  }));
+}
+
 /**
  * ยังอยู่ในช่วงราคาเปิดตัวไหม — ตัดสินจาก env ฝั่ง server เท่านั้น
  * ห้ามเชื่อ config.js ฝั่ง client เพราะผู้ใช้แก้ค่าในเบราว์เซอร์ได้
@@ -142,11 +176,16 @@ function isLarge(productCode) {
 module.exports = {
   CATALOG,
   LARGE_MB,
+  SINGLE_BOOK_SATANG,
   getPackage,
   isLaunchPriceActive,
   priceSatang,
   storyDates,
   buildItems,
   approxMb,
-  isLarge
+  isLarge,
+  isSingleSellable,
+  singleBookTitle,
+  customCartTotal,
+  buildCustomItems
 };

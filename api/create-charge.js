@@ -33,8 +33,22 @@ module.exports = async function handler(req, res) {
 
   /* ---------- 1. ตรวจ input ---------- */
 
-  const pkg = catalog.getPackage(body.package_code);
-  if (!pkg) return fail(res, 400, 'ไม่พบแพ็กเกจที่เลือก กรุณาเลือกใหม่อีกครั้ง');
+  // ซื้อแยกเล่ม (หน้า /books): body.items = ['STORY-01','STORY-03'] แทน package_code เดี่ยว
+  // ราคาคำนวณฝั่ง server เองเสมอ เหมือนแพ็กเกจสำเร็จรูป — ไม่เชื่อยอดจาก client
+  const isCart = Array.isArray(body.items) && body.items.length > 0;
+  const cartCodes = isCart
+    ? Array.from(new Set(body.items.map(c => String(c).toUpperCase()).filter(catalog.isSingleSellable)))
+    : [];
+  if (isCart && !cartCodes.length) {
+    return fail(res, 400, 'กรุณาเลือกหนังสืออย่างน้อย 1 เล่ม');
+  }
+
+  const pkg = isCart ? null : catalog.getPackage(body.package_code);
+  if (!isCart && !pkg) return fail(res, 400, 'ไม่พบแพ็กเกจที่เลือก กรุณาเลือกใหม่อีกครั้ง');
+
+  // ตัวแทนของ pkg ที่ใช้ได้ทั้งสองโหมด — เล่มแยกไม่มี pre-order และไม่มีโค้ดแพ็กเกจสำเร็จรูป
+  const packageCode = isCart ? 'CUSTOM' : pkg.code;
+  const requiresPreorderConsent = isCart ? false : pkg.requires_preorder_consent;
 
   const name  = clean(body.customer_name, 120);
   const email = clean(body.customer_email, 254);
@@ -54,7 +68,7 @@ module.exports = async function handler(req, res) {
     return fail(res, 400, 'กรุณายอมรับเงื่อนไขการซื้อและนโยบายความเป็นส่วนตัวก่อนชำระเงิน');
   }
   // BUNDLE มีสินค้า pre-order จึงต้องมีหลักฐานว่าลูกค้ารับทราบก่อนจ่ายเงิน
-  if (pkg.requires_preorder_consent && !body.consent_preorder) {
+  if (requiresPreorderConsent && !body.consent_preorder) {
     return fail(res, 400, 'กรุณายืนยันว่ารับทราบเงื่อนไขสินค้า pre-order ของนิทานเล่ม 2–5');
   }
 
@@ -88,7 +102,7 @@ module.exports = async function handler(req, res) {
 
   /* ---------- 4. ราคาจาก catalog ฝั่ง server เท่านั้น ---------- */
 
-  const amountSatang = catalog.priceSatang(pkg.code);
+  const amountSatang = isCart ? catalog.customCartTotal(cartCodes) : catalog.priceSatang(pkg.code);
   if (!amountSatang) return fail(res, 500, 'ไม่สามารถคำนวณราคาได้ กรุณาติดต่อร้านค้า');
 
   /* ---------- 5. สร้างออเดอร์สถานะ pending ---------- */
@@ -102,7 +116,7 @@ module.exports = async function handler(req, res) {
   const now = new Date().toISOString();
   const ins = await db.insert('orders', {
     order_ref: orderRef,
-    package_code: pkg.code,
+    package_code: packageCode,
     amount_satang: amountSatang,
     currency: 'THB',
     customer_name: name,
@@ -112,7 +126,7 @@ module.exports = async function handler(req, res) {
     payment_method: method,
     consent_terms_at: now,
     consent_privacy_at: now,
-    consent_preorder_at: pkg.requires_preorder_consent ? now : null,
+    consent_preorder_at: requiresPreorderConsent ? now : null,
     // PDPA: ความยินยอมรับอีเมลการตลาดเป็นคนละเรื่องกับการยอมรับเงื่อนไขการซื้อ
     // เก็บเป็นเวลา ไม่ใช่ true/false เพราะต้องพิสูจน์ได้ว่ายินยอมเมื่อไหร่
     // ไม่ติ๊ก = null = ห้ามส่งอีเมลการตลาดหาคนนี้
@@ -136,11 +150,15 @@ module.exports = async function handler(req, res) {
   }
 
   const order = Array.isArray(ins.body) ? ins.body[0] : ins.body;
-  await db.insertMany('order_items', catalog.buildItems(pkg.code, order.id));
+  const orderItems = isCart ? catalog.buildCustomItems(cartCodes, order.id) : catalog.buildItems(pkg.code, order.id);
+  await db.insertMany('order_items', orderItems);
 
   /* ---------- 6. เรียก Omise ---------- */
 
-  const meta = { order_ref: orderRef, package_code: pkg.code };
+  const chargeDescription = isCart
+    ? orderItems.map(it => it.title).join(', ')
+    : pkg.title;
+  const meta = { order_ref: orderRef, package_code: packageCode };
   const returnUri = config.appBaseUrl() +
                     '/thank-you?ref=' + encodeURIComponent(orderRef);
 
@@ -159,7 +177,7 @@ module.exports = async function handler(req, res) {
         currency: 'THB',
         source: src.body.id,
         return_uri: returnUri,
-        description: pkg.title + ' (' + orderRef + ')',
+        description: chargeDescription + ' (' + orderRef + ')',
         metadata: meta
       });
       if (!ch.ok || !ch.body.id) throw new Error('charge: ' + JSON.stringify(ch.body));
@@ -172,7 +190,7 @@ module.exports = async function handler(req, res) {
         currency: 'THB',
         card: clean(body.card_token, 100),
         return_uri: returnUri,          // สำหรับ 3-D Secure
-        description: pkg.title + ' (' + orderRef + ')',
+        description: chargeDescription + ' (' + orderRef + ')',
         metadata: meta
       });
       if (!ch.ok || !ch.body.id) throw new Error('charge: ' + JSON.stringify(ch.body));
@@ -199,7 +217,7 @@ module.exports = async function handler(req, res) {
   return json(res, 200, {
     ok: true,
     order_ref: orderRef,
-    package_code: pkg.code,
+    package_code: packageCode,
     amount_satang: amountSatang,
     payment_method: method,
     charge_status: charge.status,

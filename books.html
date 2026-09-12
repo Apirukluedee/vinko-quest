@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ซื้อแยกเล่ม | VINKO STORIES</title>
+<meta content="เลือกซื้อ VINKO STORIES เป็นเล่มๆ เล่มละ 59 บาท หรือซื้อครบชุด 5 เล่มถูกกว่า — Ebook + เสียงอ่านไทย/อังกฤษ ได้ทันทีหลังชำระเงิน" name="description"/>
+<meta content="noindex, follow" name="robots"/>
+<link href="https://vinko.quest/books" rel="canonical"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mali:wght@500;600;700&family=Mitr:wght@400;500;600;700&family=Anuphan:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="/assets/css/main.css" rel="stylesheet"/>
+<style>
+.vk-books-nudge {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(245,154,35,.08);
+  border: 1.5px dashed var(--orange);
+  border-radius: 16px;
+  padding: 14px 16px;
+  margin: 18px 0 4px;
+}
+.vk-books-nudge[hidden] { display: none; }
+.vk-books-nudge p { margin: 0; font-size: 14px; font-weight: 800; color: var(--navy); flex: 1; }
+.vk-books-nudge a { white-space: nowrap; }
+.vk-books-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--soft-line);
+  font-weight: 950;
+  color: var(--navy);
+  font-size: 17px;
+}
+</style>
+</head>
+<body class="premium">
+<nav class="nav">
+<div class="wrap nav-inner">
+<a aria-label="VINKO · WOW LAB กลับหน้าแรก" class="brand" href="/"><img alt="VINKO logo" decoding="async" height="174" src="/assets/img/vinko-logo.webp" width="160"/><span>VINKO · WOW LAB</span></a>
+<div class="nav-links">
+<a href="/#missions">ภารกิจ</a>
+<a href="/story-sample">ตัวอย่าง</a>
+</div>
+</div>
+</nav>
+
+<header class="vk-page-head">
+<div class="wrap">
+<p class="vk-breadcrumb"><a href="/">หน้าแรก</a> · ซื้อแยกเล่ม</p>
+<h1>เลือกซื้อ VINKO STORIES เป็นเล่มๆ</h1>
+<p class="lead">อยากได้แค่บางเล่ม? เลือกได้เลย เล่มละ 59 บาท — Ebook + เสียงอ่านไทย/อังกฤษ ได้ไฟล์ทันทีหลังชำระเงิน</p>
+</div>
+</header>
+
+<section class="section">
+<div class="wrap">
+<div class="vk-panel" style="max-width:640px;margin:0 auto">
+
+<h3>เลือกเล่มที่ต้องการ</h3>
+<div class="vk-choice" id="vk-book-list">
+<!-- เติมด้วย JS จาก VINKO_CONFIG.STORY_DELIVERY กันชื่อเรื่องเพี้ยนไปจากที่อื่นในเว็บ -->
+</div>
+
+<div class="vk-books-nudge" id="vk-bundle-nudge" hidden>
+<p>ซื้อครบชุด 5 เล่มถูกกว่านี้ — ราคาชุดเริ่มที่ <span data-vk-bundle-price>199</span> บาท</p>
+<a class="btn light" href="/checkout?pkg=stories">ไปหน้าชุด 5 เล่ม</a>
+</div>
+
+<div class="vk-books-total">
+<span>รวม <span id="vk-book-count">0</span> เล่ม</span>
+<span><span id="vk-book-total">0</span> บาท</span>
+</div>
+
+<button class="btn vk-submit" id="vk-books-buy" type="button" disabled style="width:100%;margin-top:18px">
+เลือกเล่มที่ต้องการก่อน
+</button>
+<p class="vk-form-note" id="vk-books-note">เลือกได้มากกว่า 1 เล่ม ไปกรอกข้อมูลและชำระเงินในหน้าถัดไป</p>
+
+</div>
+</div>
+</section>
+
+<footer class="footer">
+<div class="wrap footer-inner">
+<div>© VINKO WOW LAB · 10 Missions in the Kitchen</div>
+<div class="footer-links"><a href="/">หน้าแรก</a><a href="/terms">เงื่อนไขการซื้อ</a><a href="/privacy">ความเป็นส่วนตัว</a><a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">ติดต่อทาง LINE</a><a href="/certificate">ใบประกาศ</a></div>
+<div>Little Kitchen. Big Discoveries.</div>
+</div>
+</footer>
+<script src="/assets/js/config.js"></script>
+<script src="/assets/js/site.js"></script>
+<script>
+(function () {
+  "use strict";
+  var C = window.VINKO_CONFIG || {};
+  var V = window.VINKO || {};
+  var stories = C.STORY_DELIVERY || [];
+  var price = C.SINGLE_BOOK_PRICE || 59;
+
+  var list = document.getElementById("vk-book-list");
+  stories.forEach(function (s) {
+    var label = document.createElement("label");
+    label.innerHTML =
+      '<input type="checkbox" name="book" value="STORY-0' + s.no + '">' +
+      '<span class="vk-choice-name">เล่ม ' + s.no + ' ' + s.title + '<small>' + s.title_en + '</small></span>' +
+      '<span class="vk-choice-price">' + price + ' บาท</span>';
+    list.appendChild(label);
+  });
+
+  var bundlePriceEl = document.querySelector("[data-vk-bundle-price]");
+  if (bundlePriceEl && C.PRICES && C.PRICES.stories) {
+    var active = V.promoActive ? V.promoActive() : true;
+    bundlePriceEl.textContent = V.baht ? V.baht(active ? C.PRICES.stories.launch : C.PRICES.stories.normal)
+                                        : (active ? C.PRICES.stories.launch : C.PRICES.stories.normal);
+  }
+
+  var countEl = document.getElementById("vk-book-count");
+  var totalEl = document.getElementById("vk-book-total");
+  var buyBtn  = document.getElementById("vk-books-buy");
+  var nudge   = document.getElementById("vk-bundle-nudge");
+
+  function selectedCodes() {
+    return Array.prototype.slice.call(list.querySelectorAll('input[name="book"]:checked')).map(function (c) { return c.value; });
+  }
+
+  function update() {
+    var codes = selectedCodes();
+    var n = codes.length;
+    countEl.textContent = n;
+    totalEl.textContent = (V.baht ? V.baht(n * price) : (n * price));
+    buyBtn.disabled = n === 0;
+    buyBtn.textContent = n === 0 ? "เลือกเล่มที่ต้องการก่อน" : "ซื้อ " + n + " เล่มที่เลือก";
+    // ซื้อครบ 5 แยกทีละเล่มแพงกว่าชุดเสมอ (5x59=295 > ราคาชุด) — เตือนก่อนจ่ายเงิน
+    nudge.hidden = n < stories.length;
+  }
+
+  list.addEventListener("change", update);
+
+  buyBtn.addEventListener("click", function () {
+    var codes = selectedCodes();
+    if (!codes.length) return;
+    window.location.href = "/checkout?items=" + encodeURIComponent(codes.join(","));
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
