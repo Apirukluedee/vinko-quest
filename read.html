@@ -156,26 +156,28 @@
     pointer-events: none;
   }
 
-  /* language overlay buttons */
+  /* language overlay buttons — ย่อเล็กลง + ย้ายไปมุมขวาล่างของหนังสือ
+     กันไม่ให้บังภาพตรงกลางเหมือนตอนอยู่กึ่งกลางด้านล่าง
+     ใช้ clamp() ผูกกับ vw แทนตัวเลขคงที่ เพราะจอคอม/iPad กว้างกว่ามือถือมาก
+     ถ้าปล่อยขนาด mobile ไว้ ปุ่มจะดูจิ๋วเทียบกับภาพหนังสือที่ขยายใหญ่ตาม */
   #lang-overlay {
     position: absolute;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
+    bottom: clamp(12px, 2vw, 22px);
+    right: clamp(12px, 2vw, 22px);
     display: flex;
-    gap: 10px;
+    gap: clamp(6px, 1vw, 12px);
     z-index: 10;
   }
   .lang-btn {
     border: none;
     cursor: pointer;
-    border-radius: 28px;
-    padding: 8px 18px;
-    font-size: 14px;
+    border-radius: clamp(20px, 3vw, 30px);
+    padding: clamp(5px, 1vw, 10px) clamp(11px, 2.2vw, 22px);
+    font-size: clamp(11px, 1.6vw, 16px);
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: clamp(4px, 0.6vw, 8px);
     backdrop-filter: blur(6px);
     transition: all .2s;
     box-shadow: 0 2px 8px #0006;
@@ -197,7 +199,7 @@
     cursor: default;
     transform: none;
   }
-  .lang-btn .flag { font-size: 18px; line-height: 1; }
+  .lang-btn .flag { font-size: clamp(13px, 1.8vw, 19px); line-height: 1; }
 
   /* audio status */
   #audio-badge {
