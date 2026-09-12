@@ -52,6 +52,15 @@
     return s.length === 5 && s.some(storyAvailable);
   }
 
+  // มีเล่มไหนใน STORY_DELIVERY ที่ยังไม่ใช่ instant ไหม — ใช้แยกจาก
+  // storiesReady() เพราะ "พร้อมขายบ้างแล้ว" กับ "ไม่มี pre-order ค้างแล้ว"
+  // คนละเงื่อนไขกัน (เช่นตอนนี้ทั้ง 5 เล่ม instant หมด = ไม่มี pre-order
+  // เหลือ แต่ก่อนหน้านี้บางเล่ม instant บางเล่มยังมีกำหนดส่ง = ยังมี pre-order)
+  function hasPreorder() {
+    var s = C.STORY_DELIVERY || [];
+    return s.some(function (x) { return x.date !== 'instant'; });
+  }
+
   function storyDateLabel(s) {
     if (s.date === 'instant') return 'ได้ทันที';
     var d = thaiDate(s.date);
@@ -152,6 +161,11 @@
     $$("[data-vk-bundle]").forEach(function (el) { el.hidden = !ready; });
     // ข้อความ "รอกำหนดวันที่จริง" ในหน้า Terms — โชว์เฉพาะตอนที่ยังไม่มีวัน
     $$("[data-vk-bundle-missing]").forEach(function (el) { el.hidden = ready; });
+    // เงื่อนไข/ข้อความเฉพาะสินค้า pre-order (ข้อ 4 ในหน้า Terms ฯลฯ) —
+    // โชว์เฉพาะตอนที่ยังมีเล่มค้าง pre-order จริง ไม่ใช่ตอนที่พร้อมขายแล้ว
+    var pre = hasPreorder();
+    $$("[data-vk-preorder-active]").forEach(function (el) { el.hidden = !pre; });
+    $$("[data-vk-preorder-none]").forEach(function (el) { el.hidden = pre; });
   }
 
   /* ---------- ข้อมูลผู้ขาย / ติดต่อ ---------- */
@@ -437,6 +451,7 @@
     priceOf: priceOf,
     promoActive: promoActive,
     storiesReady: storiesReady,
+    hasPreorder: hasPreorder,
     timelineHTML: timelineHTML,
     track: track,
     attribution: attribution,
