@@ -13,7 +13,7 @@ const config = require('./config');
 const APPROX_MB = {
   // วัดจากของจริงด้วยการรัน wm.stamp() กับไฟล์ต้นฉบับ ไม่ใช่ขนาดไฟล์ก่อนลายน้ำ
   'LAB-MAIN': 8.9,
-  'LAB-WORKBOOK': 0.9,
+  'LAB-WORKBOOK': 1.16,
   'STORY-01': 5.8,
   'STORY-02': 6.19,
   'STORY-03': 5.7,
