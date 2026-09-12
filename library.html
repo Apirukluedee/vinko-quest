@@ -16,7 +16,11 @@
   padding: 28px 0 24px;
 }
 .lib-header .wrap { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-.lib-title { font-family: 'Fredoka', sans-serif; font-size: 28px; font-weight: 600; margin: 0; color: #fff; }
+/* body.premium h1{font-size:clamp(48px,7vw,88px)} ใน main.css specificity สูงกว่า
+   .lib-title เฉยๆ (body.premium h1 = element+class ชนะ class เดี่ยว) เลยต้อง
+   เจาะจงเท่ากันด้วย body.premium ไม่งั้นค่า clamp ด้านล่างนี้จะไม่มีผลจริง
+   (บั๊กแบบเดียวกับที่เคยเจอกับสี h1 ของหน้านี้มาก่อน) */
+body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(17px, 5.2vw, 28px); font-weight: 600; margin: 0; color: #fff; white-space: nowrap; letter-spacing: normal; }
 .lib-email { font-size: 13px; color: #B9C4E8; font-family: 'Anuphan', sans-serif; }
 .btn-logout {
   background: rgba(255,255,255,.15);
@@ -248,7 +252,9 @@
     grid.innerHTML = '';
 
     for (const book of books) {
-      const readerUrl = book.available && book.reader_token
+      const isStory = book.kind === 'story';
+      // LAB ไม่มีเสียงอ่าน/reader — มีแค่ไฟล์ PDF ให้โหลด จึงไม่มี readerUrl
+      const readerUrl = isStory && book.available && book.reader_token
         ? BASE_URL + '/read?story=' + book.num + '&token=' + encodeURIComponent(book.reader_token) + '&openExternalBrowser=1'
         : null;
       const downloadUrl = book.available && book.reader_token && book.item_id
@@ -259,20 +265,20 @@
       card.className = 'book-card';
       card.innerHTML = `
         <div class="book-card-top">
-          <div class="book-num-circle" style="background:${book.color}">${book.num}</div>
+          <div class="book-num-circle" style="background:${book.color}">${isStory ? book.num : book.icon}</div>
           <div class="book-info">
             <p class="book-title">${esc(book.title)}</p>
-            <p class="book-topic">วิทยาศาสตร์ · ${esc(book.topic)}</p>
+            <p class="book-topic">${isStory ? 'วิทยาศาสตร์ · ' : ''}${esc(book.topic)}</p>
           </div>
         </div>
         <div class="book-card-actions">
-          ${readerUrl
-            ? `<a href="${esc(readerUrl)}" class="btn-reader">🎧 ฟังเสียงอ่าน · อ่านนิทาน</a>`
-            + (downloadUrl ? `<a href="${esc(downloadUrl)}" class="btn-download">📄 ดาวน์โหลด PDF</a>` : '')
-            : `<div>
+          ${!book.available
+            ? `<div>
                 <span class="btn-reader pending">⏳ รอส่งมอบ</span>
                 ${book.delivery_date ? `<span class="pending-label">กำหนดส่ง ${book.delivery_date}</span>` : ''}
                </div>`
+            : (readerUrl ? `<a href="${esc(readerUrl)}" class="btn-reader">🎧 ฟังเสียงอ่าน · อ่านนิทาน</a>` : '')
+              + (downloadUrl ? `<a href="${esc(downloadUrl)}" class="btn-download">📄 ดาวน์โหลด PDF</a>` : '')
           }
         </div>
       `;

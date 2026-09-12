@@ -100,6 +100,20 @@
     will-change: transform;
   }
 
+  /* ลายน้ำกันแคปหน้าจอแล้วแชร์ต่อโดยไม่มีร่องรอย (เหมือน PDF ที่มีลายน้ำ
+     อยู่แล้ว) — mix-blend-mode:difference ทำให้ตัวอักษรมองเห็นได้เสมอ
+     ไม่ว่าพื้นหลังภาพประกอบจะสีอ่อนหรือเข้ม โดยไม่ต้องสลับสีเอง
+     pointer-events:none กันไม่ให้บังปุ่มกดที่ซ้อนอยู่ด้านบน */
+  #watermark-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+    background-repeat: repeat;
+    mix-blend-mode: difference;
+    opacity: .4;
+  }
+
   /* Page transition — slow fade in */
   @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
   .page-fade-in { animation: pageFadeIn 800ms ease-out forwards; }
@@ -373,6 +387,7 @@
 <div id="stage">
   <button class="nav-btn" id="btn-prev" onclick="goPage(-1)">&#8249;</button>
   <img id="page-img" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="หน้าหนังสือ" draggable="false">
+  <div id="watermark-layer"></div>
   <button class="nav-btn" id="btn-next" onclick="goPage(1)">&#8250;</button>
   <div id="page-counter">1 / 1</div>
   <div id="audio-badge">🔊 กำลังเล่น...</div>
@@ -673,11 +688,32 @@ async function checkAccess(token, story) {
   }
 }
 
+function escXml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// เรียกแยกจาก checkAccess (คนละ endpoint คนละจุดประสงค์) — ขอลิงก์ไม่ได้ก็แค่
+// ไม่มีลายน้ำ ไม่บล็อกการอ่านของลูกค้า (checkAccess ต่างหากที่เป็นด่านสิทธิ์จริง)
+async function applyWatermark(token) {
+  try {
+    const r = await fetch('/api/download-info?rtoken=' + encodeURIComponent(token));
+    const d = await r.json();
+    if (!d || !d.ok || !d.watermark) return;
+    const label = escXml(d.watermark);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="340" height="200">' +
+      '<text x="0" y="110" transform="rotate(-27 170 100)" font-family="sans-serif" ' +
+      'font-size="15" fill="#fff">' + label + '</text></svg>';
+    document.getElementById('watermark-layer').style.backgroundImage =
+      'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  } catch (e) { /* เงียบไว้ ลายน้ำเป็นแค่ตัวป้องกันเสริม ไม่ใช่ด่านหลัก */ }
+}
+
 async function start() {
   const token = params.get('token');
   if (!token) { showLocked(); return; }
   const ok = await checkAccess(token, storyId);
   if (!ok) { showLocked(); return; }
+  applyWatermark(token);
   init();
 }
 

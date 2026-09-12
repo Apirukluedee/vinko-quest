@@ -4,6 +4,13 @@
 
    คืนเฉพาะสิ่งที่เจ้าของ token รู้อยู่แล้ว
    ไม่คืนอีเมล เบอร์โทร หรือยอดเงิน
+
+   GET /api/download-info?rtoken=...  (โหมดที่สอง — คนละเรื่องกับข้างบน)
+   หน้า /read (VINKO Reader Book) ใช้ขอ "ข้อความลายน้ำ" ไปแปะทับหน้าหนังสือ
+   กันแคปหน้าจอแล้วแชร์ต่อโดยไม่มีร่องรอย เหมือนลายน้ำใน PDF ที่มีอยู่แล้ว
+   โหมดนี้คืนอีเมลได้ เพราะเจ้าของ reader_token คือเจ้าของอีเมลนั้นเอง
+   (อยู่ในไฟล์เดียวกับด้านบนแทนที่จะแยกไฟล์ใหม่ — โปรเจกต์นี้ใกล้เพดาน
+   12 serverless functions ของ Vercel Hobby แล้ว)
    ============================================================ */
 'use strict';
 
@@ -20,6 +27,17 @@ module.exports = async function handler(req, res) {
   }
 
   const url = new URL(req.url, 'http://localhost');
+
+  const rtoken = url.searchParams.get('rtoken');
+  if (rtoken) {
+    const rt = await tokens.resolveByReaderToken(rtoken);
+    if (!rt.ok) return json(res, 200, { ok: false });
+    return json(res, 200, {
+      ok: true,
+      watermark: rt.order.customer_email + ' · ' + rt.order.order_ref
+    });
+  }
+
   const t = await tokens.resolve(url.searchParams.get('token') || '');
 
   if (!t.ok) {

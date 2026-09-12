@@ -1297,5 +1297,31 @@
   });
 })();
 </script>
+<script>
+(function () {
+  // .page เป็นกล่องขนาด A4 คงที่ (210mm) สำหรับพิมพ์/PDF — บนมือถือ
+  // กว้างกว่าจอมาก พอ centered ด้วย grid มันจะล้นทั้งสองข้าง แล้วจอจะ
+  // โชว์แค่ท่อนขวาของภาพ (ท่อนซ้ายหลุดจอไปเพราะ scroll ไปติดลบไม่ได้)
+  // ใช้ CSS zoom ย่อทั้ง .book ให้พอดีจอแทน ไม่กระทบเวอร์ชันพิมพ์ (zoom
+  // ไม่มีผลตอน @media print เพราะเบราว์เซอร์พิมพ์ที่ขนาดจริงเสมอ)
+  function fitBook() {
+    var book = document.querySelector('.book');
+    var page = document.querySelector('.page');
+    if (!book || !page) return;
+    book.style.zoom = 1;
+    var natural = page.getBoundingClientRect().width;
+    var avail = document.documentElement.clientWidth - 16;
+    var ratio = natural > 0 ? Math.min(1, avail / natural) : 1;
+    book.style.zoom = ratio;
+  }
+  window.addEventListener('resize', fitBook);
+  window.addEventListener('orientationchange', fitBook);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fitBook);
+  } else {
+    fitBook();
+  }
+})();
+</script>
 </body>
 </html>

@@ -303,6 +303,13 @@ const STORY_META = {
   'STORY-05': { num: 5, title: 'อะไรอยู่ในแก้ว?',           topic: 'อากาศและความดัน', color: '#e74c3c' }
 };
 
+// VINKO WOW LAB ไม่มีเสียงอ่าน/reader เหมือน STORY — มีแค่ไฟล์ PDF ให้โหลด
+// จึงแยกชุดข้อมูลนี้ออกจาก STORY_META (การ์ดจะไม่มีปุ่ม "ฟังเสียงอ่าน")
+const LAB_META = {
+  'LAB-MAIN':     { icon: '🧪', title: 'VINKO WOW LAB — 10 ภารกิจในครัว',                          topic: '10 ภารกิจสุดว้าว',    color: '#F59A23' },
+  'LAB-WORKBOOK': { icon: '📝', title: 'ใบบันทึกนักวิทย์น้อย — ใบงาน 10 ภารกิจ',                    topic: 'ใบงานประกอบเล่มหลัก', color: '#173A8A' }
+};
+
 function thaiDate(iso) {
   if (!iso) return '';
   const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
@@ -344,6 +351,7 @@ async function handleMyLibrary(req, res) {
     const item = items.find(function(i) { return i.product_code === code && !i.refunded_at; });
     if (!item) continue;
     books.push({
+      kind:          'story',
       num:           meta.num,
       title:         meta.title,
       topic:         meta.topic,
@@ -358,7 +366,26 @@ async function handleMyLibrary(req, res) {
   }
   books.sort(function(a, b) { return a.num - b.num; });
 
-  return json(res, 200, { ok: true, email: user.email, books });
+  const labBooks = [];
+  for (const [code, meta] of Object.entries(LAB_META)) {
+    const item = items.find(function(i) { return i.product_code === code && !i.refunded_at; });
+    if (!item) continue;
+    labBooks.push({
+      kind:          'lab',
+      icon:          meta.icon,
+      title:         meta.title,
+      topic:         meta.topic,
+      color:         meta.color,
+      available:     item.delivery_type === 'instant',
+      delivery_date: item.delivery_type === 'preorder'
+        ? thaiDate(item.scheduled_delivery_date)
+        : null,
+      reader_token:  item.delivery_type === 'instant' ? readerToken : null,
+      item_id:       item.delivery_type === 'instant' ? item.id : null
+    });
+  }
+
+  return json(res, 200, { ok: true, email: user.email, books: labBooks.concat(books) });
 }
 
 /* ── dispatcher ──────────────────────────────────────────── */
