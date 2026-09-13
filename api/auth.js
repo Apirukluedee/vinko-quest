@@ -326,24 +326,26 @@ async function handleMyLibrary(req, res) {
   const user = sessionToken ? await sessions.validateSession(sessionToken) : null;
   if (!user) return json(res, 401, { ok: false, error: 'unauthorized' });
 
+  // nested select — ดึง orders + order_items ใน 1 request เดียว
+  // PostgREST embed via FK: order_items.order_id → orders.id
   const ordersRes = await db.select('orders',
     'customer_email=eq.' + encodeURIComponent(user.email) +
-    '&status=eq.paid&select=id,order_ref,package_code,reader_token'
+    '&status=eq.paid' +
+    '&select=id,order_ref,package_code,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at)'
   );
   const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
   if (!orders.length) return json(res, 200, { ok: true, email: user.email, books: [] });
 
-  const orderIds = orders.map(function(o) { return o.id; });
-  const itemsRes = await db.select('order_items',
-    'order_id=in.(' + orderIds.join(',') + ')' +
-    '&select=id,order_id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at'
-  );
-  const items = Array.isArray(itemsRes.body) ? itemsRes.body : [];
+  // แผ่ order_items ออกเป็น flat array แต่แนบ reader_token และ order_id ของออเดอร์แม่ไว้ด้วย
+  // เพื่อให้ยังผูก token ตรงกับออเดอร์ของ item แต่ละตัว (กันสับ token ข้ามออเดอร์)
+  const items = [];
+  orders.forEach(function(o) {
+    const nested = Array.isArray(o.order_items) ? o.order_items : [];
+    nested.forEach(function(it) {
+      items.push(Object.assign({}, it, { order_id: o.id, _reader_token: o.reader_token || null }));
+    });
+  });
 
-  // reader_token ต้องผูกกับออเดอร์ของ item นั้นๆ เอง ไม่ใช่หยิบจากออเดอร์
-  // ไหนก็ได้ที่มี reader_token — ลูกค้าที่มีหลายออเดอร์ (เช่นซื้อซ้ำ หรือ
-  // มีออเดอร์ทดสอบปนอยู่) เคยโดนจับคู่ item ของออเดอร์หนึ่งกับ token ของ
-  // อีกออเดอร์หนึ่งโดยบังเอิญ ทำให้ปุ่มดาวน์โหลด PDF ใช้ไม่ได้
   const tokenByOrderId = {};
   orders.forEach(function(o) { tokenByOrderId[o.id] = o.reader_token || null; });
 
