@@ -763,7 +763,7 @@ function showPage(idx, onLoad, flipDir) {
   }
 
   // update URL without reload
-  history.replaceState(null, '', `?story=${storyId}&p=${idx + 1}`);
+  history.replaceState(null, '', `?story=${storyId}&token=${token}&p=${idx + 1}`);
 }
 
 // ── Audio controls ────────────────────────────────────────────────────────────
