@@ -16,6 +16,7 @@
 
 'use strict';
 
+const crypto = require('crypto');
 const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
@@ -33,8 +34,20 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { ok: false });
   }
 
+  const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
   const body = typeof req.body === 'string' ? safeParse(req.body) : (req.body || {});
   if (!body || typeof body !== 'object') return json(res, 400, { ok: false });
+
+  /* ---------- ตรวจ HMAC signature (เมื่อมี OMISE_WEBHOOK_SECRET ใน env) ---------- */
+  const webhookSecret = process.env.OMISE_WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const sig = (req.headers['x-opn-signature'] || req.headers['omise-webhook-signature'] || '').trim();
+    const expected = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+    if (!sig || sig !== expected) {
+      console.warn('[vinko][webhook] signature ไม่ตรง — ปฏิเสธ request');
+      return json(res, 400, { ok: false, error: 'invalid signature' });
+    }
+  }
 
   const eventId = typeof body.id === 'string' ? body.id : null;
   const chargeId = extractChargeId(body);
@@ -44,7 +57,25 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { ok: false });
   }
 
-  /* ---------- กันซ้ำก่อนทำงาน ---------- */
+  /* ---------- ดึง charge จริงมาตรวจก่อน แล้วค่อยกัน dup ---------- */
+  // ย้าย retrieveCharge มาก่อน insert dedup เพื่อให้ Omise retry ได้เมื่อเกิด error ชั่วคราว
+  // ถ้า insert dedup อยู่ก่อนแล้วเกิด error หลังจากนั้น Omise retry จะชน unique constraint
+  // และ event จะถูกล็อคถาวรโดยไม่มีการส่งมอบ
+  let charge;
+  try {
+    const r = await omise.retrieveCharge(chargeId);
+    if (!r.ok || !r.body || r.body.object !== 'charge' || !r.body.id) {
+      // charge id ที่ไม่มีจริง = webhook ปลอม ปฏิเสธ ไม่แตะออเดอร์
+      console.warn('[vinko][webhook] ไม่พบ charge นี้ที่ Omise:', chargeId);
+      return json(res, 200, { ok: true, ignored: 'charge_not_found' });
+    }
+    charge = r.body;
+  } catch (e) {
+    console.error('[vinko][webhook] เรียก Omise ไม่สำเร็จ', e.message);
+    return json(res, 500, { ok: false });
+  }
+
+  /* ---------- กันซ้ำหลังยืนยัน charge แล้ว ---------- */
   // เก็บเฉพาะ id ที่จำเป็น ไม่เก็บ payload ดิบทั้งก้อนโดยไม่จำเป็น
   const claim = await db.insert('webhook_events', {
     omise_event_id: eventId,
@@ -58,21 +89,6 @@ module.exports = async function handler(req, res) {
     }
     console.error('[vinko][webhook] บันทึก event ไม่สำเร็จ', JSON.stringify(claim.body));
     // ตอบ 500 เพื่อให้ Omise retry ดีกว่าปล่อยให้ออเดอร์ค้าง pending
-    return json(res, 500, { ok: false });
-  }
-
-  /* ---------- ดึง charge จริงมาตรวจเอง ---------- */
-  let charge;
-  try {
-    const r = await omise.retrieveCharge(chargeId);
-    if (!r.ok || !r.body || r.body.object !== 'charge' || !r.body.id) {
-      // charge id ที่ไม่มีจริง = webhook ปลอม ปฏิเสธ ไม่แตะออเดอร์
-      console.warn('[vinko][webhook] ไม่พบ charge นี้ที่ Omise:', chargeId);
-      return json(res, 200, { ok: true, ignored: 'charge_not_found' });
-    }
-    charge = r.body;
-  } catch (e) {
-    console.error('[vinko][webhook] เรียก Omise ไม่สำเร็จ', e.message);
     return json(res, 500, { ok: false });
   }
 

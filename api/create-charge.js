@@ -8,13 +8,14 @@
 
 'use strict';
 
-const catalog = require('./_lib/catalog');
-const omise   = require('./_lib/omise');
-const db      = require('./_lib/supabase');
-const orders  = require('./_lib/orders');
-const tokens  = require('./_lib/tokens');
+const catalog  = require('./_lib/catalog');
+const omise    = require('./_lib/omise');
+const db       = require('./_lib/supabase');
+const orders   = require('./_lib/orders');
+const tokens   = require('./_lib/tokens');
+const { deliver } = require('./_lib/deliver-order');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
-const config  = require('./_lib/config');
+const config   = require('./_lib/config');
 
 const RATE_WINDOW_MIN = 10;
 const RATE_MAX_ORDERS = 8;      // ต่อ ip_hash ต่อ 10 นาที
@@ -207,13 +208,26 @@ module.exports = async function handler(req, res) {
 
   /* ---------- 7. ผูก charge id กลับเข้าออเดอร์ ---------- */
 
-  await db.update('orders', 'id=eq.' + order.id, { omise_charge_id: charge.id });
+  const chargeUpdate = await db.update('orders', 'id=eq.' + order.id, { omise_charge_id: charge.id });
+  if (!chargeUpdate.ok) {
+    // charge สร้างสำเร็จแล้ว แต่บันทึก id ไม่ได้ — webhook จะมาจัดการต่อ
+    // log ไว้ให้ admin reconcile ด้วยตนเอง
+    console.error('[vinko] ผูก omise_charge_id ไม่สำเร็จ order:', order.id, 'charge:', charge.id, JSON.stringify(chargeUpdate.body));
+  }
 
-  // บัตรที่ผ่านทันที (ไม่ต้อง 3DS) รู้ผลตั้งแต่ตอนนี้ อัปเดตเลยเพื่อไม่ให้ลูกค้ารอ webhook
-  // ใช้ตรรกะเดียวกับ webhook จึงเรียกซ้ำได้โดยไม่เกิดผลซ้ำซ้อน
+  // บัตรที่ผ่านทันที (ไม่ต้อง 3DS) รู้ผลตั้งแต่ตอนนี้ อัปเดตและส่งมอบเลย
+  // webhook อาจมาช้าหรือไม่มาเลยสำหรับ card ที่ settle ทันที
   if (charge.status === 'successful') {
-    try { await orders.applyChargeResult(charge); }
-    catch (e) { console.error('[vinko] applyChargeResult on create failed', e.message); }
+    try {
+      const result = await orders.applyChargeResult(charge);
+      if (result && result.needs_delivery) {
+        deliver(result.order_ref).catch(function (e) {
+          console.error('[vinko] deliver on instant charge failed', result.order_ref, e.message);
+        });
+      }
+    } catch (e) {
+      console.error('[vinko] applyChargeResult on create failed', e.message);
+    }
   }
 
   /* ---------- 8. คืนเฉพาะสิ่งที่ frontend ต้องใช้ ---------- */
