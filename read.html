@@ -501,7 +501,7 @@
 
 <!-- Offline panel -->
 <div id="offline-panel" class="hidden">
-  <div id="offline-panel-title">💾 บันทึกไว้อ่านออฟไลน์</div>
+  <div id="offline-panel-title">⚡ โหลดเร็ว</div>
   <div id="offline-bar-wrap"><div id="offline-bar-fill"></div></div>
   <div id="offline-status">กดปุ่มเพื่อดาวน์โหลดภาพและเสียงทั้งหมด</div>
   <div class="offline-row">
@@ -516,7 +516,7 @@
   <span class="logo">VINKO</span>
   <span id="story-title" class="story-title">WOW LAB</span>
   <button id="btn-bgm" onclick="toggleBgm()" title="ดนตรีประกอบ">♪ ดนตรี</button>
-  <button id="btn-offline" onclick="toggleOfflinePanel()" title="บันทึกไว้อ่านออฟไลน์">💾 ออฟไลน์</button>
+  <button id="btn-offline" onclick="toggleOfflinePanel()" title="โหลดเร็ว">⚡ โหลดเร็ว</button>
 </div>
 
 <!-- Stage -->
@@ -956,9 +956,9 @@ async function startSaveOffline() {
   }
 
   if (errors === 0) {
-    statusEl.textContent = '✓ พร้อมอ่านออฟไลน์แล้ว';
+    statusEl.textContent = '✓ พร้อมแล้ว';
     document.getElementById('btn-offline').classList.add('done');
-    document.getElementById('btn-offline').textContent = '✓ ออฟไลน์';
+    document.getElementById('btn-offline').textContent = '✓ พร้อม';
     btnSave.textContent = 'ดาวน์โหลดซ้ำ';
   } else {
     statusEl.textContent = `⚠ โหลดไม่ได้ ${errors} ไฟล์ — ลองใหม่`;
@@ -1010,7 +1010,7 @@ async function start() {
   checkAlreadyCached(storyId).then(cached => {
     if (cached) {
       document.getElementById('btn-offline').classList.add('done');
-      document.getElementById('btn-offline').textContent = '✓ ออฟไลน์';
+      document.getElementById('btn-offline').textContent = '✓ พร้อม';
       document.getElementById('offline-status').textContent = '✓ บันทึกไว้แล้ว — กดดาวน์โหลดซ้ำเพื่ออัปเดต';
       document.getElementById('btn-save-start').textContent = 'ดาวน์โหลดซ้ำ';
     }
