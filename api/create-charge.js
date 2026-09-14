@@ -151,7 +151,11 @@ module.exports = async function handler(req, res) {
 
   const order = Array.isArray(ins.body) ? ins.body[0] : ins.body;
   const orderItems = isCart ? catalog.buildCustomItems(cartCodes, order.id) : catalog.buildItems(pkg.code, order.id);
-  await db.insertMany('order_items', orderItems);
+  const itemsIns = await db.insertMany('order_items', orderItems);
+  if (!itemsIns.ok) {
+    await db.update('orders', 'id=eq.' + order.id, { status: 'failed' });
+    return fail(res, 500, 'ไม่สามารถบันทึกรายการสินค้าได้ กรุณาลองใหม่', JSON.stringify(itemsIns.body));
+  }
 
   /* ---------- 6. เรียก Omise ---------- */
 

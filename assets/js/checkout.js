@@ -345,8 +345,8 @@
       throw new Error(d.failure_message || "ชำระเงินไม่สำเร็จ กรุณาตรวจสอบข้อมูลบัตรหรือลองวิธีอื่น");
     }).catch(function (err) {
       setBusy(false);
-      // ความพยายามครั้งนี้จบแล้ว ครั้งหน้าถือเป็นออเดอร์ใหม่
-      clientRequestId = null;
+      // คง clientRequestId ไว้ — ถ้า server รับ request ไปแล้วและสร้าง charge แล้ว
+      // การส่งซ้ำด้วย ID เดิมจะได้ order เดิมกลับมาแทนการสร้าง charge ใหม่
       showAlert(err.message || "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
     });
   });
