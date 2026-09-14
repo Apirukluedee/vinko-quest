@@ -20,6 +20,13 @@
 
 'use strict';
 
+// fallback ที่สุ่มใหม่ทุก cold start — ไม่ hardcode ไว้ใน repo
+// (ถ้า IP_HASH_SALT ไม่ได้ตั้ง hash ยังไม่ predictable แต่ไม่ consistent ข้าม restart)
+const _ipSaltFallback = (function () {
+  try { return require('crypto').randomBytes(16).toString('hex'); }
+  catch (e) { return 'vinko-fb-' + Date.now(); }
+}());
+
 /** ย่อค่าให้พอระบุได้ว่าใส่อะไรไป แต่เอาไปใช้ต่อไม่ได้ */
 function mask(v) {
   if (typeof v !== 'string' || !v) return '(ว่าง)';
@@ -297,7 +304,7 @@ module.exports = {
   appBaseUrl:         () => opt('APP_BASE_URL', '').replace(/\/+$/, ''),
   launchPromoEnd:     () => opt('LAUNCH_PROMO_END', ''),
   storyDeliveryDates: () => opt('STORY_DELIVERY_DATES', ''),
-  ipHashSalt:         () => opt('IP_HASH_SALT', 'vinko-default-salt'),
+  ipHashSalt:         () => opt('IP_HASH_SALT', _ipSaltFallback),
 
   /* --- ข้อมูลผู้ขายท้ายอีเมล --- */
   sellerName:         () => opt('SELLER_NAME', 'VINKO WOW LAB'),

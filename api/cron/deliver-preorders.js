@@ -27,11 +27,19 @@ module.exports = async function handler(req, res) {
 
   const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);   // วันที่ตามเวลาไทย
 
-  const r = await db.select('order_items',
-    'delivery_type=eq.preorder&delivered_at=is.null&refunded_at=is.null' +
-    '&scheduled_delivery_date=lte.' + today +
-    '&select=id,order_id,product_code,title,scheduled_delivery_date&limit=200');
-  const due = Array.isArray(r.body) ? r.body : [];
+  // ดึงทุกแถวด้วย pagination — limit=200 ต่อรอบ จนกว่าหน้าสุดท้ายจะสั้นกว่า 200
+  const PAGE = 200;
+  const due = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const r = await db.select('order_items',
+      'delivery_type=eq.preorder&delivered_at=is.null&refunded_at=is.null' +
+      '&scheduled_delivery_date=lte.' + today +
+      '&select=id,order_id,product_code,title,scheduled_delivery_date' +
+      '&limit=' + PAGE + '&offset=' + offset);
+    const page = Array.isArray(r.body) ? r.body : [];
+    due.push.apply(due, page);
+    if (page.length < PAGE) break;
+  }
 
   const out = { checked: due.length, sent: 0, skipped_no_file: 0, skipped_unpaid: 0, failed: 0, details: [] };
 
@@ -60,6 +68,15 @@ module.exports = async function handler(req, res) {
         return i.delivery_type === 'preorder' && !i.delivered_at && !i.refunded_at && i.id !== item.id;
       });
 
+      // Claim ก่อนส่ง: atomic UPDATE WHERE delivered_at IS NULL
+      // ถ้า cron ทับกัน แถวจะถูก claimed ได้แค่ครั้งเดียว อีกรันจะเจอ body=[]
+      const claimed = await db.update('order_items',
+        'id=eq.' + item.id + '&delivered_at=is.null',
+        { delivered_at: new Date().toISOString() });
+      if (!claimed.ok || !Array.isArray(claimed.body) || !claimed.body[0]) {
+        continue; // cron อื่นกำลัง/เคย process item นี้แล้ว
+      }
+
       const payload = email.storyEmail({
         orderRef: order.order_ref, itemTitle: item.title,
         token: token, expiresAt: expiresAt, remaining: remaining
@@ -68,9 +85,6 @@ module.exports = async function handler(req, res) {
                                     { orderId: order.id, orderItemId: item.id });
 
       if (sent.ok) {
-        // ตั้ง delivered_at เฉพาะตอนที่ยังว่างอยู่ กันส่งซ้ำถ้า cron ทับกัน
-        await db.update('order_items', 'id=eq.' + item.id + '&delivered_at=is.null',
-                        { delivered_at: new Date().toISOString() });
         out.sent++;
         out.details.push(order.order_ref + ' · ' + item.title);
       } else {

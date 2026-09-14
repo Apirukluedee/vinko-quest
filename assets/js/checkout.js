@@ -34,6 +34,8 @@
     var m = /[?&]items=([^&]+)/i.exec(window.location.search);
     if (!m) return null;
     var codes = decodeURIComponent(m[1]).split(",").map(function (s) { return s.trim().toUpperCase(); }).filter(Boolean);
+    // dedup ให้ตรงกับ server (create-charge.js ใช้ new Set เสมอ) ไม่งั้นยอดที่แสดง ≠ ยอดที่เรียกเก็บ
+    codes = codes.filter(function (c, i) { return codes.indexOf(c) === i; });
     return codes.length ? codes : null;
   }
 

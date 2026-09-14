@@ -53,12 +53,30 @@ module.exports = async function handler(req, res) {
     return fail(res, 403, 'ไฟล์นี้ยังไม่ถึงกำหนดส่ง เราจะส่งอีเมลแจ้งคุณเมื่อพร้อมดาวน์โหลด');
   }
 
-  /* ---------- 3. จำกัดจำนวนครั้ง ---------- */
-  const used = await tokens.downloadCount(item.id);
-  if (used >= tokens.MAX_DOWNLOADS_PER_ITEM) {
-    return fail(res, 429,
-      'ไฟล์นี้ถูกดาวน์โหลดครบ ' + tokens.MAX_DOWNLOADS_PER_ITEM + ' ครั้งแล้ว ' +
-      'ถ้ายังต้องการไฟล์ ทักหาเราทาง LINE ได้เลย เราออกให้ใหม่ให้ครับ');
+  /* ---------- 3. บันทึก log ก่อน (claim ช่อง) แล้วนับทีหลัง ----------
+     insert ก่อน count = ปิด TOCTOU: 2 request พร้อมกันต่างก็ insert สำเร็จ
+     แต่ใครนับได้ > MAX จะโดนบล็อก ฝั่งที่ log insert ล้มเหลวยังโหลดได้
+     (เหมือนเดิม — ไม่บล็อกลูกค้าที่จ่ายเงินแล้ว) */
+  let logInserted = false;
+  try {
+    await db.insert('download_events', {
+      order_id: order.id,
+      order_item_id: item.id,
+      ip_hash: hashIp(req),
+      user_agent: String(req.headers['user-agent'] || '').slice(0, 300)
+    });
+    logInserted = true;
+  } catch (e) {
+    console.error('[vinko][download] บันทึก log ไม่สำเร็จ', e.message);
+  }
+
+  if (logInserted) {
+    const used = await tokens.downloadCount(item.id);
+    if (used > tokens.MAX_DOWNLOADS_PER_ITEM) {
+      return fail(res, 429,
+        'ไฟล์นี้ถูกดาวน์โหลดครบ ' + tokens.MAX_DOWNLOADS_PER_ITEM + ' ครั้งแล้ว ' +
+        'ถ้ายังต้องการไฟล์ ทักหาเราทาง LINE ได้เลย เราออกให้ใหม่ให้ครับ');
+    }
   }
 
   /* ---------- 4. ดึงต้นฉบับ + ใส่ลายน้ำสด ---------- */
@@ -78,19 +96,6 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     console.error('[vinko][download] ใส่ลายน้ำไม่สำเร็จ', order.order_ref, item.product_code, e.message);
     return fail(res, 500, 'เตรียมไฟล์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
-  }
-
-  /* ---------- 5. บันทึก log ---------- */
-  // เก็บ IP เป็น hash ไม่เก็บ IP ดิบ (PDPA)
-  try {
-    await db.insert('download_events', {
-      order_id: order.id,
-      order_item_id: item.id,
-      ip_hash: hashIp(req),
-      user_agent: String(req.headers['user-agent'] || '').slice(0, 300)
-    });
-  } catch (e) {
-    console.error('[vinko][download] บันทึก log ไม่สำเร็จ', e.message);  // ไม่บล็อกลูกค้า
   }
 
   /* ---------- 6. ส่งไฟล์ ---------- */

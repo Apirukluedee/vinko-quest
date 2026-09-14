@@ -222,10 +222,10 @@ async function handleLineCallback(req, res) {
   if (!body || typeof body !== 'object') body = {};
 
   const code        = (body.code || '').trim();
-  const redirectUri = (body.redirect_uri || '').trim();
-  const stateRaw     = (body.state || '').trim();
+  const redirectUri = base() + '/login';   // ตรงกับที่จด LINE Developers console — ไม่รับจาก client
+  const stateRaw    = (body.state || '').trim();
 
-  if (!code || !redirectUri) {
+  if (!code) {
     return json(res, 200, { ok: false, error: 'invalid_link' });
   }
 
@@ -366,7 +366,7 @@ async function handleMyLibrary(req, res) {
   const ordersRes = await db.select('orders',
     'customer_email=eq.' + encodeURIComponent(user.email) +
     '&status=eq.paid' +
-    '&select=id,order_ref,package_code,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,refunded_at)'
+    '&select=id,order_ref,package_code,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at,refunded_at)'
   );
   const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
   if (!orders.length) return json(res, 200, { ok: true, email: user.email, books: [] });
@@ -388,18 +388,18 @@ async function handleMyLibrary(req, res) {
   for (const [code, meta] of Object.entries(STORY_META)) {
     const item = items.find(function(i) { return i.product_code === code && !i.refunded_at; });
     if (!item) continue;
+    // available = instant หรือ preorder ที่ส่งแล้ว (cron set delivered_at แล้ว)
+    const avail = item.delivery_type === 'instant' || !!item.delivered_at;
     books.push({
       kind:          'story',
       num:           meta.num,
       title:         meta.title,
       topic:         meta.topic,
       color:         meta.color,
-      available:     item.delivery_type === 'instant',
-      delivery_date: item.delivery_type === 'preorder'
-        ? thaiDate(item.scheduled_delivery_date)
-        : null,
-      reader_token:  item.delivery_type === 'instant' ? tokenByOrderId[item.order_id] : null,
-      item_id:       item.delivery_type === 'instant' ? item.id : null
+      available:     avail,
+      delivery_date: avail ? null : thaiDate(item.scheduled_delivery_date),
+      reader_token:  avail ? tokenByOrderId[item.order_id] : null,
+      item_id:       avail ? item.id : null
     });
   }
   books.sort(function(a, b) { return a.num - b.num; });
@@ -408,18 +408,17 @@ async function handleMyLibrary(req, res) {
   for (const [code, meta] of Object.entries(LAB_META)) {
     const item = items.find(function(i) { return i.product_code === code && !i.refunded_at; });
     if (!item) continue;
+    const avail = item.delivery_type === 'instant' || !!item.delivered_at;
     labBooks.push({
       kind:          'lab',
       icon:          meta.icon,
       title:         meta.title,
       topic:         meta.topic,
       color:         meta.color,
-      available:     item.delivery_type === 'instant',
-      delivery_date: item.delivery_type === 'preorder'
-        ? thaiDate(item.scheduled_delivery_date)
-        : null,
-      reader_token:  item.delivery_type === 'instant' ? tokenByOrderId[item.order_id] : null,
-      item_id:       item.delivery_type === 'instant' ? item.id : null
+      available:     avail,
+      delivery_date: avail ? null : thaiDate(item.scheduled_delivery_date),
+      reader_token:  avail ? tokenByOrderId[item.order_id] : null,
+      item_id:       avail ? item.id : null
     });
   }
 

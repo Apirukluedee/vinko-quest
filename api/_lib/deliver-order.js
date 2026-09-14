@@ -19,7 +19,10 @@ async function deliver(orderRef, opts) {
 
   const stillValid = order.download_token && order.token_expires_at &&
                      new Date(order.token_expires_at).getTime() > Date.now();
-  if (stillValid && !force) {
+
+  // ตรวจซ้ำก่อนเสมอ ไม่ว่า token จะหมดอายุหรือยัง
+  // (เดิมเช็คเฉพาะตอน stillValid — ทำให้ส่งซ้ำได้เมื่อ token หมดอายุ)
+  if (!force) {
     const sent = await db.count('email_events',
       'order_id=eq.' + order.id + '&kind=eq.purchase&status=eq.sent');
     if (sent > 0) return { ok: true, skipped: 'ส่งอีเมลไปแล้ว' };
