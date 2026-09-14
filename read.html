@@ -877,8 +877,11 @@ async function checkAccess(token, story) {
     return result;
   } catch (e) {
     // Network error — let through if user previously verified + has cached assets
+    // ต้องผ่านการ verify ออนไลน์ภายใน 7 วัน ป้องกันออฟไลน์ bypass ระยะยาว
     try {
-      if (!localStorage.getItem('vk_offline_' + story)) return false;
+      const ts = localStorage.getItem('vk_offline_' + story);
+      if (!ts) return false;
+      if (Date.now() - Number(ts) > 7 * 24 * 3600 * 1000) return false;
       const c = await caches.open('vinko-stories-v1');
       const hit = await c.match(`${SB}/images/STORY-0${story}/page-01.png`);
       return !!hit;

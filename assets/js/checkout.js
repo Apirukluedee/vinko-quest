@@ -127,6 +127,8 @@
     var now = V.priceOf(pkg);
     var set = function (sel, val) { var e = $(sel); if (e) e.textContent = val; };
     set("[data-vk-sum-name]",      NAMES[pkg]);
+    var H1_LABEL = { lab: "สั่งซื้อ VINKO WOW LAB", stories: "สั่งซื้อ VINKO STORIES", bundle: "สั่งซื้อแพ็กเกจครบชุด" };
+    set("#vk-page-h1", H1_LABEL[pkg] || H1_LABEL.lab);
     set("[data-vk-sum-price]",     V.baht(now));
     set("[data-vk-sum-total]",     V.baht(now));
     set("[data-vk-sum-normal]",    V.baht(cfg.normal));
