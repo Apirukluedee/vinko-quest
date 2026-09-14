@@ -44,7 +44,7 @@ async function record(orderRef, opts) {
   const order = Array.isArray(r.body) && r.body[0];
   if (!order) return { ok: false, error: 'ไม่พบคำสั่งซื้อนี้' };
 
-  if (order.refunded_at && scope === 'full') {
+  if (order.status === 'refunded' && scope === 'full') {
     return { ok: true, already: true, order_ref: order.order_ref,
              message: 'ออเดอร์นี้บันทึกการคืนเงินไว้แล้ว' };
   }

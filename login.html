@@ -202,26 +202,18 @@
   // ลิงก์ "เชื่อมบัญชี LINE" จากอีเมลยืนยันคำสั่งซื้อ — ดู email.js:connectLineUrl
   const connectToken = params.get('connect_token');
 
-  /* need_email มาจาก JSON response ของ line-callback (ไม่ได้ redirect
-     พร้อม query string เหมือนเดิมแล้ว) จึงเก็บ line_uid ไว้ใน
-     sessionStorage แทนตัวแปรในหน่วยความจำล้วนๆ — มือถือหลายรุ่น reload
-     แท็บ Safari ที่ถูก background ไว้ พอกลับมาตัวแปร JS หายหมด ทำให้
-     ส่ง magic-link ไปโดยไม่มี line_uid ติดไปด้วย (เจอจริงจากข้อมูลใน DB —
-     แถวที่ส่งมาล่าสุดก็ line_user_id เป็น null) sessionStorage รอดจาก
-     reload หน้าเดิมได้ ตัวแปรในหน่วยความจำไม่รอด — ทางนี้ยังจำเป็นอยู่
-     สำหรับเคสที่ LINE ไม่แชร์อีเมลมาเลยและไม่ได้มาจากลิงก์ connect_token */
-  // ค่าเก่าใน sessionStorage อาจค้างมาจากรอบ need_email ก่อนหน้า (คนละวัน
-  // คนละคำสั่งซื้อ) ถ้าตอนนี้มาจากลิงก์ "เชื่อมบัญชี LINE" (connectToken)
-  // ซึ่งเป็นคนละ flow กันโดยสิ้นเชิง ต้องเคลียร์ทิ้ง ไม่งั้นหน้านี้จะโชว์
-  // ข้อความ "LINE ไม่แชร์อีเมล" ผิดๆ ทันทีที่โหลด ทั้งที่ยังไม่ได้ลองกด
-  // ปุ่ม LINE Login รอบนี้เลยด้วยซ้ำ
+  /* need_email มาจาก JSON response ของ line-callback — เก็บ line_uid_token
+     (signed โดย server) ไว้ใน sessionStorage ป้องกันหายตอน Safari background
+     reload แท็บ token มี HMAC ทำให้ client แก้ไขหรือแกล้งส่ง UID คนอื่นไม่ได้ */
+  // ค่าเก่าใน sessionStorage อาจค้างมาจากรอบ need_email ก่อนหน้า — ถ้ามาจาก
+  // connect_token flow (คนละ flow) ให้เคลียร์ทิ้งก่อน ไม่งั้นโชว์ข้อความผิด
   if (connectToken) {
-    try { sessionStorage.removeItem('vnk_need_email_line_uid'); } catch (e) {}
+    try { sessionStorage.removeItem('vnk_need_email_line_uid_token'); } catch (e) {}
   }
-  let storedLineUid = null;
-  try { storedLineUid = connectToken ? null : sessionStorage.getItem('vnk_need_email_line_uid'); } catch (e) {}
-  let lineUid   = params.get('line_uid') || storedLineUid;
-  let needEmail = params.get('need_email') === '1' || !!lineUid;
+  let storedLineUidToken = null;
+  try { storedLineUidToken = connectToken ? null : sessionStorage.getItem('vnk_need_email_line_uid_token'); } catch (e) {}
+  let lineUidToken = storedLineUidToken;
+  let needEmail = !!lineUidToken;
 
   const msgBox = document.getElementById('msg-box');
 
@@ -273,8 +265,8 @@
         if (data.ok) { location.href = '/library'; return; }
         if (data.error === 'need_email') {
           needEmail = true;
-          lineUid   = data.line_uid;
-          try { sessionStorage.setItem('vnk_need_email_line_uid', lineUid || ''); } catch (e) {}
+          lineUidToken = data.line_uid_token || null;
+          try { sessionStorage.setItem('vnk_need_email_line_uid_token', lineUidToken || ''); } catch (e) {}
           showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
         } else {
           showMsg(ERROR_MSGS[data.error] || 'เกิดข้อผิดพลาด: ' + data.error, 'error');
@@ -304,7 +296,7 @@
     btn.textContent = 'กำลังส่ง…';
 
     try {
-      const body = needEmail ? { email, line_uid: lineUid } : { email };
+      const body = (needEmail && lineUidToken) ? { email, line_uid_token: lineUidToken } : { email };
       const r = await fetch('/api/auth/send-magic-link', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -312,7 +304,7 @@
       });
       const data = await r.json();
       if (data.ok) {
-        try { sessionStorage.removeItem('vnk_need_email_line_uid'); } catch (e) {}
+        try { sessionStorage.removeItem('vnk_need_email_line_uid_token'); } catch (e) {}
         showMsg('ส่งลิงก์ไปที่ ' + email + ' แล้ว กรุณาตรวจกล่องจดหมาย (รวม Junk/Spam)', 'success');
         btn.textContent = 'ส่งแล้ว ✓';
       } else {

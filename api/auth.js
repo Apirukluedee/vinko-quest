@@ -66,10 +66,19 @@ async function handleSendMagicLink(req, res) {
     return json(res, 400, { ok: false, error: 'email_invalid' });
   }
 
-  // line_uid มาจากหน้า login ตอน LINE ไม่ได้แชร์อีเมลมาให้ (ดู need_email
-  // ใน handleLineCallback) — เก็บไว้คู่กับอีเมลนี้เพื่อผูกบัญชีไว้ถาวร
-  const rawLineUid = (body.line_uid || '').trim();
-  const lineUid = /^U[0-9a-f]{32}$/.test(rawLineUid) ? rawLineUid : null;
+  // line_uid_token มาจาก need_email response ของ line-callback — เซ็นด้วย
+  // LINE channel secret ป้องกันไม่ให้ใครแกล้งส่ง UID คนอื่นมาผูกกับอีเมลตัวเอง
+  let lineUid = null;
+  const rawLineUidToken = (body.line_uid_token || '').trim();
+  if (rawLineUidToken) {
+    const lsecret = config.lineLoginChannelSecret();
+    if (lsecret) {
+      const p = signedToken.verify(rawLineUidToken, lsecret);
+      if (p && p.p === 'bind' && /^U[0-9a-f]{32}$/.test(p.uid || '')) {
+        lineUid = p.uid;
+      }
+    }
+  }
 
   const resendKey = config.resendApiKey();
   if (!resendKey) return json(res, 503, { ok: false, error: 'email_not_configured' });
@@ -244,9 +253,19 @@ async function handleLineCallback(req, res) {
     lineUserId = profile.userId;
 
     if (lineToken.id_token) {
-      const parts   = lineToken.id_token.split('.');
-      const payload = parts[1] ? JSON.parse(Buffer.from(parts[1], 'base64').toString()) : {};
-      email = payload.email || '';
+      try {
+        const verifyRes = await fetch('https://api.line.me/oauth2/v2.1/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ id_token: lineToken.id_token, client_id: channelId }).toString()
+        });
+        if (verifyRes.ok) {
+          const verified = await verifyRes.json();
+          email = verified.email || '';
+        }
+      } catch (e) {
+        console.error('[line-cb] id_token verify failed:', e.message);
+      }
     }
   } catch (e) {
     console.error('[line-cb] profile failed:', e.message);
@@ -269,7 +288,11 @@ async function handleLineCallback(req, res) {
       console.error('[line-cb] findEmailByLineUserId failed:', e.message);
     }
     if (!linkedEmail) {
-      return json(res, 200, { ok: false, error: 'need_email', line_uid: lineUserId });
+      const lineUidToken = signedToken.sign(
+        { p: 'bind', uid: lineUserId, exp: Date.now() + 15 * 60 * 1000 },
+        secret
+      );
+      return json(res, 200, { ok: false, error: 'need_email', line_uid_token: lineUidToken });
     }
     email = linkedEmail;
   }
