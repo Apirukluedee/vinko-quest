@@ -89,13 +89,18 @@ module.exports = async function handler(req, res) {
           'order_id=eq.' + o.id + '&kind=eq.resend_link&created_at=gte.' + encodeURIComponent(since));
         if (recent >= 3) continue;   // ออเดอร์นี้ขอถี่เกินไป ข้ามไป แต่ยังตอบ OK เหมือนเดิม
 
-        const t = await tokens.issue(o.id);
-        const fresh = await db.select('orders', 'id=eq.' + o.id + '&select=token_expires_at&limit=1');
-        const exp = (Array.isArray(fresh.body) && fresh.body[0] && fresh.body[0].token_expires_at) ||
-                    tokens.expiryFromNow();
+        // สร้าง token ใหม่ล่วงหน้าแต่ยังไม่เขียน DB — ส่งอีเมลก่อน
+        // ถ้าส่งสำเร็จค่อยบันทึก token ใหม่ลง DB
+        // ป้องกันเคสที่ email.send ล้มเหลวหลัง tokens.issue() ทำลาย token เดิมไปแล้ว
+        const preToken  = tokens.newToken();
+        const preExpiry = tokens.expiryFromNow();
 
-        const payload = email.resendEmail({ orderRef: o.order_ref, token: t, expiresAt: exp });
-        await email.send('resend_link', o.customer_email, payload, { orderId: o.id });
+        const payload = email.resendEmail({ orderRef: o.order_ref, token: preToken, expiresAt: preExpiry });
+        const sent = await email.send('resend_link', o.customer_email, payload, { orderId: o.id });
+        if (sent && sent.ok) {
+          await db.update('orders', 'id=eq.' + o.id,
+            { download_token: preToken, token_expires_at: preExpiry });
+        }
       } catch (e) {
         // ล้มออเดอร์เดียวไม่ควรทำให้ออเดอร์ที่เหลือไม่ได้ส่ง และห้ามเปลี่ยนคำตอบ
         // ที่ส่งกลับไป ไม่งั้นจะกลายเป็นช่องให้เดาว่าอีเมลไหนมีออเดอร์อยู่จริง
@@ -126,15 +131,21 @@ module.exports = async function handler(req, res) {
     return fail(res, 429, 'ขอลิงก์ใหม่ถี่เกินไป กรุณารอสักครู่แล้วลองอีกครั้ง');
   }
 
-  const newToken = await tokens.issue(order.id);
-  const fresh = await db.select('orders', 'id=eq.' + order.id + '&select=token_expires_at&limit=1');
-  const expiresAt = (Array.isArray(fresh.body) && fresh.body[0] && fresh.body[0].token_expires_at) ||
-                    tokens.expiryFromNow();
+  // สร้าง token ล่วงหน้าแต่ยังไม่เขียน DB — ส่งอีเมลก่อน แล้วค่อยบันทึก
+  // ถ้า email.send ล้มเหลว token เดิมใน DB จะยังอยู่ครบ ลูกค้าไม่ติดค้าง
+  const preToken  = tokens.newToken();
+  const preExpiry = tokens.expiryFromNow();
 
-  const payload = email.resendEmail({ orderRef: order.order_ref, token: newToken, expiresAt: expiresAt });
+  const payload = email.resendEmail({ orderRef: order.order_ref, token: preToken, expiresAt: preExpiry });
   const out = await email.send('resend_link', order.customer_email, payload, { orderId: order.id });
 
   if (!out.ok) return fail(res, 502, 'ส่งอีเมลไม่สำเร็จ กรุณาติดต่อเราทาง LINE', out.error);
+
+  const wrote = await db.update('orders', 'id=eq.' + order.id,
+    { download_token: preToken, token_expires_at: preExpiry });
+  if (!wrote.ok) {
+    console.error('[vinko][resend] บันทึก token ใหม่ไม่สำเร็จ', order.order_ref, JSON.stringify(wrote.body));
+  }
   return json(res, 200, { ok: true, message: 'ส่งลิงก์ใหม่ไปที่อีเมลเดิมของคุณแล้ว' });
 };
 

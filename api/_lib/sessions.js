@@ -37,19 +37,23 @@ async function findEmailByLineUserId(line_user_id) {
   return r.body[0].email;
 }
 
-/* ตรวจ magic token → คืน {email, session_token} หรือ null */
+/* ตรวจ magic token → คืน {email, session_token} หรือ null
+   ใช้ atomic UPDATE (ไม่ใช่ SELECT แล้วค่อย UPDATE) เพื่อกัน TOCTOU race:
+   สอง request ที่มาพร้อมกันจะผ่านเงื่อนไขเดียวกันพร้อมกันไม่ได้
+   เพราะ DB จะให้แก้ไขแถวเดียวกันได้แค่ครั้งเดียวใน transaction */
 async function activateMagicSession(magic_token) {
   if (!magic_token) return null;
 
-  const r = await db.select('user_sessions',
+  const now = new Date().toISOString();
+  const r = await db.update(
+    'user_sessions',
     'magic_token=eq.' + encodeURIComponent(magic_token) +
-    '&magic_expires_at=gt.' + encodeURIComponent(new Date().toISOString()) +
-    '&select=id,email,session_token&limit=1'
+    '&magic_expires_at=gt.' + encodeURIComponent(now),
+    { magic_token: null, magic_expires_at: null }
   );
   if (!r.ok || !Array.isArray(r.body) || !r.body[0]) return null;
-
-  const { id, email, session_token } = r.body[0];
-  await db.update('user_sessions', 'id=eq.' + id, { magic_token: null, magic_expires_at: null });
+  const { email, session_token } = r.body[0];
+  if (!email) return null;
   return { email, session_token };
 }
 

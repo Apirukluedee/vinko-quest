@@ -83,6 +83,18 @@ async function handleSendMagicLink(req, res) {
   const resendKey = config.resendApiKey();
   if (!resendKey) return json(res, 503, { ok: false, error: 'email_not_configured' });
 
+  // กัน spam: สูงสุด 3 magic link ต่อ 10 นาทีต่ออีเมล
+  try {
+    const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+    const recent = await db.count('user_sessions',
+      'email=eq.' + encodeURIComponent(email) +
+      '&created_at=gte.' + encodeURIComponent(since));
+    if (recent >= 3) return json(res, 429, { ok: false, error: 'rate_limited' });
+  } catch (e) {
+    console.error('[auth] rate limit check failed:', e.message);
+    // ตรวจไม่ได้ก็ปล่อยผ่าน ไม่บล็อกการส่ง
+  }
+
   let magic_token;
   try {
     ({ magic_token } = await sessions.createMagicSession(email, lineUid));
