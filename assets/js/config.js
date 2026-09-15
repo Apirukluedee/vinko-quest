@@ -22,7 +22,7 @@ window.VINKO_CONFIG = {
     stories: { normal: 249, launch: 199 },
     bundle:  { normal: 349, launch: 349 }
   },
-  UPGRADE_PRICE: 249,          // อัปเกรด LAB -> BUNDLE ภายหลัง
+  UPGRADE_PRICE: 199,          // อัปเกรด LAB -> BUNDLE ภายหลัง (ราคาเปิดตัว)
   SINGLE_BOOK_PRICE: 59,       // ซื้อแยกเล่มที่หน้า /books ราคาเดียว ไม่มีส่วนลด
 
   /* ---- จำนวนจำกัดของ pre-order ---------------------------
