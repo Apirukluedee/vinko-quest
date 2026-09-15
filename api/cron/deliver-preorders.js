@@ -54,7 +54,7 @@ module.exports = async function handler(req, res) {
 
       const o = await db.select('orders',
         'id=eq.' + item.order_id +
-        '&select=id,order_ref,status,customer_email,download_token,token_expires_at&limit=1');
+        '&select=id,order_ref,status,customer_email,download_token,token_expires_at,unsubscribe_token&limit=1');
       const order = Array.isArray(o.body) && o.body[0];
       if (!order || order.status !== 'paid') { out.skipped_unpaid++; continue; }
 
@@ -79,7 +79,8 @@ module.exports = async function handler(req, res) {
 
       const payload = email.storyEmail({
         orderRef: order.order_ref, itemTitle: item.title,
-        token: token, expiresAt: expiresAt, remaining: remaining
+        token: token, expiresAt: expiresAt, remaining: remaining,
+        unsubscribeToken: order.unsubscribe_token || null
       });
       const sent = await email.send('story_delivery', order.customer_email, payload,
                                     { orderId: order.id, orderItemId: item.id });

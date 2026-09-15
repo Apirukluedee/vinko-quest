@@ -54,6 +54,11 @@ function readerUrl(storyNum, readerToken) {
  * ผู้เรียกต้องเช็คก่อนเอาไปใส่ปุ่มในอีเมล ไม่งั้นลูกค้าจะกดแล้วเจอ
  * line_not_configured เปล่าๆ
  */
+function unsubscribeUrl(token) {
+  if (!token) return null;
+  return baseUrl() + '/api/unsubscribe?token=' + encodeURIComponent(token);
+}
+
 function connectLineUrl(customerEmail) {
   const secret = config.lineLoginChannelSecret();
   if (!config.lineLoginChannelId() || !secret || !customerEmail) return null;
@@ -105,8 +110,9 @@ function thaiDateTime(iso) {
 
 /* ---------------- เปลือกอีเมล ---------------- */
 
-function shell(inner) {
+function shell(inner, opts) {
   const s = seller();
+  const unsubUrl = opts && opts.unsubscribeToken ? unsubscribeUrl(opts.unsubscribeToken) : null;
   return '<!doctype html><html lang="th"><head><meta charset="utf-8"/>' +
     '<meta name="viewport" content="width=device-width,initial-scale=1"/></head>' +
     '<body style="margin:0;padding:0;background:#F4F6FB;">' +
@@ -124,6 +130,7 @@ function shell(inner) {
     '<br/>LINE: <a href="' + esc(s.line) + '" style="color:' + BRAND_NAVY + ';">' + esc(s.line) + '</a>' +
     '<br/><a href="' + baseUrl() + '/privacy" style="color:#6B7285;">นโยบายความเป็นส่วนตัว</a> · ' +
     '<a href="' + baseUrl() + '/terms" style="color:#6B7285;">เงื่อนไขการซื้อ</a>' +
+    (unsubUrl ? ' · <a href="' + esc(unsubUrl) + '" style="color:#6B7285;">ยกเลิกรับอีเมลการตลาด</a>' : '') +
     '</td></tr></table></td></tr></table></body></html>';
 }
 
@@ -275,6 +282,7 @@ function storyEmail(o) {
       ? '<p style="margin:20px 0 4px;font-weight:bold;color:' + BRAND_NAVY + ';">เรื่องที่เหลือ</p>' + timelineTable(o.remaining)
       : '<p style="margin:18px 0 0;color:#6B7285;font-size:13.5px;">นี่คือนิทานเรื่องสุดท้ายในชุดแล้ว ขอบคุณที่รอจนครบนะครับ 🙏</p>');
 
+  const unsubUrl = o.unsubscribeToken ? unsubscribeUrl(o.unsubscribeToken) : null;
   const text =
     'นิทานเรื่องใหม่มาแล้ว\n\n' + o.itemTitle + ' พร้อมให้ดาวน์โหลดแล้ว\n' +
     'เลขที่คำสั่งซื้อ: ' + o.orderRef + '\n\n' +
@@ -282,9 +290,10 @@ function storyEmail(o) {
     'ลิงก์ใช้ได้ถึง ' + thaiDateTime(o.expiresAt) + '\n\n' +
     '🎧 ฟังเสียงอ่านได้เลยที่ My Library (ไม่ต้องหาอีเมล)\n' +
     baseUrl() + '/library\n\n' +
-    seller().name + '\n' + seller().line + '\n';
+    seller().name + '\n' + seller().line + '\n' +
+    (unsubUrl ? '\nยกเลิกรับอีเมลการตลาด: ' + unsubUrl + '\n' : '');
 
-  return { subject: esc(o.itemTitle) + ' พร้อมดาวน์โหลดแล้ว · ' + o.orderRef, html: shell(inner), text: text };
+  return { subject: esc(o.itemTitle) + ' พร้อมดาวน์โหลดแล้ว · ' + o.orderRef, html: shell(inner, { unsubscribeToken: o.unsubscribeToken }), text: text };
 }
 
 /* ---------------- อีเมล C: ขอลิงก์ใหม่ ---------------- */
@@ -370,6 +379,6 @@ async function logEvent(rec) {
 }
 
 module.exports = {
-  FROM, purchaseEmail, storyEmail, resendEmail, send, connectLineUrl,
+  FROM, purchaseEmail, storyEmail, resendEmail, send, connectLineUrl, unsubscribeUrl,
   thaiDate, thaiDateTime, maskless: esc
 };
