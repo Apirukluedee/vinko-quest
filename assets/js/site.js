@@ -185,6 +185,9 @@
     $$("[data-vk-seller-address]").forEach(function (el) {
       if (C.SELLER && C.SELLER.address) el.textContent = C.SELLER.address;
     });
+    $$("[data-vk-seller-phone]").forEach(function (el) {
+      if (C.SELLER && C.SELLER.phone) el.textContent = C.SELLER.phone;
+    });
     $$("[data-vk-year]").forEach(function (el) { el.textContent = new Date().getFullYear() + 543; });
   }
 
