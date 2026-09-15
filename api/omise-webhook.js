@@ -84,8 +84,33 @@ module.exports = async function handler(req, res) {
 
   if (!claim.ok) {
     if (db.isUniqueViolation(claim)) {
-      // เคยประมวลผล event นี้ไปแล้ว ห้ามทำงานซ้ำ
-      return json(res, 200, { ok: true, duplicate: true });
+      // เคยประมวลผลแล้ว — ตรวจ deliver_status ก่อนคืน 200
+      // ถ้า 'failed' ต้อง retry deliver ไม่ใช่คืน 200 ทันที
+      const existing = await db.select('webhook_events',
+        'omise_event_id=eq.' + encodeURIComponent(eventId) +
+        '&select=deliver_status&limit=1');
+      const ds = Array.isArray(existing.body) && existing.body[0] && existing.body[0].deliver_status;
+      if (ds !== 'failed') {
+        return json(res, 200, { ok: true, duplicate: true });
+      }
+      // deliver_status = 'failed' → หา order แล้ว retry
+      try {
+        const orderSel = await db.select('orders',
+          'omise_charge_id=eq.' + encodeURIComponent(chargeId) +
+          '&select=order_ref&limit=1');
+        const orderRef = Array.isArray(orderSel.body) && orderSel.body[0] && orderSel.body[0].order_ref;
+        if (orderRef) {
+          await deliver(orderRef);
+          await db.update('webhook_events',
+            'omise_event_id=eq.' + encodeURIComponent(eventId),
+            { deliver_status: 'delivered' }).catch(function () {});
+          console.log('[vinko][webhook] retry deliver สำเร็จ', orderRef);
+        }
+      } catch (retryErr) {
+        console.error('[vinko][webhook] retry deliver ไม่สำเร็จ', chargeId, retryErr.message);
+        return json(res, 500, { ok: false });
+      }
+      return json(res, 200, { ok: true, retried: true });
     }
     console.error('[vinko][webhook] บันทึก event ไม่สำเร็จ', JSON.stringify(claim.body));
     // ตอบ 500 เพื่อให้ Omise retry ดีกว่าปล่อยให้ออเดอร์ค้าง pending
@@ -104,14 +129,23 @@ module.exports = async function handler(req, res) {
     // งานที่ค้างอยู่จะถูกฆ่าทิ้งกลางคัน ลูกค้าจ่ายเงินแล้วแต่ไม่มี token
     // (เคยพลาดตรงนี้มาแล้วกับออเดอร์ VK-2608-0001)
     if (result && result.needs_delivery) {
-      await Promise.all([
-        deliver(result.order_ref).catch(function (e) {
-          console.error('[vinko][webhook] ส่งมอบไม่สำเร็จ', result.order_ref, e.message);
-        }),
-        line.notifyOrder(result.order_ref).catch(function (e) {
-          console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
-        })
-      ]);
+      try {
+        await deliver(result.order_ref);
+        await db.update('webhook_events',
+          'omise_event_id=eq.' + encodeURIComponent(eventId),
+          { deliver_status: 'delivered' }).catch(function () {});
+      } catch (deliverErr) {
+        console.error('[vinko][webhook] ส่งมอบไม่สำเร็จ', result.order_ref, deliverErr.message);
+        await db.update('webhook_events',
+          'omise_event_id=eq.' + encodeURIComponent(eventId),
+          { deliver_status: 'failed' }).catch(function () {});
+        // ตอบ 500 ให้ Omise retry — ครั้งถัดไปจะเจอ deliver_status='failed' แล้ว retry deliver
+        return json(res, 500, { ok: false, error: 'deliver_failed' });
+      }
+      // LINE notification — ไม่ critical swallow ได้
+      line.notifyOrder(result.order_ref).catch(function (e) {
+        console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
+      });
     }
 
     return json(res, 200, { ok: true, result: result });
