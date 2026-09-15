@@ -458,10 +458,24 @@
   /* ---------- ช่วยกรอกบัตรให้อ่านง่าย ---------- */
 
   var cardNum = $("#vk-card-number");
-  if (cardNum) cardNum.addEventListener("input", function () {
-    var d = this.value.replace(/\D/g, "").slice(0, 19);
-    this.value = d.replace(/(.{4})/g, "$1 ").trim();
-  });
+  if (cardNum) {
+    var _fmtBusy = false;
+    function _fmtCard(el) {
+      if (_fmtBusy) return;
+      _fmtBusy = true;
+      var d = el.value.replace(/\D/g, "").slice(0, 19);
+      el.value = d.replace(/(.{4})/g, "$1 ").trim();
+      _fmtBusy = false;
+    }
+    cardNum.addEventListener("input",  function () { _fmtCard(this); });
+    cardNum.addEventListener("change", function () { _fmtCard(this); });
+    cardNum.addEventListener("paste",  function (e) {
+      e.preventDefault();
+      var text = (e.clipboardData || window.clipboardData || {}).getData("text") || "";
+      var d = text.replace(/\D/g, "").slice(0, 19);
+      this.value = d.replace(/(.{4})/g, "$1 ").trim();
+    });
+  }
 
   var cardExp = $("#vk-card-exp");
   if (cardExp) cardExp.addEventListener("input", function () {
