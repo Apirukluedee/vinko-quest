@@ -70,18 +70,18 @@ const MAP = {
 
   'xstand-a-website': [
     {
-      activation_id: 'QR-XS-A-WEB-01__T21KORAT-2026-09__r01',
+      activation_id: 'QR-XS-A-WEB-02__T21KORAT-2026-09__r01',
       active: true,
-      confirmed: false,
-      location: null, start_date: null, end_date: null, // รอหลักฐานสถานที่และวันใช้งานจริง
+      confirmed: true,                 // ยืนยัน 16 ก.ย. 2026: QR-XS-A-WEB-02.svg → /r/xstand-a-website → /
+      location: null, start_date: null, end_date: null,
       dest: '/',                       // "ดูสินค้า" — หน้าแรกคือหน้าขายของสินค้านี้
       utm: {
         utm_source:   'offline',
         utm_medium:   'xstand',
         utm_campaign: 't21korat_sep2026',
-        utm_content:  'qr_xs_a_web_01'
+        utm_content:  'qr_xs_a_web_02'
       },
-      note: 'Website QR = ดูสินค้า (CHANNELS บรรทัด 141) — รอตรวจอาร์ตเวิร์กและ URL ในใบจริง'
+      note: 'Website QR X-stand v6 Evergreen — QR-XS-A-WEB-02.svg ฝัง /r/xstand-a-website ยืนยันแล้ว'
     }
   ],
 
