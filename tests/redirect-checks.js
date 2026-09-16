@@ -65,9 +65,12 @@ const v = act.validate();
 check('ตารางผ่านการตรวจทั้งใบ', v.ok, v.errors.join(' | '));
 // ไม่บังคับ "ต้องมีรอบ active เสมอ" อีกต่อไป — token ที่ retired ทั้งหมด
 // (เช่น xstand-a-line ตั้งแต่ 9 ก.ย. 2026) มีรอบ active เป็น 0 ได้ตามปกติ
-// กฎจริงคือ "active พร้อมกันได้ไม่เกิน 1 รอบ" ตามที่ validate() บังคับอยู่แล้ว
-check('ทุก token มีรอบที่ active ไม่เกินหนึ่งรอบ',
-      Object.keys(act.MAP).every(t => act.MAP[t].filter(r => r.active).length <= 1));
+// ตั้งแต่ 16 ก.ย. 2026 รอบที่มีวันที่ (start_date/end_date) active พร้อมกัน
+// ได้หลายรอบ (ตารางออกบูธล่วงหน้า, current() เลือกตามวันที่) — กฎจริงคือ
+// "รอบ evergreen (ไม่มีวันที่) active พร้อมกันได้ไม่เกิน 1 รอบ" ตามที่ validate() บังคับ
+check('ทุก token มีรอบ evergreen ที่ active ไม่เกินหนึ่งรอบ',
+      Object.keys(act.MAP).every(t =>
+        act.MAP[t].filter(r => r.active && !r.start_date && !r.end_date).length <= 1));
 check('ทุกรอบระบุ confirmed เป็น boolean ชัดเจน',
       Object.keys(act.MAP).every(t => act.MAP[t].every(r => typeof r.confirmed === 'boolean')));
 
@@ -106,8 +109,8 @@ check('ตัวพิมพ์เล็ก -> ไม่ผ่าน', !act.ACTI
 /* ---- 5. ยังไม่ยืนยัน = ต้อง 404 ---- */
 section('5. ยังไม่ยืนยันป้ายกำกับ = ห้ามใช้งาน');
 // xstand-a-line retired (active:false) แล้ว 9 ก.ย. 2026 — ไม่นับใน pending() อีกต่อไป
-// เหลือแค่ xstand-a-website ที่ยัง active แต่รอยืนยันป้ายกำกับ
-check('มีรายการรอยืนยันอยู่จริง', act.pending().length === 1, String(act.pending().length));
+// xstand-a-website ยืนยันครบทุกรอบแล้ว (16 ก.ย. 2026) — ไม่มีอะไรค้าง pending อีก
+check('ไม่มีรายการค้างยืนยัน', act.pending().length === 0, String(act.pending().length));
 let r = hit('xstand-a-line');
 check('token ที่ยังไม่ยืนยัน -> 404 ไม่ใช่ redirect', r.statusCode === 404, String(r.statusCode));
 check('404 ไม่มี Location header', !r.headers.location);

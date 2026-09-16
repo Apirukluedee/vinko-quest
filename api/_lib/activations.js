@@ -68,12 +68,34 @@ const MAP = {
           ตามข้อ 7 QR QA Checklist ของเอกสาร tracking
      ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------
+     ตารางออกบูธ (16 ก.ย. 2026): ดึงจาก Google Calendar ตารางออกบูธ
+     (calendar เดียวกับที่ Sky House ใช้ — พี่คุมทุกแบรนด์ในปฏิทินเดียวกัน)
+     ผ่าน scripts/list-booth-calendar-events.js แล้วให้เจ้าของงานเลือกว่า
+     event ไหนเป็นของ VINKO (ทุกงานวาง X-stand เหมือนกันหมด)
+
+     ทุก round ใช้ QR ใบเดียวกัน (QR-XS-A-WEB-02.svg, token เดิม, dest '/'
+     เดิม) ที่ confirmed ไปแล้วบรรทัดบน — ต่างกันแค่ location/utm สำหรับ
+     ระบุงานเพื่อดูรายงานย้อนหลัง จึงตั้ง confirmed:true ต่อได้เลยไม่ต้อง
+     รอคนยืนยันใหม่ทีละงาน (ไม่มีอาร์ตเวิร์ก/ปลายทางใหม่ให้ตรวจ)
+
+     current() จะเลือก round ที่ start_date<=วันนี้<=end_date ก่อน ถ้าวันนี้
+     ไม่ตรงกับ round ไหนเลย (ช่วงว่างระหว่างงาน) จะ fallback ไปที่ round
+     evergreen (start_date/end_date เป็น null) ท้ายตาราง กัน QR ที่พิมพ์ไป
+     แล้ว 404 เวลาไม่มีบูธ
+
+     หมายเหตุ: 15–25 ต.ค. 2026 มี 2 งานพร้อมกัน (Jungle Walk งามวงศ์วาน กับ
+     Terminal 21 พระราม3) เพราะมี X-stand หลายชุดวางพร้อมกันคนละที่ — ทั้งคู่
+     ใช้ QR ใบเดียวกัน (token เดียวกันทั้งระบบ) ช่วงที่ซ้อนกันนี้ utm_campaign
+     จะได้แค่อันใดอันหนึ่ง (ตัวแรกที่เจอในตาราง) แยกไม่ได้ว่าลูกค้าสแกนจากที่ไหน
+     ถ้าอยากแยกให้แม่นช่วงซ้อน ต้องพิมพ์ QR คนละใบต่อสถานที่ (คนละ token)
+     ------------------------------------------------------------------ */
   'xstand-a-website': [
     {
       activation_id: 'QR-XS-A-WEB-02__T21KORAT-2026-09__r01',
       active: true,
       confirmed: true,                 // ยืนยัน 16 ก.ย. 2026: QR-XS-A-WEB-02.svg → /r/xstand-a-website → /
-      location: null, start_date: null, end_date: null,
+      location: 'เทอมินอล 21 โคราช', start_date: '2026-09-24', end_date: '2026-10-05',
       dest: '/',                       // "ดูสินค้า" — หน้าแรกคือหน้าขายของสินค้านี้
       utm: {
         utm_source:   'offline',
@@ -81,7 +103,105 @@ const MAP = {
         utm_campaign: 't21korat_sep2026',
         utm_content:  'qr_xs_a_web_02'
       },
-      note: 'Website QR X-stand v6 Evergreen — QR-XS-A-WEB-02.svg ฝัง /r/xstand-a-website ยืนยันแล้ว'
+      note: 'Website QR X-stand v6 — เทอมินอล 21 โคราช 24 ก.ย.–5 ต.ค. 2026 (มี banner ครบ 3 ชิ้น)'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__GATEWAYBS-2026-09__r01',
+      active: true,
+      confirmed: true,
+      location: 'Gateway บางซื่อ', start_date: '2026-09-19', end_date: '2026-09-27',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'gateway_bangsue_sep2026',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'Gateway บางซื่อ 19–27 ก.ย. 2026'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__FURTOPIA-2026-10__r01',
+      active: true,
+      confirmed: true,
+      location: 'FUR TOPIA เซียร์รังสิต', start_date: '2026-10-10', end_date: '2026-10-11',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'furtopia_seer_rangsit_oct2026',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'FUR TOPIA เซียร์รังสิต 10–11 ต.ค. 2026'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__JUNGLEWALK-2026-10__r01',
+      active: true,
+      confirmed: true,
+      location: 'The Mall งามวงศ์วาน (Jungle Walk)', start_date: '2026-10-15', end_date: '2026-10-25',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'jungle_walk_ngamwongwan_oct2026',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'The Mall งามวงศ์วาน (Jungle Walk) 15–25 ต.ค. 2026 — ซ้อนกับ T21 พระราม3'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__T21RAMA3-2026-10__r01',
+      active: true,
+      confirmed: true,
+      location: 'Terminal 21 พระราม3', start_date: '2026-10-20', end_date: '2026-11-01',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 't21rama3_oct2026',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'Terminal 21 พระราม3 20 ต.ค.–1 พ.ย. 2026 (มี banner ครบ 3 ชิ้น) — ซ้อนกับ Jungle Walk'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__HUAHINPETPAWRADISE-2026-10__r01',
+      active: true,
+      confirmed: true,
+      location: 'Market Village หัวหิน - Pet Pawradise', start_date: '2026-10-26', end_date: '2026-11-04',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'market_village_huahin_petpawradise_oct2026',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'Market Village หัวหิน - Pet Pawradise 26 ต.ค.–4 พ.ย. 2026'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__HUAHIN-2027-01__r01',
+      active: true,
+      confirmed: true,
+      location: 'Market Village หัวหิน', start_date: '2027-01-08', end_date: '2027-01-17',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'market_village_huahin_jan2027',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'Market Village หัวหิน 8–17 ม.ค. 2027'
+    },
+    {
+      activation_id: 'QR-XS-A-WEB-02__EVERGREEN__r01',
+      active: true,
+      confirmed: true,
+      location: null, start_date: null, end_date: null,
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'evergreen',
+        utm_content:  'qr_xs_a_web_02'
+      },
+      note: 'Fallback — ใช้ตอนวันนี้ไม่ตรงกับงานไหนในตาราง (ช่วงว่างระหว่างบูธ) กัน QR ที่พิมพ์ไปแล้ว 404'
     }
   ],
 
@@ -136,14 +256,33 @@ function isValidToken(t) {
   return typeof t === 'string' && TOKEN_RE.test(t);
 }
 
-/** รอบที่ใช้งานอยู่และยืนยันแล้ว — null ถ้าไม่มี */
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** วันนี้ตามเวลาไทย ในรูปแบบ YYYY-MM-DD — ใช้เทียบกับ start_date/end_date */
+function todayYMD() {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+/** รอบที่ใช้งานอยู่และยืนยันแล้ว — null ถ้าไม่มี
+ *
+ *  เลือกรอบที่ start_date<=วันนี้<=end_date ก่อน (ตารางออกบูธที่กรอกไว้ล่วงหน้า)
+ *  ถ้าวันนี้ไม่ตรงกับรอบไหนเลย fallback ไปรอบ evergreen (start_date/end_date
+ *  เป็น null ทั้งคู่) กัน QR ที่พิมพ์ไปแล้ว 404 ตอนไม่มีบูธ
+ *  ถ้าหลายรอบซ้อนวันที่กัน (มี X-stand หลายชุดพร้อมกันคนละที่) จะได้ตัวแรก
+ *  ที่เจอในตาราง — attribution แยกที่มาไม่ได้ในช่วงที่ซ้อนกัน */
 function current(token, map) {
   const M = map || MAP;
   if (!isValidToken(token)) return null;
   const rounds = M[token];
   if (!Array.isArray(rounds)) return null;
   if (!validate({ [token]: rounds }).ok) return null;
-  return rounds.find(r => r.active === true && r.confirmed === true) || null;
+
+  const eligible = rounds.filter(r => r.active === true && r.confirmed === true);
+  const today = todayYMD();
+  const dated = eligible.find(r =>
+    r.start_date && r.end_date && today >= r.start_date && today <= r.end_date);
+  if (dated) return dated;
+  return eligible.find(r => !r.start_date && !r.end_date) || null;
 }
 
 /** ประวัติทุกรอบของ token นี้ รวมรอบที่ยังไม่ยืนยันและรอบที่ปิดไปแล้ว */
@@ -190,13 +329,25 @@ function validate(map) {
       return;
     }
 
-    if (rounds.filter(r => r && r.active === true).length > 1) {
-      errors.push(token + ': มีรอบที่ active ได้ไม่เกินหนึ่งรอบ');
+    // รอบ evergreen (start_date/end_date เป็น null ทั้งคู่) ที่ active ได้ไม่เกินหนึ่งรอบ —
+    // ไม่งั้น current() จะเลือกไม่ถูกว่า fallback อันไหน ส่วนรอบที่มีวันที่ (dated)
+    // ซ้อนกันได้ตามจริง (X-stand หลายชุดพร้อมกันคนละที่)
+    if (rounds.filter(r => r && r.active === true && !r.start_date && !r.end_date).length > 1) {
+      errors.push(token + ': มีรอบ evergreen (ไม่มีวันที่) ที่ active ได้ไม่เกินหนึ่งรอบ');
     }
 
     rounds.forEach(r => {
       if (!r || typeof r !== 'object') { errors.push(token + ': รอบผิดรูปแบบ'); return; }
       if (typeof r.active !== 'boolean') errors.push(token + ': active ต้องเป็น boolean');
+      // ต้องมีทั้งคู่หรือไม่มีเลย ห้ามใส่แค่ครึ่งเดียว (เลี่ยง range ที่เปิดปลายด้านเดียวโดยไม่ตั้งใจ)
+      if (!!r.start_date !== !!r.end_date) {
+        errors.push(token + ': ' + (r.activation_id || '?') + ' ต้องมี start_date กับ end_date ครบคู่ หรือไม่มีทั้งคู่');
+      }
+      if (r.start_date && !YMD_RE.test(r.start_date)) errors.push(token + ': start_date ต้องเป็น YYYY-MM-DD -> ' + r.start_date);
+      if (r.end_date && !YMD_RE.test(r.end_date)) errors.push(token + ': end_date ต้องเป็น YYYY-MM-DD -> ' + r.end_date);
+      if (r.start_date && r.end_date && YMD_RE.test(r.start_date) && YMD_RE.test(r.end_date) && r.start_date > r.end_date) {
+        errors.push(token + ': ' + (r.activation_id || '?') + ' start_date ต้องไม่มากกว่า end_date');
+      }
       if (!ACTIVATION_RE.test(r.activation_id || '')) {
         errors.push(token + ': activation_id ผิดรูปแบบ -> ' + r.activation_id);
       }
