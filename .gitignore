@@ -16,3 +16,6 @@ node_modules/
 
 # ไฟล์ชั่วคราวจากชุดทดสอบ
 .tmp/
+
+# Config เครื่องมือ Claude Code — ไม่ใช่ไฟล์เว็บ
+.claude/
