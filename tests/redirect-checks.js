@@ -109,7 +109,8 @@ check('ตัวพิมพ์เล็ก -> ไม่ผ่าน', !act.ACTI
 /* ---- 5. ยังไม่ยืนยัน = ต้อง 404 ---- */
 section('5. ยังไม่ยืนยันป้ายกำกับ = ห้ามใช้งาน');
 // xstand-a-line retired (active:false) แล้ว 9 ก.ย. 2026 — ไม่นับใน pending() อีกต่อไป
-// xstand-a-website ยืนยันครบทุกรอบแล้ว (16 ก.ย. 2026) — ไม่มีอะไรค้าง pending อีก
+// xstand-a-website ยืนยันครบทุกรอบแล้ว (16 ก.ย. 2026)
+// poster-stories/poster-wowlab สแกนจากไฟล์จริงแล้วยืนยัน 17 ก.ย. 2026 — ไม่มีอะไรค้างอีก
 check('ไม่มีรายการค้างยืนยัน', act.pending().length === 0, String(act.pending().length));
 let r = hit('xstand-a-line');
 check('token ที่ยังไม่ยืนยัน -> 404 ไม่ใช่ redirect', r.statusCode === 404, String(r.statusCode));

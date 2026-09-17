@@ -206,6 +206,75 @@ const MAP = {
   ],
 
   /* ------------------------------------------------------------------
+     โปสเตอร์แยก 2 ใบ (16 ก.ย. 2026): STORIES / WOW LAB คนละใบ ใช้ครั้งแรกที่
+     Terminal 21 พระราม3 (20 ต.ค.–1 พ.ย. 2026, มี banner ครบ 3 ชิ้นที่งานนี้)
+     ทั้งคู่ปลายทางเดียวกับ X-stand คือ '/' (ยืนยันแล้ว) แต่แยก token กันเพื่อ
+     เทียบได้ว่าใบไหนดึงคนสแกนมากกว่า — สแกนจากไฟล์จริงแล้วยืนยัน 17 ก.ย. 2026
+     (ดูขั้นตอนใน content/qr-activation.md หัวข้อ "confirmed")
+     ------------------------------------------------------------------ */
+  'poster-stories': [
+    {
+      activation_id: 'QR-PSTR-A-01__T21RAMA3-2026-10__r01',
+      active: true,
+      confirmed: true,                 // ยืนยัน 17 ก.ย. 2026: สแกน QR จริงแล้วเข้า vinko.quest ถูกโดเมน
+      location: 'Terminal 21 พระราม3', start_date: '2026-10-20', end_date: '2026-11-01',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'poster',
+        utm_campaign: 't21rama3_oct2026',
+        utm_content:  'qr_poster_stories'
+      },
+      note: 'โปสเตอร์ STORIES เดี่ยว — Terminal 21 พระราม3 20 ต.ค.–1 พ.ย. 2026'
+    },
+    {
+      activation_id: 'QR-PSTR-A-01__EVERGREEN__r01',
+      active: true,
+      confirmed: true,                 // ยืนยัน 17 ก.ย. 2026 (QR ใบเดียวกับรอบข้างบน)
+      location: null, start_date: null, end_date: null,
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'poster',
+        utm_campaign: 'evergreen',
+        utm_content:  'qr_poster_stories'
+      },
+      note: 'Fallback โปสเตอร์ STORIES — ช่วงว่างระหว่างงาน'
+    }
+  ],
+
+  'poster-wowlab': [
+    {
+      activation_id: 'QR-PWL-A-01__T21RAMA3-2026-10__r01',
+      active: true,
+      confirmed: true,                 // ยืนยัน 17 ก.ย. 2026: สแกน QR จริงแล้วเข้า vinko.quest ถูกโดเมน
+      location: 'Terminal 21 พระราม3', start_date: '2026-10-20', end_date: '2026-11-01',
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'poster',
+        utm_campaign: 't21rama3_oct2026',
+        utm_content:  'qr_poster_wowlab'
+      },
+      note: 'โปสเตอร์ WOW LAB เดี่ยว — Terminal 21 พระราม3 20 ต.ค.–1 พ.ย. 2026'
+    },
+    {
+      activation_id: 'QR-PWL-A-01__EVERGREEN__r01',
+      active: true,
+      confirmed: true,                 // ยืนยัน 17 ก.ย. 2026 (QR ใบเดียวกับรอบข้างบน)
+      location: null, start_date: null, end_date: null,
+      dest: '/',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'poster',
+        utm_campaign: 'evergreen',
+        utm_content:  'qr_poster_wowlab'
+      },
+      note: 'Fallback โปสเตอร์ WOW LAB — ช่วงว่างระหว่างงาน'
+    }
+  ],
+
+  /* ------------------------------------------------------------------
      ตัดสินใจแล้ว (9 ก.ย. 2026): QR ฝั่ง LINE ไม่ผ่าน /r/ อีกต่อไป
 
      ใช้ QR ที่ดาวน์โหลดจาก LINE OA Manager โดยตรงบน X-stand แทน เพราะ
