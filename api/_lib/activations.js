@@ -37,7 +37,7 @@
 
 /* ปลายทางที่อนุญาต — path ภายในเว็บเราเท่านั้น
    ห้ามมี http:// หรือ // นำหน้า และห้ามรับค่าจาก query string เด็ดขาด */
-const ALLOWED_DEST = ['/free-sample', '/ef-check', '/checkout', '/'];
+const ALLOWED_DEST = ['/free-sample', '/ef-check', '/checkout', '/', '/books'];
 
 const ACTIVATION_RE = /^[A-Z0-9-]+__[A-Z0-9-]+__r\d{2}$/;
 const TOKEN_RE = /^[a-z0-9][a-z0-9-]{1,40}$/;
@@ -218,7 +218,7 @@ const MAP = {
       active: true,
       confirmed: true,                 // ยืนยัน 17 ก.ย. 2026: สแกน QR จริงแล้วเข้า vinko.quest ถูกโดเมน
       location: 'Terminal 21 พระราม3', start_date: '2026-10-20', end_date: '2026-11-01',
-      dest: '/',
+      dest: '/books',                  // 17 ก.ย. 2026: เปลี่ยนจากหน้าแรก — โปสเตอร์ขายของไปแล้วในตัว พาไปหน้าสั่งซื้อตรงดีกว่า
       utm: {
         utm_source:   'offline',
         utm_medium:   'poster',
@@ -232,7 +232,7 @@ const MAP = {
       active: true,
       confirmed: true,                 // ยืนยัน 17 ก.ย. 2026 (QR ใบเดียวกับรอบข้างบน)
       location: null, start_date: null, end_date: null,
-      dest: '/',
+      dest: '/books',
       utm: {
         utm_source:   'offline',
         utm_medium:   'poster',
