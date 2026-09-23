@@ -135,24 +135,61 @@
   'use strict';
   var $ = function (s) { return document.querySelector(s); };
   var LS_KEY = 'vk_admin_secret';
+  var SESSION_HOURS = 24;   // ไม่ต้องพิมพ์รหัสซ้ำทั้งวันหน้าบูธ แต่ก็ไม่จำถาวรบนเครื่องที่อาจทำหาย
 
   var gate = $('[data-vk-gate]');
   var app = $('[data-vk-app]');
   var secretInput = $('#vk-secret');
 
+  function loadSaved() {
+    var raw;
+    try { raw = localStorage.getItem(LS_KEY); } catch (e) { return null; }
+    if (!raw) return null;
+    var parsed = null;
+    try { parsed = JSON.parse(raw); } catch (e) { parsed = null; }
+    // เข้ากันได้กับของเก่าที่เก็บเป็น plain string ไม่มีวันหมดอายุ — อัปเกรดให้มี savedAt ทันที
+    var data = (parsed && typeof parsed === 'object' && parsed.secret)
+      ? parsed
+      : { secret: raw, savedAt: Date.now() };
+    if (!data.secret || !data.savedAt) return null;
+    if (Date.now() - data.savedAt > SESSION_HOURS * 3600 * 1000) {
+      try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      return null;
+    }
+    return data.secret;
+  }
+
+  function saveSecret(s) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ secret: s, savedAt: Date.now() })); } catch (e) {}
+  }
+
+  function forgetSecret() {
+    try { localStorage.removeItem(LS_KEY); } catch (e) {}
+  }
+
   function callAdmin(action, payload) {
-    var secret = localStorage.getItem(LS_KEY) || '';
+    var secret = loadSaved() || '';
     return fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-vinko-admin': secret },
       body: JSON.stringify(Object.assign({ action: action }, payload))
-    }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); });
+    }).then(function (r) {
+      return r.json().then(function (d) {
+        // รหัสหมดอายุ/ผิด — เด้งกลับไปหน้ากรอกรหัสใหม่ ไม่ปล่อยให้ค้างเงียบๆ
+        if (r.status === 401) {
+          forgetSecret();
+          app.hidden = true;
+          gate.hidden = false;
+        }
+        return { status: r.status, d: d };
+      });
+    });
   }
 
   function tryUnlock() {
     var s = (secretInput.value || '').trim();
     if (!s) return;
-    localStorage.setItem(LS_KEY, s);
+    saveSecret(s);
     gate.hidden = true;
     app.hidden = false;
   }
@@ -160,7 +197,7 @@
   $('#vk-gate-btn').addEventListener('click', tryUnlock);
   secretInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryUnlock(); });
 
-  if (localStorage.getItem(LS_KEY)) {
+  if (loadSaved()) {
     gate.hidden = true;
     app.hidden = false;
   }
