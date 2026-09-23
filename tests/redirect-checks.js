@@ -108,18 +108,19 @@ check('ตัวพิมพ์เล็ก -> ไม่ผ่าน', !act.ACTI
 
 /* ---- 5. ยังไม่ยืนยัน = ต้อง 404 ---- */
 section('5. ยังไม่ยืนยันป้ายกำกับ = ห้ามใช้งาน');
-// xstand-a-line retired (active:false) แล้ว 9 ก.ย. 2026 — ไม่นับใน pending() อีกต่อไป
 // xstand-a-website ยืนยันครบทุกรอบแล้ว (16 ก.ย. 2026)
 // poster-stories/poster-wowlab สแกนจากไฟล์จริงแล้วยืนยัน 17 ก.ย. 2026 — ไม่มีอะไรค้างอีก
-// xstand-b-website / xstand-c-website เพิ่ม 24 ก.ย. 2026 — เตรียม token ไว้ล่วงหน้า
-// สำหรับวางพร้อมหน่วย A (เช่น Jungle Walk + T21 พระราม3 ต.ค. 2026 ที่ซ้อนกัน)
-// ยังไม่มี QR จริงให้สแกน จึงต้องค้าง pending ไว้โดยตั้งใจจนกว่าจะพิมพ์+สแกน+confirm
-// xstand-b-line เพิ่มวันเดียวกัน — ทดลองพา LINE QR ผ่าน /r/ ไปหน้า /free-sample
-// อีกครั้ง เฉพาะหน่วย B (ครั้งก่อน retired เพราะทีมงง ไม่ใช่พังทางเทคนิค) แปะจริง
-// และสแกนยืนยันแล้วที่ Gateway บางซื่อวันเดียวกัน จึง confirmed ไปแล้ว ไม่ค้าง pending
-const PENDING_TOKENS = ['xstand-b-website', 'xstand-c-website'];
-check('รายการค้างยืนยันตรงกับที่ตั้งใจ (หน่วย B เว็บ/LINE, หน่วย C เว็บ — รอ QR จริง)',
-      act.pending().length === PENDING_TOKENS.length &&
+// xstand-b-website เพิ่ม 24 ก.ย. 2026 — เตรียม token ไว้ล่วงหน้าสำหรับหน่วย B
+// (ปัจจุบันคือชุดที่ย้ายไปอยู่ Gateway บางซื่อ) ยังไม่ได้แปะสติกเกอร์เว็บไซต์จริง
+// xstand-c-website ลบไปแล้ว (24 ก.ย. 2026) — เข้าใจผิดว่าหน่วย C คือ X-stand
+// ชุดที่ 3 จริงๆ คือชุดโปสเตอร์แยก 2 ใบ (POSTERS-v1) ที่มี token อยู่แล้ว
+// xstand-b-line แปะจริงและสแกนยืนยันแล้วที่ Gateway บางซื่อ 24 ก.ย. 2026 —
+// confirmed ไปแล้ว ไม่ค้าง pending
+// xstand-a-line กลับมาทำจริงอีกครั้ง 24 ก.ย. 2026 (หน่วย A ที่โคราช) —
+// ยังไม่ได้แปะสติกเกอร์ QR-XS-A-LINE-02 จริง จึงค้าง pending ทั้ง 2 รอบ (dated + evergreen)
+const PENDING_TOKENS = ['xstand-b-website', 'xstand-a-line'];
+check('รายการค้างยืนยันตรงกับที่ตั้งใจ (หน่วย B เว็บ, หน่วย A LINE — รอ QR จริง)',
+      act.pending().length === 3 &&
       act.pending().every(p => PENDING_TOKENS.includes(p.token)),
       JSON.stringify(act.pending()));
 let r = hit('xstand-a-line');

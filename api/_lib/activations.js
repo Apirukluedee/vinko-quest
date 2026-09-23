@@ -97,15 +97,26 @@ const MAP = {
      't21korat_sep2026' ทั้งหมด (แถวบนสุดที่ current() เจอก่อน) ทั้งที่บางส่วน
      สแกนจากบางซื่อจริง ยอดขาย/ลิงก์โหลดลูกค้าไม่กระทบ กระทบแค่รายงานที่มา
 
-     แก้ระยะยาว (เพื่อรองรับพร้อมกันได้ถึง 3 จุดในอนาคต): แยก token ต่อ
-     "หน่วย X-stand ตัวจริง" ไม่ใช่ต่อห้าง เพราะห้างเปลี่ยนบ่อยแต่ตัวป้ายมีจำกัด
-       xstand-a-website  = หน่วย A (ของเดิม พิมพ์แล้ว 2 ชุดถือ token นี้ร่วมกัน)
-       xstand-b-website  = หน่วย B (เตรียม token ไว้แล้ว — ยังไม่มี QR จริง
-                            ต้องเจนแล้วพิมพ์สติกเกอร์ใหม่แปะทับ QR เดิมบนชุดที่ 2
-                            แล้วสแกนของจริงเพื่อ confirm ก่อนใช้)
-       xstand-c-website  = หน่วย C (เตรียมไว้สำหรับชุดที่ 3 ถ้าขยายเพิ่ม)
-     พอหน่วยไหนได้ QR ของตัวเองแล้ว ค่อยย้าย round ที่จะซ้อนกันในอนาคต
-     (เช่น Jungle Walk / T21 พระราม3 ต.ค. 2026) ไปลงหน่วยที่ต่างกัน
+     แก้ระยะยาว: แยก token ต่อ "หน่วย X-stand ตัวจริง" ไม่ใช่ต่อห้าง เพราะห้าง
+     เปลี่ยนบ่อยแต่ตัวป้ายมีจำกัด — สรุปหน่วยจริงตามที่ตกลงกัน 24 ก.ย. 2026:
+
+       หน่วย A = X-stand v6 ชุดที่เหลืออยู่ (ตอนนี้คือชุดที่โคราช) เว็บไซต์
+                 ยังเป็น QR เดิมไม่มีการันเปลี่ยน เฉพาะ QR LINE ที่จะเปลี่ยน
+                 มาผ่าน /r/xstand-a-line แทน QR ตรงจาก LINE OA Manager เดิม
+
+       หน่วย B = X-stand v6 อีกชุดที่ย้ายไปอยู่ Gateway บางซื่อ — แปะสติกเกอร์
+                 ใหม่ทั้ง 2 จุด (เว็บไซต์ผ่าน xstand-b-website + LINE ผ่าน
+                 xstand-b-line) ทับของเดิมที่เคยใช้ token หน่วย A ร่วมกัน
+
+       หน่วย C = "ชุดโปสเตอร์แยก 2 ใบ" (STORIES เดี่ยว + WOW LAB เดี่ยว) ที่
+                 POSTERS-v1 — คนละงานกับ X-stand v6 ไม่ใช่ X-stand ชุดที่ 3
+                 (เข้าใจผิดตอนแรก 24 ก.ย. 2026 — เคยเตรียม token
+                 'xstand-c-website' ไว้เผื่อ X-stand ชุดที่ 3 ลบไปแล้วเพราะ
+                 ไม่มีของจริงแบบนั้น) เว็บไซต์ใช้ token poster-stories /
+                 poster-wowlab ที่มีอยู่แล้ว (ดูบล็อกด้านล่าง) ส่วน LINE ของ
+                 โปสเตอร์ยังเป็น QR ตรงจาก LINE OA Manager (QR-XS-A-LINE-01.svg
+                 ไฟล์เดียวกับที่ X-stand เคยใช้) ยังไม่ได้ทำ /r/ ให้ — ถ้าจะทำ
+                 ต้องเพิ่ม token ใหม่ต่างหาก (เช่น poster-stories-line) ทีหลัง
      ------------------------------------------------------------------ */
   'xstand-a-website': [
     {
@@ -250,24 +261,6 @@ const MAP = {
     }
   ],
 
-  /* หน่วย C — เตรียมไว้เผื่อขยายเป็น 3 จุดพร้อมกัน กฎเดียวกับหน่วย B ทุกอย่าง */
-  'xstand-c-website': [
-    {
-      activation_id: 'QR-XS-C-WEB-01__PENDING__r01',
-      active: true,
-      confirmed: false,
-      location: null, start_date: null, end_date: null,
-      dest: '/',
-      utm: {
-        utm_source:   'offline',
-        utm_medium:   'xstand',
-        utm_campaign: 'evergreen',
-        utm_content:  'qr_xs_c_web_01'
-      },
-      note: 'หน่วย C — ยังไม่มี QR จริง เตรียม token ไว้ล่วงหน้าเผื่อวางพร้อมหน่วย A และ B'
-    }
-  ],
-
   /* ------------------------------------------------------------------
      โปสเตอร์แยก 2 ใบ (16 ก.ย. 2026): STORIES / WOW LAB คนละใบ ใช้ครั้งแรกที่
      Terminal 21 พระราม3 (20 ต.ค.–1 พ.ย. 2026, มี banner ครบ 3 ชิ้นที่งานนี้)
@@ -379,6 +372,39 @@ const MAP = {
          (คนกลุ่มนั้นเป็นเพื่อนอยู่แล้ว) — ดู content/line-rich-menu.md */
       note: 'RETIRED 9 ก.ย. 2026 — เปลี่ยนไปใช้ QR ของ LINE OA Manager ตรงบน X-stand แทน ' +
             '(เดิมตั้งใจ LINE QR = รับ Free Resource ผ่านหน้าเว็บก่อนตาม M1, CHANNELS บรรทัด 142)'
+    },
+    /* กลับมาทำจริง 24 ก.ย. 2026 (ดูเหตุผลในบล็อกทดลองหน่วย B ด้านล่าง — สรุปคือ
+       ตอน retired เพราะทีมงงกับระบบ ไม่ใช่ปัญหาทางเทคนิค) ใช้กับหน่วย A
+       (ชุดที่เหลืออยู่ที่โคราช) เว็บไซต์ไม่เปลี่ยน เปลี่ยนเฉพาะ QR LINE
+       เป็น QR-XS-A-LINE-02.svg (คนละไฟล์กับ QR-XS-A-LINE-01.svg ที่ผูกกับ
+       QR ตรงจาก LINE OA Manager เดิม และที่ POSTERS-v1 ยังใช้อยู่ ไม่แตะ) */
+    {
+      activation_id: 'QR-XS-A-LINE-02__T21KORAT-2026-09__r01',
+      active: true,
+      confirmed: false,                // รอ: เจน QR + พิมพ์สติกเกอร์ + สแกนจริงยืนยันก่อน
+      location: 'เทอมินอล 21 โคราช', start_date: '2026-09-24', end_date: '2026-10-05',
+      dest: '/free-sample',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 't21korat_sep2026',
+        utm_content:  'qr_xs_a_line_02'
+      },
+      note: 'หน่วย A — แปะสติกเกอร์ทับ QR LINE ตรงเดิม ที่เทอมินอล 21 โคราช ยังไม่ยืนยัน'
+    },
+    {
+      activation_id: 'QR-XS-A-LINE-02__EVERGREEN__r01',
+      active: true,
+      confirmed: false,
+      location: null, start_date: null, end_date: null,
+      dest: '/free-sample',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'evergreen',
+        utm_content:  'qr_xs_a_line_02'
+      },
+      note: 'Fallback หน่วย A LINE — เปิดพร้อมรอบ Korat ด้านบนตอน confirm'
     }
   ],
 
