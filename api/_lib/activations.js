@@ -401,9 +401,23 @@ const MAP = {
      ------------------------------------------------------------------ */
   'xstand-b-line': [
     {
-      activation_id: 'QR-XS-B-LINE-01__PENDING__r01',
+      activation_id: 'QR-XS-B-LINE-01__GATEWAYBS-2026-09__r01',
       active: true,
-      confirmed: false,                // รอ: เจน QR + พิมพ์สติกเกอร์ + สแกนจริงยืนยันก่อน
+      confirmed: true,                 // ยืนยัน 24 ก.ย. 2026: แปะสติกเกอร์จริงที่ Gateway บางซื่อ สแกนแล้ว
+      location: 'Gateway บางซื่อ', start_date: '2026-09-19', end_date: '2026-09-27',
+      dest: '/free-sample',
+      utm: {
+        utm_source:   'offline',
+        utm_medium:   'xstand',
+        utm_campaign: 'gateway_bangsue_sep2026',
+        utm_content:  'qr_xs_b_line_01'
+      },
+      note: 'ทดลอง LINE QR ผ่าน /r/ ครั้งแรก — Gateway บางซื่อ 19–27 ก.ย. 2026 (แปะเฉพาะ QR ฝั่ง LINE เท่านั้น เว็บไซต์ยังเป็น QR หน่วย A เดิม)'
+    },
+    {
+      activation_id: 'QR-XS-B-LINE-01__EVERGREEN__r01',
+      active: true,
+      confirmed: true,
       location: null, start_date: null, end_date: null,
       dest: '/free-sample',
       utm: {
@@ -412,7 +426,7 @@ const MAP = {
         utm_campaign: 'evergreen',
         utm_content:  'qr_xs_b_line_01'
       },
-      note: 'ทดลอง LINE QR ผ่าน /r/ อีกครั้ง เฉพาะหน่วย B (24 ก.ย. 2026) — ยังไม่มี QR จริง'
+      note: 'Fallback — กัน QR ที่แปะไปแล้ว 404 เวลาไม่ตรงกับรอบไหนในตาราง'
     }
   ]
 };
