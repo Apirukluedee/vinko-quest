@@ -170,6 +170,57 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
    ตลอดแม้โหลดเสร็จแล้วและการ์ดหนังสือ render ออกมาด้านล่างแล้วก็ตาม —
    ต้องมี override เฉพาะนี้ ไม่งั้น [hidden] เฉยๆ ไม่พอ */
 .loading-state[hidden] { display: none; }
+
+.line-connect {
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.08);
+  padding: 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.line-connect-qr {
+  flex-shrink: 0;
+  width: 132px;
+  height: 132px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.line-connect-qr svg { width: 100%; height: 100%; }
+.line-connect-body { flex: 1; min-width: 200px; }
+.line-connect-body h2 {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 18px;
+  color: #06C755;
+  margin: 0 0 6px;
+}
+.line-connect-body p {
+  font-family: 'Anuphan', sans-serif;
+  font-size: 13px;
+  color: #666;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+.btn-copy-line {
+  background: #06C755;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 18px;
+  font-family: 'Mitr', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-copy-line:hover { background: #05a847; }
 </style>
 </head>
 <body class="premium">
@@ -197,6 +248,17 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
   <div class="loading-state" id="loading-state">
     <span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:#071B5D;width:22px;height:22px;border-width:3px"></span>
     กำลังโหลดหนังสือของคุณ…
+  </div>
+
+  <!-- LINE connect QR -->
+  <div class="line-connect" id="line-connect" hidden>
+    <div class="line-connect-qr" id="line-connect-qr"></div>
+    <div class="line-connect-body">
+      <h2>📱 เปิดจากมือถือเครื่องอื่นด้วย LINE</h2>
+      <p>ถ้ามือถือเครื่องนี้ใช้ LINE อยู่แต่ไม่มีอีเมลนี้ ให้เปิดแอป LINE แล้วสแกน QR นี้ (หรือใช้กล้องมือถือสแกนก็ได้)
+        ระบบจะผูกบัญชี LINE ให้เข้าหนังสือชุดนี้ได้ทันที ไม่ต้องรออีเมล</p>
+      <button class="btn-copy-line" id="btn-copy-line" type="button">คัดลอกลิงก์แทน</button>
+    </div>
   </div>
 
   <!-- Books grid -->
@@ -237,6 +299,18 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
 
     document.getElementById('loading-state').hidden = true;
     document.getElementById('lib-email').textContent = data.email || '';
+
+    if (data.connect_line_qr_svg && data.connect_line_url) {
+      document.getElementById('line-connect-qr').innerHTML = data.connect_line_qr_svg;
+      document.getElementById('line-connect').hidden = false;
+      var copyBtn = document.getElementById('btn-copy-line');
+      copyBtn.addEventListener('click', function () {
+        navigator.clipboard.writeText(data.connect_line_url).then(function () {
+          copyBtn.textContent = 'คัดลอกแล้ว ✓';
+          setTimeout(function () { copyBtn.textContent = 'คัดลอกลิงก์แทน'; }, 2000);
+        }).catch(function () {});
+      });
+    }
 
     if (!data.ok || !data.books || !data.books.length) {
       document.getElementById('empty-state').hidden = false;

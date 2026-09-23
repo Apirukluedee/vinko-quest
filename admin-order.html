@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>เปิดออเดอร์มือ | VINKO admin</title>
+<meta content="noindex, nofollow" name="robots"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Mali:wght@500;600;700&family=Mitr:wght@400;500;600;700&family=Anuphan:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<link href="/assets/css/main.css" rel="stylesheet"/>
+<style>
+  .vk-tabs{display:flex;gap:8px;margin:0 0 20px}
+  .vk-tab{flex:1;padding:10px;border-radius:10px;border:2px solid var(--navy,#071B5D);background:#fff;
+          font-family:Mitr,sans-serif;font-weight:600;cursor:pointer;color:var(--navy,#071B5D)}
+  .vk-tab.active{background:var(--navy,#071B5D);color:#fff}
+  .vk-check-row{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 4px}
+  .vk-check-item{display:flex;align-items:center;gap:6px;border:1px solid #ddd;border-radius:8px;
+                 padding:6px 10px;font-size:14px}
+  fieldset{border:none;padding:0;margin:0}
+  .vk-result{border-radius:12px;padding:16px;margin-top:16px;font-size:15px;line-height:1.6}
+  .vk-result.ok{background:#eafaf0;border:1px solid #8fdcae}
+  .vk-result.err{background:#fdecec;border:1px solid #f3a6a6}
+  .vk-result a{word-break:break-all}
+  .vk-copybtn{margin-top:8px;font-size:13px}
+</style>
+</head>
+<body class="premium">
+<nav class="nav">
+<div class="wrap nav-inner">
+<a aria-label="VINKO · WOW LAB กลับหน้าแรก" class="brand" href="/"><img alt="VINKO logo" decoding="async" height="174" src="/assets/img/vinko-logo.webp" width="160"/><span>VINKO · WOW LAB</span></a>
+</div>
+</nav>
+
+<section class="section">
+<div class="wrap">
+<div class="vk-panel" style="max-width:560px;margin:0 auto">
+
+<div data-vk-gate>
+  <h1 style="font-size:24px;margin:0 0 12px;color:var(--navy)">รหัสแอดมิน</h1>
+  <div class="vk-field">
+    <input autocomplete="off" id="vk-secret" placeholder="ADMIN_SECRET" type="password"/>
+  </div>
+  <button class="btn" id="vk-gate-btn" type="button">เข้าใช้งาน</button>
+  <p style="margin-top:10px;font-size:13px;color:#888">จำไว้ในเครื่องนี้เท่านั้น ไม่ต้องพิมพ์ซ้ำทุกครั้ง</p>
+</div>
+
+<div data-vk-app hidden>
+
+<h1 style="font-size:24px;margin:0 0 4px;color:var(--navy)">เปิดออเดอร์ให้ลูกค้า (โอนตรง/สลิป)</h1>
+<p style="margin:0 0 18px;color:#5a6a9a;font-size:14px">ใช้ตอนลูกค้าโอนเงินตรง/ส่งสลิปทาง LINE — ไม่ผ่านหน้าจ่ายเงินของเว็บ</p>
+
+<div class="vk-tabs">
+  <div class="vk-tab active" data-vk-tab="new">สร้างออเดอร์ใหม่</div>
+  <div class="vk-tab" data-vk-tab="existing">มีเลขออเดอร์แล้ว</div>
+</div>
+
+<form data-vk-panel="new">
+  <div class="vk-field">
+    <label>ชื่อ-นามสกุลลูกค้า <span class="vk-req">*</span></label>
+    <input id="vk-name" type="text" autocomplete="off"/>
+  </div>
+  <div class="vk-field">
+    <label>อีเมลลูกค้า <span class="vk-req">*</span></label>
+    <input id="vk-email" type="email" inputmode="email" autocomplete="off" placeholder="ใช้รับลิงก์โหลด"/>
+  </div>
+  <div class="vk-field">
+    <label>เบอร์โทร <span class="vk-optional">(ไม่บังคับ)</span></label>
+    <input id="vk-phone" type="text" autocomplete="off"/>
+  </div>
+
+  <div class="vk-field">
+    <label>สินค้าที่ซื้อ <span class="vk-req">*</span></label>
+    <select id="vk-package" style="width:100%;padding:10px;border-radius:8px;border:1px solid #ccc">
+      <option value="STORIES">STORIES ครบชุด 5 เล่ม — 199.-</option>
+      <option value="LAB">WOW LAB — 199.-</option>
+      <option value="BUNDLE">BUNDLE (LAB + STORIES 5 เล่ม) — 349.-</option>
+      <option value="CUSTOM">เลือกซื้อแยกเล่ม (59.-/เล่ม)</option>
+    </select>
+  </div>
+
+  <fieldset id="vk-custom-books" hidden>
+    <label style="display:block;margin:6px 0 4px">เลือกเล่มที่ซื้อ</label>
+    <div class="vk-check-row">
+      <label class="vk-check-item"><input type="checkbox" value="STORY-01"/> เล่ม 1 แรงโน้มถ่วง</label>
+      <label class="vk-check-item"><input type="checkbox" value="STORY-02"/> เล่ม 2 สีสัน</label>
+      <label class="vk-check-item"><input type="checkbox" value="STORY-03"/> เล่ม 3 เสียง</label>
+      <label class="vk-check-item"><input type="checkbox" value="STORY-04"/> เล่ม 4 แม่เหล็ก</label>
+      <label class="vk-check-item"><input type="checkbox" value="STORY-05"/> เล่ม 5 แก้ว</label>
+    </div>
+  </fieldset>
+
+  <div class="vk-field">
+    <label>โน้ตถึงตัวเอง <span class="vk-optional">(ไม่บังคับ เช่น ใครโอน สลิปเวลาไหน)</span></label>
+    <input id="vk-note-new" type="text" autocomplete="off"/>
+  </div>
+
+  <button class="btn" id="vk-submit-new" type="button">ยืนยัน — รับเงินแล้ว เปิดให้โหลดเลย</button>
+</form>
+
+<form data-vk-panel="existing" hidden>
+  <div class="vk-field">
+    <label>เลขที่คำสั่งซื้อ <span class="vk-req">*</span></label>
+    <input id="vk-ref" placeholder="เช่น VK-2609-0001" type="text" autocomplete="off"/>
+  </div>
+  <div class="vk-field">
+    <label>โน้ตถึงตัวเอง <span class="vk-optional">(ไม่บังคับ)</span></label>
+    <input id="vk-note-existing" type="text" autocomplete="off"/>
+  </div>
+  <button class="btn" id="vk-submit-existing" type="button">ยืนยัน — รับเงินแล้ว เปิดให้โหลดเลย</button>
+</form>
+
+<div data-vk-loading hidden style="text-align:center;padding:24px 0">
+  <span class="vk-spinner" style="border-color:rgba(7,27,93,.2);border-top-color:var(--orange)"></span>
+  กำลังบันทึก…
+</div>
+
+<div data-vk-result></div>
+
+</div>
+
+</div>
+</div>
+</section>
+
+<script src="/assets/js/config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var LS_KEY = 'vk_admin_secret';
+
+  var gate = $('[data-vk-gate]');
+  var app = $('[data-vk-app]');
+  var secretInput = $('#vk-secret');
+
+  function callAdmin(action, payload) {
+    var secret = localStorage.getItem(LS_KEY) || '';
+    return fetch('/api/admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-vinko-admin': secret },
+      body: JSON.stringify(Object.assign({ action: action }, payload))
+    }).then(function (r) { return r.json().then(function (d) { return { status: r.status, d: d }; }); });
+  }
+
+  function tryUnlock() {
+    var s = (secretInput.value || '').trim();
+    if (!s) return;
+    localStorage.setItem(LS_KEY, s);
+    gate.hidden = true;
+    app.hidden = false;
+  }
+
+  $('#vk-gate-btn').addEventListener('click', tryUnlock);
+  secretInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') tryUnlock(); });
+
+  if (localStorage.getItem(LS_KEY)) {
+    gate.hidden = true;
+    app.hidden = false;
+  }
+
+  // --- tabs ---
+  var tabs = document.querySelectorAll('[data-vk-tab]');
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('active'); });
+      t.classList.add('active');
+      document.querySelectorAll('[data-vk-panel]').forEach(function (p) {
+        p.hidden = p.getAttribute('data-vk-panel') !== t.getAttribute('data-vk-tab');
+      });
+      $('[data-vk-result]').innerHTML = '';
+    });
+  });
+
+  var pkgSelect = $('#vk-package');
+  var customBooks = $('#vk-custom-books');
+  pkgSelect.addEventListener('change', function () {
+    customBooks.hidden = pkgSelect.value !== 'CUSTOM';
+  });
+
+  function showLoading(on) {
+    $('[data-vk-loading]').hidden = !on;
+  }
+
+  function renderResult(d, ok) {
+    var el = $('[data-vk-result]');
+    if (ok) {
+      var linkHtml = d.download_link
+        ? '<p>ลิงก์โหลด (ส่งให้ลูกค้าทาง LINE ได้ทันที ไม่ต้องรออีเมล):<br/><a href="' + d.download_link + '" target="_blank" rel="noopener">' + d.download_link + '</a></p>' +
+          '<button class="btn light vk-copybtn" data-vk-copy="' + d.download_link.replace(/"/g, '&quot;') + '" type="button">คัดลอกลิงก์</button>'
+        : '';
+      el.innerHTML = '<div class="vk-result ok">' +
+        '<b>✅ เปิดให้โหลดแล้ว</b><br/>เลขที่ออเดอร์: <b>' + (d.order_ref || '-') + '</b><br/>' +
+        'ส่งอีเมลแล้ว: ' + (d.emailed ? 'ใช่' : (d.email_error ? 'ไม่สำเร็จ (' + d.email_error + ') — ใช้ลิงก์ด้านล่างส่งเองแทน' : 'ยัง')) +
+        linkHtml +
+        '</div>';
+      var copyBtn = el.querySelector('[data-vk-copy]');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(copyBtn.getAttribute('data-vk-copy')).then(function () {
+            copyBtn.textContent = 'คัดลอกแล้ว ✓';
+          }).catch(function () {});
+        });
+      }
+    } else {
+      el.innerHTML = '<div class="vk-result err"><b>เกิดข้อผิดพลาด</b><br/>' + (d.error || 'ไม่ทราบสาเหตุ') + '</div>';
+    }
+  }
+
+  $('#vk-submit-new').addEventListener('click', function () {
+    var name = ($('#vk-name').value || '').trim();
+    var email = ($('#vk-email').value || '').trim();
+    var phone = ($('#vk-phone').value || '').trim();
+    var note = ($('#vk-note-new').value || '').trim();
+    var pkg = pkgSelect.value;
+
+    if (!name) { alert('กรอกชื่อลูกค้าก่อน'); return; }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { alert('กรอกอีเมลให้ถูกต้อง'); return; }
+
+    var payload = { customer_name: name, customer_email: email, customer_phone: phone, note: note };
+    if (pkg === 'CUSTOM') {
+      var items = Array.prototype.slice.call(customBooks.querySelectorAll('input:checked')).map(function (i) { return i.value; });
+      if (!items.length) { alert('เลือกอย่างน้อย 1 เล่ม'); return; }
+      payload.items = items;
+    } else {
+      payload.package_code = pkg;
+    }
+
+    showLoading(true);
+    $('[data-vk-result]').innerHTML = '';
+    callAdmin('manual-order', payload).then(function (res) {
+      showLoading(false);
+      renderResult(res.d, res.status === 200 && res.d && res.d.ok);
+    }).catch(function () {
+      showLoading(false);
+      renderResult({ error: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง' }, false);
+    });
+  });
+
+  $('#vk-submit-existing').addEventListener('click', function () {
+    var ref = ($('#vk-ref').value || '').trim().toUpperCase();
+    var note = ($('#vk-note-existing').value || '').trim();
+    if (!/^VK-\d{4}-\d{4,6}$/.test(ref)) { alert('เลขที่คำสั่งซื้อไม่ถูกต้อง เช่น VK-2609-0001'); return; }
+
+    showLoading(true);
+    $('[data-vk-result]').innerHTML = '';
+    callAdmin('mark-paid', { order_ref: ref, note: note }).then(function (res) {
+      showLoading(false);
+      renderResult(res.d, res.status === 200 && res.d && res.d.ok);
+    }).catch(function () {
+      showLoading(false);
+      renderResult({ error: 'เชื่อมต่อไม่สำเร็จ ลองใหม่อีกครั้ง' }, false);
+    });
+  });
+})();
+</script>
+</body>
+</html>

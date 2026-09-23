@@ -15,6 +15,8 @@ const config   = require('./_lib/config');
 const db       = require('./_lib/supabase');
 const { json } = require('./_lib/util');
 const signedToken = require('./_lib/signed_token');
+const email = require('./_lib/email');
+const QRCode = require('qrcode');
 
 function base() { return config.appBaseUrl() || 'https://vinko.quest'; }
 
@@ -369,7 +371,23 @@ async function handleMyLibrary(req, res) {
     '&select=id,order_ref,package_code,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at,refunded_at)'
   );
   const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
-  if (!orders.length) return json(res, 200, { ok: true, email: user.email, books: [] });
+
+  // ลิงก์ผูกบัญชี LINE เดียวกับที่ส่งในอีเมลยืนยันคำสั่งซื้อ (email.js:connectLineUrl)
+  // ใช้โชว์เป็น QR ให้สแกนจากมือถือที่มี LINE ได้เลย ไม่ต้องรออีเมล
+  // คืน null เองถ้า LINE Login ยังไม่ได้ตั้งค่า — หน้าเว็บต้องซ่อนส่วนนี้เมื่อเป็น null
+  const connectLineUrl = email.connectLineUrl(user.email);
+  // เจนเป็น SVG ฝั่ง server เลย (ไม่ต้องโหลด lib QR เพิ่มฝั่ง client)
+  // ล้มเหลวก็ไม่ควรทำให้ทั้งหน้า my-library พังไปด้วย แค่ไม่มี QR โชว์
+  const connectLineQrSvg = connectLineUrl
+    ? await QRCode.toString(connectLineUrl, { type: 'svg', width: 220, margin: 1 }).catch(function () { return null; })
+    : null;
+
+  if (!orders.length) {
+    return json(res, 200, {
+      ok: true, email: user.email, books: [],
+      connect_line_url: connectLineUrl, connect_line_qr_svg: connectLineQrSvg
+    });
+  }
 
   // แผ่ order_items ออกเป็น flat array แต่แนบ reader_token และ order_id ของออเดอร์แม่ไว้ด้วย
   // เพื่อให้ยังผูก token ตรงกับออเดอร์ของ item แต่ละตัว (กันสับ token ข้ามออเดอร์)
@@ -422,7 +440,10 @@ async function handleMyLibrary(req, res) {
     });
   }
 
-  return json(res, 200, { ok: true, email: user.email, books: labBooks.concat(books) });
+  return json(res, 200, {
+    ok: true, email: user.email, books: labBooks.concat(books),
+    connect_line_url: connectLineUrl, connect_line_qr_svg: connectLineQrSvg
+  });
 }
 
 /* ── dispatcher ──────────────────────────────────────────── */
