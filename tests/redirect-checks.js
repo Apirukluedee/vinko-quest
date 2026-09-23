@@ -111,7 +111,13 @@ section('5. ยังไม่ยืนยันป้ายกำกับ = �
 // xstand-a-line retired (active:false) แล้ว 9 ก.ย. 2026 — ไม่นับใน pending() อีกต่อไป
 // xstand-a-website ยืนยันครบทุกรอบแล้ว (16 ก.ย. 2026)
 // poster-stories/poster-wowlab สแกนจากไฟล์จริงแล้วยืนยัน 17 ก.ย. 2026 — ไม่มีอะไรค้างอีก
-check('ไม่มีรายการค้างยืนยัน', act.pending().length === 0, String(act.pending().length));
+// xstand-b-website / xstand-c-website เพิ่ม 24 ก.ย. 2026 — เตรียม token ไว้ล่วงหน้า
+// สำหรับวางพร้อมหน่วย A (เช่น Jungle Walk + T21 พระราม3 ต.ค. 2026 ที่ซ้อนกัน)
+// ยังไม่มี QR จริงให้สแกน จึงต้องค้าง pending ไว้โดยตั้งใจจนกว่าจะพิมพ์+สแกน+confirm
+check('รายการค้างยืนยันตรงกับที่ตั้งใจ (หน่วย B, C รอ QR จริง)',
+      act.pending().length === 2 &&
+      act.pending().every(p => p.token === 'xstand-b-website' || p.token === 'xstand-c-website'),
+      JSON.stringify(act.pending()));
 let r = hit('xstand-a-line');
 check('token ที่ยังไม่ยืนยัน -> 404 ไม่ใช่ redirect', r.statusCode === 404, String(r.statusCode));
 check('404 ไม่มี Location header', !r.headers.location);
