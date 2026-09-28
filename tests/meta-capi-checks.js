@@ -44,7 +44,7 @@ const REF = 'VK-2609-0042';
 /* ---------------- mock เครือข่าย ---------------- */
 const SB = 'https://fake.supabase.co/rest/v1';
 const GRAPH = 'https://graph.facebook.com/';
-const S = { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null };
+const S = { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null, stallCapiRead: false };
 const reply = (status, body, headers) => ({
   ok: status >= 200 && status < 300, status,
   headers: { get: k => (headers || {})[k.toLowerCase()] || null },
@@ -64,10 +64,14 @@ global.fetch = async function (url, opts) {
     const [p, qs] = u.slice(SB.length).split('?');
     if (p === '/rpc/next_order_ref') return reply(200, 'VK-2609-' + String(++S.counter).padStart(4, '0'));
     const table = p.slice(1);
-    const filters = [...new URLSearchParams(qs || '')].filter(([k]) => !['select', 'limit'].includes(k))
+    const filters = [...new URLSearchParams(qs || '')].filter(([k]) => !['select', 'limit', 'order'].includes(k))
       .map(([k, v]) => [k, v.replace(/^(eq|gte)\./, ''), v.startsWith('gte.')]);
     const match = r => filters.every(([k, v, gte]) => gte ? new Date(r[k]) >= new Date(v) : String(r[k]) === v);
     if (method === 'HEAD') return reply(200, undefined, { 'content-range': '0-0/' + S[table].filter(match).length });
+    // (mock ไม่ได้เรียงตาม order= เทสต์จึงเทียบแบบ sort)
+    // จำลอง Supabase ค้าง เฉพาะตอน meta-capi อ่านออเดอร์ (select มี customer_phone)
+    // การอ่านของ webhook / create-charge เองยังทำงานปกติ
+    if (method === 'GET' && S.stallCapiRead && table === 'orders' && /customer_phone/.test(qs || '')) return new Promise(() => {});
     if (method === 'GET') return reply(200, S[table].filter(match));
     if (method === 'POST') {
       const rows = [].concat(JSON.parse(opts.body));
@@ -98,7 +102,7 @@ global.fetch = async function (url, opts) {
 };
 
 function reset() {
-  Object.assign(S, { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null });
+  Object.assign(S, { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null, stallCapiRead: false });
 }
 function seedOrder(extra) {
   const o = Object.assign({
@@ -156,6 +160,13 @@ function assertNoLeak() {
   }
 }
 
+let customPurchase = null;
+// promise ที่ค้างตลอดกาล (เช่น timeout ถูกถอดออก) ทำให้ node ออกเงียบๆ ด้วย exit 0
+// ต้องนับเป็นล้ม ไม่งั้น test:all จะผ่านทั้งที่ชุดนี้ไม่ได้รันจบ
+let finished = false;
+process.on('exit', () => {
+  if (!finished) { console.log('\nFAIL  ชุดทดสอบไม่จบ (มี promise ค้าง) — ' + passed + ' passed ก่อนค้าง'); process.exitCode = 1; }
+});
 (async function run() {
   /* ---------------- 1. normalize + hash ---------------- */
   section('1. normalize + hash ตามกติกา Meta');
@@ -276,12 +287,31 @@ function assertNoLeak() {
       });
     }
     process.env.META_TEST_EVENT_CODE = 'TEST12345';
-    const t = await fresh('_lib/meta-capi.js').sendPurchase(REF, { id: 'c', livemode: false });
-    await check('META_TEST_EVENT_CODE ตั้งไว้ -> ส่งพร้อม test_event_code (ไป Test Events)', () => {
-      assert.deepEqual(t, { sent: true });
+    for (const ch of [{ id: 'c', livemode: false }, { id: 'c' }]) {
+      const x = await fresh('_lib/meta-capi.js').sendPurchase(REF, ch);
+      await check('META_TEST_EVENT_CODE ตั้งไว้ + livemode ' + JSON.stringify(ch.livemode) + ' -> ยังไม่ส่ง (test code ไม่ปลดล็อก charge ทดสอบ)', () => {
+        assert.equal(x.reason, 'not_live'); assert.equal(S.graph.length, 0);
+      });
+    }
+    logs.length = 0;
+    const tm = fresh('_lib/meta-capi.js');
+    const t1 = await tm.sendPurchase(REF, liveCharge);
+    const t2 = await tm.sendPurchase(REF, liveCharge);
+    await check('META_TEST_EVENT_CODE ตั้งไว้ + charge จริง -> ส่งไป Test Events และเตือนทุกครั้งที่ส่ง', () => {
+      assert.deepEqual(t1, { sent: true }); assert.deepEqual(t2, { sent: true });
+      assert.equal(S.graph.length, 2);
       assert.equal(S.graph[0].body.test_event_code, 'TEST12345');
+      const warns = capiLogs().filter(l => l === 'W [vinko][meta-capi] CAPI test mode ON — remove META_TEST_EVENT_CODE after testing');
+      assert.equal(warns.length, 2);
+      assert.ok(!logs.join(' ').includes('TEST12345'), 'test code value logged');
     });
     delete process.env.META_TEST_EVENT_CODE;
+    reset(); seedOrder(); logs.length = 0;
+    await fresh('_lib/meta-capi.js').sendPurchase(REF, liveCharge);
+    await check('ไม่ได้ตั้ง test code -> ไม่มี test_event_code และไม่มีคำเตือน test mode', () => {
+      assert.equal(S.graph[0].body.test_event_code, undefined);
+      assert.equal(capiLogs().filter(l => l.includes('test mode')).length, 0);
+    });
 
     section('4. CAPI พัง -> ไม่ throw, log แค่ status/code');
     reset(); seedOrder(); logs.length = 0;
@@ -308,9 +338,19 @@ function assertNoLeak() {
     f = await fresh('_lib/meta-capi.js').sendPurchase(REF, liveCharge);
     const took = Date.now() - t0;
     await check('Graph ไม่ตอบ -> ตัดที่ timeout (' + capi.TIMEOUT_MS + 'ms) ไม่ค้าง, took ' + took + 'ms', () => {
-      assert.equal(f.reason, 'error');
-      assert.ok(took >= capi.TIMEOUT_MS - 50 && took < capi.TIMEOUT_MS + 1000, 'took ' + took);
-      assert.deepEqual(capiLogs(), ['E [vinko][meta-capi] CAPI_FAILED status: - code: AbortError']);
+      assert.deepEqual(f, { sent: false, reason: 'timeout' });
+      assert.ok(took >= capi.TIMEOUT_MS - 50 && took < capi.TIMEOUT_MS + 500, 'took ' + took);
+      assert.deepEqual(capiLogs(), ['E [vinko][meta-capi] CAPI_FAILED status: - code: TIMEOUT']);
+    });
+    reset(); seedOrder(); logs.length = 0; S.stallCapiRead = true;
+    let t0s = Date.now();
+    f = await fresh('_lib/meta-capi.js').sendPurchase(REF, liveCharge);
+    let tookS = Date.now() - t0s;
+    await check('Supabase ค้างตอนอ่านออเดอร์ -> ทิ้งงานที่ timeout รวม ไม่เรียก Meta, took ' + tookS + 'ms', () => {
+      assert.deepEqual(f, { sent: false, reason: 'timeout' });
+      assert.ok(tookS < capi.TIMEOUT_MS + 500, 'took ' + tookS);
+      assert.equal(S.graph.length, 0);
+      assert.deepEqual(capiLogs(), ['E [vinko][meta-capi] CAPI_FAILED status: - code: TIMEOUT']);
     });
     reset(); seedOrder(); logs.length = 0;
     S.graphReply = () => reply(500, 'not json');
@@ -375,6 +415,28 @@ function assertNoLeak() {
       assert.equal(S.graph.length, 0);
     });
 
+    const BOUND = capi.TIMEOUT_MS + 500;
+    const liveCh = () => ({ object: 'charge', id: 'chrg_live_1', status: 'successful', paid: true, livemode: true, amount: 19900, currency: 'thb', card: {} });
+    reset(); calls.deliver = []; seedOrder({ status: 'pending' }); S.stallCapiRead = true; S.charge = liveCh();
+    t0s = Date.now(); w = await webhook('evnt_6'); tookS = Date.now() - t0s;
+    await check('Supabase ค้างตอน CAPI อ่าน -> webhook ยังตอบ 200 ภายใน ' + BOUND + 'ms (took ' + tookS + 'ms), paid + deliver ครบ', () => {
+      assert.equal(w.statusCode, 200);
+      assert.ok(tookS < BOUND, 'took ' + tookS);
+      assert.equal(S.orders[0].status, 'paid');
+      assert.deepEqual(calls.deliver, [REF]);
+      assert.equal(S.webhook_events[0].deliver_status, 'delivered');
+      assert.equal(S.graph.length, 0);
+    });
+    reset(); calls.deliver = []; seedOrder({ status: 'pending' }); S.stallCapiRead = true; S.charge = liveCh();
+    deliverImpl = async () => { throw new Error('resend down'); };
+    t0s = Date.now(); w = await webhook('evnt_7'); tookS = Date.now() - t0s;
+    deliverImpl = async () => ({ ok: true });
+    await check('Supabase ค้าง + deliver พัง -> ยังตอบ 500 ภายใน ' + BOUND + 'ms (took ' + tookS + 'ms)', () => {
+      assert.equal(w.statusCode, 500);
+      assert.ok(tookS < BOUND, 'took ' + tookS);
+      assert.equal(S.webhook_events[0].deliver_status, 'failed');
+    });
+
     section('6. create-charge บัตรผ่านทันที');
     async function payCard(extra) {
       const res = mockRes();
@@ -420,6 +482,71 @@ function assertNoLeak() {
     await check('client ไม่ส่ง flag (status none) -> ไม่ส่ง CAPI', () => {
       assert.equal(S.orders[0].attribution_status, 'none');
       assert.equal(S.graph.length, 0);
+    });
+    reset(); calls.deliver = []; S.stallCapiRead = true;
+    t0s = Date.now(); c = await payCard(); tookS = Date.now() - t0s;
+    await check('Supabase ค้างตอน CAPI อ่าน -> ลูกค้าได้คำตอบบัตรภายใน ' + BOUND + 'ms (took ' + tookS + 'ms)', () => {
+      assert.equal(c.statusCode, 200);
+      assert.equal(c.body.charge_status, 'successful');
+      assert.ok(tookS < BOUND, 'took ' + tookS);
+      assert.equal(S.orders[0].status, 'paid');
+      assert.deepEqual(calls.deliver, [S.orders[0].order_ref]);
+    });
+    S.stallCapiRead = false;
+
+    reset(); calls.deliver = [];
+    c = await payCard({ package_code: undefined, items: ['STORY-03', 'STORY-01'] });
+    await check('ตะกร้า /books (CUSTOM) -> CAPI content_ids = เล่มที่ซื้อ, value = ยอดใน DB', () => {
+      assert.equal(S.orders[0].package_code, 'CUSTOM');
+      const ev = S.graph[0].body.data[0];
+      assert.deepEqual([...ev.custom_data.content_ids].sort(), ['STORY-01', 'STORY-03']);
+      assert.equal(ev.custom_data.value, S.orders[0].amount_satang / 100);
+      assert.equal(ev.event_id, c.body.order_ref);
+    });
+
+    /* ---- claim-download: payload purchase ของ CUSTOM ---- */
+    section('6b. claim-download ออเดอร์ CUSTOM มี purchase payload');
+    process.env.OMISE_SECRET_KEY = 'skey_live_FAKE';
+    const customRef = c.body.order_ref;
+    const customOrder = S.orders[0];
+    Object.assign(customOrder, { client_request_id: 'rid-custom-0000000001', download_token: 'TOKEN_FIXTURE', token_expires_at: '2027-01-01T00:00:00Z' });
+    S.charge = { object: 'charge', id: customOrder.omise_charge_id, status: 'successful', paid: true, livemode: true,
+      amount: customOrder.amount_satang, currency: 'thb' };
+    const claim = async (ref, rid) => {
+      for (const f of ['claim-download.js', '_lib/tokens.js']) delete require.cache[require.resolve(path.join(REPO, 'api', f))];
+      const res = mockRes();
+      await require(path.join(REPO, 'api', 'claim-download.js'))({ method: 'POST', headers: {}, body: { order_ref: ref, client_request_id: rid } }, res);
+      return res;
+    };
+    const claimRes = await claim(customRef, 'rid-custom-0000000001');
+    process.env.OMISE_SECRET_KEY = 'skey_test_FAKE';
+    customPurchase = claimRes.body && claimRes.body.purchase;
+    await check('CUSTOM -> purchase: transaction_id = order_ref, value = ยอดรวม DB, THB, items จาก order_items', () => {
+      assert.equal(claimRes.body.ready, true, JSON.stringify(claimRes.body));
+      assert.ok(customPurchase, 'no purchase payload');
+      assert.equal(customPurchase.transaction_id, customRef);
+      assert.equal(customPurchase.value, customOrder.amount_satang / 100);
+      assert.equal(customPurchase.currency, 'THB');
+      assert.equal(customPurchase.payment_mode, 'live');
+      assert.deepEqual(customPurchase.items.map(i => i.item_id).sort(), ['STORY-01', 'STORY-03']);
+      const sum = customPurchase.items.reduce((a, i) => a + i.price * i.quantity, 0);
+      assert.equal(Math.round(sum * 100), customOrder.amount_satang);
+      assert.ok(customPurchase.items.every(i => typeof i.item_name === 'string' && i.item_name && !/^STORY-/.test(i.item_name)));
+    });
+    reset();
+    seedOrder({ client_request_id: 'rid-pkg-000000000001', download_token: 'T', token_expires_at: '2027-01-01T00:00:00Z' });
+    const pkgRes = await claim(REF, 'rid-pkg-000000000001');
+    await check('แพ็กเกจเดิม (STORIES) -> purchase เหมือนเดิม + items 1 รายการ', () => {
+      const pp = pkgRes.body.purchase;
+      assert.equal(pp.transaction_id, REF); assert.equal(pp.value, 199); assert.equal(pp.item_id, 'STORIES');
+      assert.deepEqual(pp.items, [{ item_id: 'STORIES', item_name: pp.item_name, price: 199, quantity: 1 }]);
+    });
+    reset();
+    seedOrder({ package_code: 'CUSTOM', client_request_id: 'rid-empty-00000000001', download_token: 'T', token_expires_at: '2027-01-01T00:00:00Z' });
+    const emptyRes = await claim(REF, 'rid-empty-00000000001');
+    await check('CUSTOM ที่ไม่มี order_items -> ไม่ส่ง purchase แต่ลิงก์ดาวน์โหลดยังได้', () => {
+      assert.equal(emptyRes.body.ready, true);
+      assert.equal(emptyRes.body.purchase, undefined);
     });
   } finally {
     restoreLogs();
@@ -479,7 +606,7 @@ function assertNoLeak() {
     assert.deepEqual(q[1], ['track', 'PageView']);
     const purchase = q.find(x => x[1] === 'Purchase');
     assert.ok(purchase, JSON.stringify(q));
-    assert.deepEqual(purchase[2], { value: 199, currency: 'THB', content_ids: ['STORIES'], content_type: 'product' });
+    assert.deepEqual(purchase[2], { value: 199, currency: 'THB', content_ids: ['STORIES'], content_type: 'product', num_items: 1 });
     assert.deepEqual(purchase[3], { eventID: REF });
     assert.equal(p.storage['vinko_meta_purchase_sent:' + REF], '1');
   });
@@ -523,6 +650,27 @@ function assertNoLeak() {
       assert.equal(p.c.VINKO.metaTrack('Purchase', { payment_mode: 'test' }, REF), false);
     });
   }
+  p = page({ consent: 'granted' });
+  await p.thankYou(customPurchase);
+  const gaScript = p.scripts.find(s => /googletagmanager/.test(s.src || ''));
+  if (gaScript) gaScript.onload();
+  await check('CUSTOM บน vinko.quest -> Pixel Purchase eventID = order_ref, value = ยอด DB, content_ids ครบ', () => {
+    const pur = p.fbqCalls().find(x => x[1] === 'Purchase');
+    assert.ok(pur, 'no Pixel Purchase');
+    assert.deepEqual(pur[3], { eventID: customPurchase.transaction_id });
+    assert.equal(pur[2].value, customPurchase.value);
+    assert.deepEqual([...pur[2].content_ids].sort(), ['STORY-01', 'STORY-03']);
+    assert.equal(pur[2].num_items, 2);
+  });
+  await check('CUSTOM บน vinko.quest -> GA4 purchase transaction_id = order_ref, value = ยอด DB, items 2 เล่ม', () => {
+    const ev = JSON.parse(JSON.stringify((p.c.dataLayer || []).filter(x => x[0] === 'event' && x[1] === 'purchase')));
+    assert.equal(ev.length, 1, 'GA4 purchase count');
+    assert.equal(ev[0][2].transaction_id, customPurchase.transaction_id);
+    assert.equal(ev[0][2].value, customPurchase.value);
+    assert.equal(ev[0][2].send_to, 'G-W9W53C5DWS');
+    assert.deepEqual(ev[0][2].items.map(i => i.item_id).sort(), ['STORY-01', 'STORY-03']);
+  });
+
   await check('checkout.js เรียก InitiateCheckout ตอนเริ่มหน้าและหลัง consent', () => {
     const src = fs.readFileSync(path.join(REPO, 'assets/js/checkout.js'), 'utf8');
     assert.match(src, /V\.metaTrack\("InitiateCheckout"/);
@@ -530,6 +678,7 @@ function assertNoLeak() {
     assert.match(src, /setupOmise\(\);\s*sendInitiateCheckout\(\);/);
   });
 
+  finished = true;
   console.log('\nMeta CAPI: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed ? 1 : 0);
 })().catch(e => { restoreLogs(); console.error(e); process.exit(1); });

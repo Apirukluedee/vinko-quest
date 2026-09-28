@@ -23,7 +23,7 @@ const config = require('./config');
 // ต้องตรงกับ ANALYTICS.META_PIXEL_ID ใน assets/js/config.js (มีเทสต์ตรวจ)
 const PIXEL_ID = '1366170372169518';
 const GRAPH_VERSION = 'v23.0';
-const TIMEOUT_MS = 2000;
+const TIMEOUT_MS = 2000;   // ทั้งงานรวมกัน ไม่ใช่แค่ fetch ไป Meta
 
 let warnedNoToken = false;
 
@@ -100,7 +100,7 @@ function buildPurchaseEvent(order, opts) {
       value: satang / 100,
       currency: 'THB',
       order_id: order.order_ref,
-      content_ids: order.package_code ? [String(order.package_code)] : undefined,
+      content_ids: (opts && opts.contentIds) || (order.package_code ? [String(order.package_code)] : undefined),
       content_type: 'product'
     }
   };
@@ -116,7 +116,7 @@ function logFail(status, code) {
                 ' code: ' + safeCode(code));
 }
 
-async function send(orderRef, charge) {
+async function send(orderRef, charge, signal) {
   const token = (process.env.META_CAPI_ACCESS_TOKEN || '').trim();
   if (!token) {
     if (!warnedNoToken) {
@@ -125,16 +125,17 @@ async function send(orderRef, charge) {
     }
     return { sent: false, reason: 'no_token' };
   }
-  const testCode = (process.env.META_TEST_EVENT_CODE || '').trim();
 
-  // เหมือน guard ของ purchase ฝั่ง GA4: charge ทดสอบห้ามเข้าข้อมูลจริง
-  // ยกเว้นตั้ง META_TEST_EVENT_CODE ไว้ ซึ่ง Meta จะแยกไปที่ Test Events
-  if (!charge || (charge.livemode !== true && !testCode)) return { sent: false, reason: 'not_live' };
+  // เหมือน guard ของ purchase ฝั่ง GA4: ส่งเฉพาะ charge จริงเท่านั้น เสมอ
+  // META_TEST_EVENT_CODE แค่เปลี่ยนปลายทางไป Test Events ไม่ได้ปลดล็อก charge ทดสอบ
+  if (!charge || charge.livemode !== true) return { sent: false, reason: 'not_live' };
+  const testCode = (process.env.META_TEST_EVENT_CODE || '').trim();
 
   const sel = await db.select('orders',
     'order_ref=eq.' + encodeURIComponent(orderRef) +
-    '&select=order_ref,status,amount_satang,currency,package_code,customer_email,customer_phone,' +
+    '&select=id,order_ref,status,amount_satang,currency,package_code,customer_email,customer_phone,' +
     'attribution_status,attribution_snapshot&limit=1');
+  if (signal.aborted) return { sent: false, reason: 'timeout' };
   if (!sel.ok) {
     logFail(sel.status, sel.body && sel.body.code);
     return { sent: false, reason: 'db' };
@@ -143,45 +144,68 @@ async function send(orderRef, charge) {
   if (!order || order.status !== 'paid') return { sent: false, reason: 'not_paid' };
   if (!consentProven(order)) return { sent: false, reason: 'no_consent' };
 
-  const event = buildPurchaseEvent(order, { baseUrl: config.appBaseUrl() });
+  // content_ids = รหัสเล่มที่ซื้อจริง (ตะกร้า /books มีหลายเล่ม) ตรงกับฝั่งเบราว์เซอร์
+  // อ่านไม่ได้ก็ใช้ package_code แทน ไม่ถือว่าล้มเหลว
+  let contentIds = null;
+  if (order.package_code === 'CUSTOM' && order.id) {
+    const it = await db.select('order_items', 'order_id=eq.' + encodeURIComponent(order.id) + '&select=product_code&order=product_code.asc');
+    if (signal.aborted) return { sent: false, reason: 'timeout' };
+    if (it.ok && Array.isArray(it.body) && it.body.length) contentIds = it.body.map(r => String(r.product_code));
+  }
+
+  const event = buildPurchaseEvent(order, { baseUrl: config.appBaseUrl(), contentIds });
   if (!event) return { sent: false, reason: 'bad_order' };
 
   const body = { data: [event], access_token: token };
-  if (testCode) body.test_event_code = testCode;
-
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
-  try {
-    // token อยู่ใน body ไม่ใส่ใน URL — URL มักถูก log โดย proxy / platform
-    const r = await fetch('https://graph.facebook.com/' + GRAPH_VERSION + '/' + PIXEL_ID + '/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: ac.signal
-    });
-    if (!r.ok) {
-      let code = null;
-      try { const j = await r.json(); code = j && j.error && j.error.code; } catch (e) {}
-      logFail(r.status, code);
-      return { sent: false, reason: 'http' };
-    }
-    return { sent: true };
-  } finally {
-    clearTimeout(timer);
+  if (testCode) {
+    body.test_event_code = testCode;
+    console.warn('[vinko][meta-capi] CAPI test mode ON — remove META_TEST_EVENT_CODE after testing');
   }
+
+  // token อยู่ใน body ไม่ใส่ใน URL — URL มักถูก log โดย proxy / platform
+  const r = await fetch('https://graph.facebook.com/' + GRAPH_VERSION + '/' + PIXEL_ID + '/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: signal
+  });
+  if (!r.ok) {
+    let code = null;
+    try { const j = await r.json(); code = j && j.error && j.error.code; } catch (e) {}
+    if (!signal.aborted) logFail(r.status, code);
+    return { sent: false, reason: 'http' };
+  }
+  return { sent: true };
 }
 
 /**
  * ส่ง Purchase ของออเดอร์ที่เพิ่งเป็น paid — ไม่ throw ไม่ว่ากรณีใด
+ * ทั้งงาน (อ่าน DB + เรียก Meta) ถูกจำกัดรวมไม่เกิน TIMEOUT_MS
+ * เกินเวลา = ทิ้งงานที่ค้าง (ยกเลิก fetch ไป Meta) log แค่ code แล้วคืนทันที
  * @param {string} orderRef
  * @param {object} charge  charge จาก Omise (ใช้ดู livemode เท่านั้น)
  */
 async function sendPurchase(orderRef, charge) {
+  const ac = new AbortController();
+  let timer;
+  const timeout = new Promise(resolve => {
+    timer = setTimeout(() => { ac.abort(); resolve(null); }, TIMEOUT_MS);
+  });
+  // .catch ติดไว้กับตัวงานเสมอ — งานที่ถูกทิ้งหลัง timeout ห้ามกลายเป็น unhandled rejection
+  const work = send(orderRef, charge, ac.signal).catch(e => {
+    if (!ac.signal.aborted) logFail(null, e && e.name);
+    return { sent: false, reason: 'error' };
+  });
   try {
-    return await send(orderRef, charge);
+    const r = await Promise.race([work, timeout]);
+    if (r) return r;
+    logFail(null, 'TIMEOUT');
+    return { sent: false, reason: 'timeout' };
   } catch (e) {
     logFail(null, e && e.name);
     return { sent: false, reason: 'error' };
+  } finally {
+    clearTimeout(timer);
   }
 }
 

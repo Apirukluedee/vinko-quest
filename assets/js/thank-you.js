@@ -47,6 +47,13 @@
     var V = window.VINKO;
     if (!V || typeof V.track !== "function") return;
     var ref = p.transaction_id;
+    // server ส่ง items มาเสมอ (ตะกร้า /books มีหลายเล่ม) — ตัวสำรองรองรับ response รูปแบบเก่า
+    var items = Array.isArray(p.items) && p.items.length ? p.items : [{
+      item_id: p.item_id,
+      item_name: p.item_name,
+      price: p.value,
+      quantity: 1
+    }];
 
     // ยังไม่ยอมรับคุกกี้ = ยังส่งไม่ได้ เก็บไว้รอ ไม่ตั้งธง
     if (!alreadySent("ga", ref) && V.track("purchase", {
@@ -54,12 +61,7 @@
       value: p.value,
       currency: p.currency || "THB",
       payment_mode: p.payment_mode,
-      items: [{
-        item_id: p.item_id,
-        item_name: p.item_name,
-        price: p.value,
-        quantity: 1
-      }]
+      items: items
     })) markSent("ga", ref);
 
     // Meta: eventID = order_ref ตัวเดียวกับที่ server ส่งผ่าน Conversions API
@@ -67,8 +69,9 @@
     if (!alreadySent("meta", ref) && typeof V.metaTrack === "function" && V.metaTrack("Purchase", {
       value: p.value,
       currency: p.currency || "THB",
-      content_ids: [p.item_id],
+      content_ids: items.map(function (i) { return i.item_id; }),
       content_type: "product",
+      num_items: items.length,
       payment_mode: p.payment_mode
     }, ref)) markSent("meta", ref);
 
