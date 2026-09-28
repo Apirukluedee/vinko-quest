@@ -271,6 +271,51 @@ const health = require(path.join(REPO, 'api', 'health.js'));
   check('ไม่ตั้ง HEALTH_TOKEN -> endpoint ปิดตัวเอง 404', res.statusCode === 404, String(res.statusCode));
   process.env.HEALTH_TOKEN = savedToken;
 
+  /* ---- โหมดของ Omise key ----
+     ตามเอกสาร Omise: test key มี "_test_", live key ไม่มีคำบอกโหมด (skey_xxx / pkey_xxx)
+     ไม่มี "skey_live_" จริง — กฎเดิมทำให้ production เป็น 'unknown' ตลอด
+     ค่าในเทสต์เป็นรูปแบบปลอมทั้งหมด และห้าม print ค่า key ออกมา แม้ตอนเทสต์ล้ม */
+  section('โหมดของ Omise key (test / live / unknown)');
+  const LIVE_SK = 'skey_' + 'a1b2c3d4e5f6g7h8i9j0k';
+  const LIVE_PK = 'pkey_' + 'a1b2c3d4e5f6g7h8i9j0k';
+  const cases = [
+    ['skey_test_xxx', 'skey_test_' + 'abcdefghij', 'test'],
+    ['pkey_test_xxx', 'pkey_test_' + 'abcdefghij', 'test'],
+    ['skey_xxx (live)', LIVE_SK, 'live'],
+    ['pkey_xxx (live)', LIVE_PK, 'live'],
+    ['skey_xxx มีช่องว่างหน้าหลัง', '  ' + LIVE_SK + '\n', 'live'],
+    ['ว่าง', '', 'unknown'],
+    ['undefined', undefined, 'unknown'],
+    ['ไม่ใช่ string', 12345, 'unknown'],
+    ['skey_ เปล่าๆ', 'skey_', 'unknown'],
+    ['ขยะ', 'not-a-key', 'unknown'],
+    ['secret ของที่อื่น (sk_live_)', 'sk_live_' + 'abcdefghij', 'unknown'],
+    ['anon JWT', mkJwt({ role: 'anon' }), 'unknown']
+  ];
+  for (const [label, value, want] of cases) {
+    const got = config.classifyOmiseKey(value);
+    check(label + ' -> ' + want, got === want, 'ได้ ' + got);
+  }
+
+  const savedSk = process.env.OMISE_SECRET_KEY, savedPk = process.env.OMISE_PUBLIC_KEY;
+  process.env.OMISE_SECRET_KEY = LIVE_SK;
+  process.env.OMISE_PUBLIC_KEY = LIVE_PK;
+  check('omiseKeyMode() อ่าน secret key รูปแบบ live -> live', config.omiseKeyMode() === 'live', config.omiseKeyMode());
+  res = mockRes();
+  await health(get(OK_URL), res);
+  check('/api/health บอก omise_key_mode = live กับ key รูปแบบ live', res.body.omise_key_mode === 'live', String(res.body.omise_key_mode));
+  check('/api/health บอก omise_public_key_mode = live', res.body.omise_public_key_mode === 'live', String(res.body.omise_public_key_mode));
+  check('live ทั้งคู่ -> ไม่มี note เตือน test key / โหมดไม่ตรง',
+        !res.body.notes.some(n => /test key|คนละโหมด/.test(n)), JSON.stringify(res.body.notes));
+  check('response ไม่มีค่า key live', !JSON.stringify(res.body).includes(LIVE_SK) && !JSON.stringify(res.body).includes(LIVE_PK));
+  process.env.OMISE_PUBLIC_KEY = 'pkey_test_' + 'abcdefghij';
+  res = mockRes();
+  await health(get(OK_URL), res);
+  check('secret live + public test -> note เตือนโหมดไม่ตรง',
+        res.body.notes.some(n => /คนละโหมด/.test(n)), JSON.stringify(res.body.notes));
+  process.env.OMISE_SECRET_KEY = savedSk;
+  process.env.OMISE_PUBLIC_KEY = savedPk;
+
   global.fetch = realFetch;
 
   console.log('\n========================================================');

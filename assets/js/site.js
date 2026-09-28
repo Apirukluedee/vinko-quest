@@ -396,6 +396,27 @@
     return true;
   }
 
+  /**
+   * ยิง event เข้า Meta Pixel ที่ loadTracking() โหลดไว้
+   * เงียบถ้ายังไม่ได้ consent / ไม่ใช่โดเมนจริง / ยังไม่มี fbq
+   * eventId = ตัว dedup กับ Conversions API ฝั่ง server (Purchase ใช้ order_ref)
+   * Purchase ผ่าน guard เดียวกับ GA4: ต้องเป็น payment_mode 'live' บนโดเมนจริง
+   * ห้ามใส่ชื่อ อีเมล เบอร์โทร ลง params เด็ดขาด
+   */
+  function metaTrack(name, params, eventId) {
+    if (consentValue() !== "granted") return false;
+    if (!isProdHost() || !(C.ANALYTICS || {}).META_PIXEL_ID) return false;
+    if (typeof window.fbq !== "function") return false;
+    var p = Object.assign({}, params || {});
+    if (name === "Purchase" && p.payment_mode !== "live") return false;
+    delete p.payment_mode;
+    try {
+      if (eventId) window.fbq("track", name, p, { eventID: String(eventId) });
+      else window.fbq("track", name, p);
+    } catch (e) { return false; }
+    return true;
+  }
+
   function consentBanner() {
     if (consentValue() === "granted") { loadTracking(); return; }
     if (consentValue() === "denied") return;
@@ -470,6 +491,7 @@
     hasPreorder: hasPreorder,
     timelineHTML: timelineHTML,
     track: track,
+    metaTrack: metaTrack,
     attribution: attribution,
     ga4Id: ga4Id,
     isProdHost: isProdHost,

@@ -85,7 +85,9 @@ module.exports = async function handler(req, res) {
 
   /* ---------- 3. โหมดของ Omise ---------- */
   let omiseMode = 'unknown';
+  let omisePublicMode = 'unknown';
   try { omiseMode = config.omiseKeyMode(); } catch (e) { /* config ผิด อ่านไม่ได้ก็ปล่อยเป็น unknown */ }
+  try { omisePublicMode = config.classifyOmiseKey(config.omisePublicKey()); } catch (e) { /* เหมือนกัน */ }
 
   /* ---------- 4. สรุป ---------- */
   const ready = cfg.errors.length === 0 && cfg.missing.length === 0 && supabase.ok === true;
@@ -114,11 +116,14 @@ module.exports = async function handler(req, res) {
 
     supabase: supabase,
 
-    omise_key_mode: omiseMode,      // test / live / unknown
+    omise_key_mode: omiseMode,      // test / live / unknown (secret key)
+    omise_public_key_mode: omisePublicMode,  // test / live / unknown — ต้องตรงกับ secret key
 
     // เตือนกรณีที่พลาดง่ายที่สุดสองแบบ: ลืมสลับเป็น live หรือเผลอเปิดขายด้วย test key
     notes: [
       omiseMode === 'test' ? 'ยังใช้ Omise test key อยู่ — เงินจริงจะยังไม่เข้า' : null,
+      omiseMode !== 'unknown' && omisePublicMode !== 'unknown' && omiseMode !== omisePublicMode
+        ? 'Omise secret key กับ public key คนละโหมดกัน (test/live) — การตัดบัตรจะล้ม' : null,
       cfg.supabaseKeyKind === 'legacy' ? 'ยังใช้ Supabase key แบบเดิม ควรย้ายไป sb_secret_' : null,
       cfg.emailConfigured !== true
         ? 'ยังไม่ได้ตั้ง RESEND_API_KEY — ลูกค้าจ่ายเงินแล้วจะไม่ได้รับอีเมลลิงก์ดาวน์โหลด'

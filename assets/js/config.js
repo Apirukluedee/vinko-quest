@@ -78,7 +78,8 @@ window.VINKO_CONFIG = {
        ยังไม่ใส่ = local/preview ไม่ยิง analytics เลย */
     GA4_TEST_ID:     "G-QSZPV4HKJR",   // property "VINKO — TEST" ใช้บน localhost/preview เท่านั้น
 
-    META_PIXEL_ID:   "",
+    // Meta Pixel / dataset (ค่าสาธารณะ) — ต้องตรงกับ PIXEL_ID ใน api/_lib/meta-capi.js
+    META_PIXEL_ID:   "1366170372169518",
     TIKTOK_PIXEL_ID: ""
   },
 
