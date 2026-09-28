@@ -366,7 +366,7 @@ const NOW = '2026-09-28T10:00:00.000Z';
       assert.equal(r.body.ok, false);
       assert.ok(!logs.some(x => /ATTRIBUTION_(COLUMNS_MISSING|CHECK_VIOLATION|RETRY)/.test(x)), logs.join('\n'));
     });
-    await check('error path log แค่ code + message ไม่มี details/อีเมล/attribution', () => {
+    await check('error path log แค่ status + code ไม่มี details/อีเมล/attribution', () => {
       const all = logs.join('\n');
       assert.ok(/code: PGRST000/.test(all), all);
       assert.ok(!/Failing row|test@example\.com|b2check/.test(all), all);
@@ -387,8 +387,10 @@ const NOW = '2026-09-28T10:00:00.000Z';
     await check('23514 จาก constraint อื่น (เช่น package_code แบบเคส 007) -> ไม่ retry', () => {
       assert.equal(DB.orderInserts.length, 1);
       assert.equal(r.statusCode, 500);
-      assert.ok(/orders_package_code_check/.test(logs.join('\n')), 'ชื่อ constraint ต้องยังอยู่ใน log ไว้ debug');
-      assert.ok(!/Failing row|test@example\.com/.test(logs.join('\n')));
+      const all = logs.join('\n');
+      assert.ok(/status: 400 code: 23514/.test(all), all);
+      // ชื่อนี้ไม่อยู่ใน allowlist จึงต้องไม่ถูก log (log ได้แค่ status/code)
+      assert.ok(!/orders_package_code_check|violates|Failing row|test@example\.com/.test(all), all);
     });
 
     reset(); logs.length = 0;
@@ -423,6 +425,49 @@ const NOW = '2026-09-28T10:00:00.000Z';
       assert.equal(r.statusCode, 500);
       assert.ok(logs.some(x => /ATTRIBUTION_RETRY_FAILED.*code: XX000/.test(x)), logs.join('\n'));
       assert.ok(!/Failing row|test@example\.com/.test(logs.join('\n')));
+    });
+
+    /* ---- log ต้องไม่มีข้อความอิสระจาก Postgres แม้ message จะมีค่าลูกค้าติดมา ---- */
+    const leakyMsg = 'new row for relation "orders" violates check constraint "orders_attribution_consistent_check" ' +
+                     'value "test@example.com" utm_campaign=b2check';
+    reset(); logs.length = 0;
+    DB.orderQueue = [
+      () => reply(400, { code: '23514', message: leakyMsg, details: leakyDetails, hint: 'hint b2check test@example.com' }),
+      () => reply(500, { code: 'test@example.com b2check', message: leakyMsg, details: leakyDetails })
+    ];
+    r = await charge(attrBody);
+    await check('message มีอีเมล/ค่า campaign -> log ไม่มี แต่ยังมี status/code/ชื่อใน allowlist', () => {
+      const all = logs.join('\n');
+      assert.ok(!/test@example\.com|b2check|violates|Failing row|hint/.test(all), all);
+      assert.ok(/ATTRIBUTION_CHECK_VIOLATION[^\n]* status: 400 code: 23514 name: orders_attribution_consistent_check$/m.test(all), all);
+      // code ที่เป็นข้อความอิสระถูกแทนด้วย '-'
+      assert.ok(/ATTRIBUTION_RETRY_FAILED status: 500 code: - name: orders_attribution_consistent_check/.test(all), all);
+      assert.equal(r.statusCode, 500);
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => reply(503, { code: 'PGRST000', message: 'upstream error for test@example.com (b2check)' })];
+    r = await charge(attrBody);
+    await check('ไม่ retry + message มีอีเมล -> log ไม่มีอีเมล/ค่า campaign', () => {
+      const all = logs.join('\n');
+      assert.ok(/status: 503 code: PGRST000/.test(all), all);
+      assert.ok(!/test@example\.com|b2check|upstream/.test(all), all);
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [
+      () => reply(400, { code: 'PGRST204', message: "Could not find the 'attribution_snapshot' column of 'orders' in the schema cache" }),
+      () => { throw Object.assign(new Error('connect ETIMEDOUT for test@example.com b2check'), { code: 'ETIMEDOUT' }); }
+    ];
+    let retryThrew = null;
+    try { r = await charge(attrBody); } catch (e) { retryThrew = e; }
+    await check('retry throw -> log ATTRIBUTION_RETRY_FAILED (status/code) แล้ว throw ต่อตามเดิม', () => {
+      const all = logs.join('\n');
+      assert.equal(DB.orderInserts.length, 2);
+      assert.ok(retryThrew && /ETIMEDOUT/.test(retryThrew.message), 'error เดิมต้องถูก throw ต่อ');
+      assert.ok(/ATTRIBUTION_RETRY_FAILED status: - code: ETIMEDOUT/.test(all), all);
+      assert.ok(!/test@example\.com|b2check/.test(all), all);
+      assert.ok(/ATTRIBUTION_COLUMNS_MISSING[^\n]* status: 400 code: PGRST204 name: attribution_snapshot$/m.test(all), all);
     });
 
     // คำขอซ้ำที่ชนกันพอดี: select กันซ้ำไม่เจอ แต่ระหว่างนั้นอีกคำขอบันทึกไปก่อน
