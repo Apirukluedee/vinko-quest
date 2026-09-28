@@ -16,6 +16,8 @@ const tokens = require('./_lib/tokens');
 const catalog = require('./_lib/catalog');
 const config = require('./_lib/config');
 const omise = require('./_lib/omise');
+const email = require('./_lib/email');
+const QRCode = require('qrcode');
 const { json, fail, requireEnv, safeEqual } = require('./_lib/util');
 
 module.exports = async function handler(req, res) {
@@ -36,7 +38,7 @@ module.exports = async function handler(req, res) {
   const r = await db.select('orders',
     'order_ref=eq.' + encodeURIComponent(ref) +
     '&select=id,order_ref,status,client_request_id,download_token,token_expires_at,' +
-    'amount_satang,currency,package_code,omise_charge_id&limit=1');
+    'amount_satang,currency,package_code,omise_charge_id,customer_email&limit=1');
   const order = Array.isArray(r.body) && r.body[0];
 
   if (!order || !order.client_request_id || !safeEqual(order.client_request_id, rid)) {
@@ -81,6 +83,15 @@ module.exports = async function handler(req, res) {
     download_url: '/download?token=' + encodeURIComponent(token) + '&openExternalBrowser=1',
     expires_at: expiresAt
   };
+
+  // ลูกค้าที่อีเมลอยู่คนละเครื่องกับ LINE เข้า My Library ไม่ได้ ต้องผูก LINE
+  // จากหน้านี้ได้เลย ไม่ใช่ไปเจอ QR หลังล็อกอินซึ่งเข้าไม่ถึงตั้งแต่แรก
+  const connectUrl = email.connectLineUrl(order.customer_email);
+  if (connectUrl) {
+    payload.connect_line_url = connectUrl;
+    payload.connect_line_qr_svg = await QRCode.toString(connectUrl, { type: 'svg', width: 220, margin: 1 })
+      .catch(function () { return null; });
+  }
 
   // ยอดเงินต้องเป็นจำนวนเต็มบวกเท่านั้น ผิดจากนี้ไม่ส่ง purchase ออกไปเลย
   // ส่งยอดเพี้ยนเข้า GA4 แย่กว่าไม่ส่ง เพราะลบ event ย้อนหลังไม่ได้

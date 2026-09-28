@@ -142,8 +142,9 @@ module.exports = async function handler(req, res) {
         // ตอบ 500 ให้ Omise retry — ครั้งถัดไปจะเจอ deliver_status='failed' แล้ว retry deliver
         return json(res, 500, { ok: false, error: 'deliver_failed' });
       }
-      // LINE notification — ไม่ critical swallow ได้
-      line.notifyOrder(result.order_ref).catch(function (e) {
+      // LINE notification — ไม่ critical swallow error ได้ แต่ต้อง await
+      // ไม่งั้น Vercel ฆ่างานทิ้งตอนตอบ 200 แจ้งเตือนหายเงียบ
+      await line.notifyOrder(result.order_ref).catch(function (e) {
         console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
       });
     }

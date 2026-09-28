@@ -270,10 +270,11 @@ function seedOrder(over) {
   /* ---- 5. deliver-order + อีเมล ---- */
   section('5. ส่งอีเมลยืนยันการสั่งซื้อ');
   reset(); const o4 = seedOrder({ download_token: null });
-  let deliver = load('deliver-order.js');
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': process.env.INTERNAL_TASK_SECRET }), r);
-  check('ส่งสำเร็จ', r.statusCode === 200 && r.body.ok, JSON.stringify(r.body));
+  // deliver-order เป็นฟังก์ชันภายใน (api/_lib) ตั้งแต่รวม function ให้เหลือ 12 ตัว
+  // ไม่มี endpoint HTTP แล้ว จึงไม่มีด่าน secret ให้ทดสอบ
+  const { deliver } = load('_lib/deliver-order.js');
+  let dOut = await deliver(o4.order_ref, {});
+  check('ส่งสำเร็จ', dOut && dOut.ok, JSON.stringify(dOut));
   check('ออก token ให้ออเดอร์แล้ว', !!DB.orders[0].download_token);
   check('ส่งอีเมล 1 ฉบับ', SENT.length === 1);
   check('มีทั้ง html และ text', SENT[0] && !!SENT[0].html && !!SENT[0].text);
@@ -281,15 +282,8 @@ function seedOrder(over) {
   check('มีลิงก์ /download ในอีเมล', /\/download\?token=/.test(SENT[0].html));
   check('บันทึก message id ลง email_events', DB.email_events.length === 1 && !!DB.email_events[0].provider_message_id);
 
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': process.env.INTERNAL_TASK_SECRET }), r);
+  dOut = await deliver(o4.order_ref, {});
   check('เรียกซ้ำไม่ส่งอีเมลซ้ำ', SENT.length === 1, 'ส่งไป ' + SENT.length + ' ฉบับ');
-
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': 'wrong' }), r);
-  check('secret ผิด -> 401', r.statusCode === 401);
-  r = mockRes(); await deliver(post({ order_ref: o4.order_ref }), r);
-  check('ไม่มี secret -> 401', r.statusCode === 401);
 
   /* ---- 6. resend-link ---- */
   section('6. ขอลิงก์ใหม่');
@@ -330,6 +324,37 @@ function seedOrder(over) {
   await claim(post({ order_ref: o6.order_ref, client_request_id: 'guessed-value-1234567' }), r);
   check('เดา client_request_id ไม่ได้ -> 403', r.statusCode === 403);
   check('ไม่มี token หลุดใน response', !/download_token|token=/.test(JSON.stringify(r.body)));
+
+  /* ---- 7a. ลิงก์ผูก LINE บนหน้า thank-you ----
+     ลิงก์นี้ผูก LINE ของใครก็ได้เข้ากับหนังสือของอีเมลนี้ จึงต้องออกให้
+     เฉพาะคนที่ผ่านด่าน client_request_id + paid แล้วเท่านั้น */
+  section('7a. ลิงก์ผูก LINE บนหน้า thank-you');
+  process.env.LINE_LOGIN_CHANNEL_ID = '1234567890';
+  process.env.LINE_LOGIN_CHANNEL_SECRET = 'test_line_login_secret_0123456789';
+  reset(); const o6l = seedOrder(); await tk.issue(o6l.id);
+  claim = load('claim-download.js');
+  r = mockRes();
+  await claim(post({ order_ref: o6l.order_ref, client_request_id: o6l.client_request_id }), r);
+  check('ยืนยันตัวตนแล้ว -> มีลิงก์ผูก LINE', /\/login\?connect_token=/.test(r.body.connect_line_url || ''),
+        r.body.connect_line_url);
+  check('มี QR เป็น SVG', /^<svg/.test(r.body.connect_line_qr_svg || ''));
+  r = mockRes();
+  await claim(post({ order_ref: o6l.order_ref, client_request_id: 'guessed-value-1234567' }), r);
+  check('เดา client_request_id -> ไม่มีลิงก์ผูก LINE หลุด',
+        r.statusCode === 403 && !/connect/.test(JSON.stringify(r.body)));
+  reset();
+  const pending6 = seedOrder({ status: 'pending' });
+  r = mockRes();
+  await claim(post({ order_ref: pending6.order_ref, client_request_id: pending6.client_request_id }), r);
+  check('ยังไม่จ่าย -> ไม่มีลิงก์ผูก LINE', !r.body.connect_line_url, JSON.stringify(r.body));
+  delete process.env.LINE_LOGIN_CHANNEL_ID;
+  delete process.env.LINE_LOGIN_CHANNEL_SECRET;
+  reset(); const o6n = seedOrder(); await tk.issue(o6n.id);
+  claim = load('claim-download.js');
+  r = mockRes();
+  await claim(post({ order_ref: o6n.order_ref, client_request_id: o6n.client_request_id }), r);
+  check('ยังไม่ตั้ง LINE Login -> ไม่มีการ์ด แต่ลิงก์ดาวน์โหลดยังได้ปกติ',
+        r.body.ready && !r.body.connect_line_url);
 
   /* ---- 7b. ข้อมูล purchase สำหรับ GA4 (M5) ---- */
   section('7b. purchase สำหรับ GA4');
