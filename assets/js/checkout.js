@@ -505,11 +505,22 @@
     if (e.target.name === "payment_method") { applyMethod(); hideAlert(); }
   });
 
+  /* Meta InitiateCheckout ครั้งเดียวต่อการเปิดหน้า
+     ยังไม่ยอมรับคุกกี้ = ยิงไม่ได้ รอจนกดยอมรับในหน้านี้ค่อยยิง
+     ห้ามให้ error ของ analytics ขวางหน้า checkout */
+  var initiateSent = false;
+  function sendInitiateCheckout() {
+    if (initiateSent || typeof V.metaTrack !== "function") return;
+    try { initiateSent = V.metaTrack("InitiateCheckout", { currency: "THB" }); } catch (e) {}
+  }
+  window.addEventListener("vinko:consent-granted", sendInitiateCheckout);
+
   function start() {
     applyQuery();
     if (cartCodes) applyCart(); else applyPackage();
     applyMethod();
     setupOmise();
+    sendInitiateCheckout();
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();

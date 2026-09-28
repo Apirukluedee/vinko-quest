@@ -1,0 +1,191 @@
+/* ============================================================
+   Meta Conversions API — ส่ง Purchase ฝั่ง server หลังออเดอร์เป็น paid
+
+   คู่กับ Pixel ฝั่งเบราว์เซอร์ (site.js / thank-you.js)
+   ทั้งสองฝั่งใช้ event_id = order_ref -> Meta นับเป็น purchase เดียว
+
+   กติกา:
+   1. ส่งเฉพาะออเดอร์ที่ข้อมูลในฐานข้อมูล "พิสูจน์ได้" ว่าลูกค้ากดยอมรับคุกกี้
+      = attribution_status 'captured' เท่านั้น (ดู consentProven)
+   2. ห้ามขวาง / หน่วง / ทำให้การจ่ายเงิน สถานะออเดอร์ หรือการส่งมอบพัง
+      sendPurchase() ไม่ throw เด็ดขาด และมี timeout
+      ผู้เรียกต้องเรียกหลังเปลี่ยนสถานะและส่งมอบแล้วเท่านั้น
+   3. log ได้แค่ status / code — ห้าม log อีเมล เบอร์ hash ค่า fbc หรือ token
+   4. ไม่มี META_CAPI_ACCESS_TOKEN = ข้ามเงียบๆ เตือนครั้งเดียวต่อ instance
+   ============================================================ */
+
+'use strict';
+
+const crypto = require('crypto');
+const db     = require('./supabase');
+const config = require('./config');
+
+// ต้องตรงกับ ANALYTICS.META_PIXEL_ID ใน assets/js/config.js (มีเทสต์ตรวจ)
+const PIXEL_ID = '1366170372169518';
+const GRAPH_VERSION = 'v23.0';
+const TIMEOUT_MS = 2000;
+
+let warnedNoToken = false;
+
+function sha256(s) { return crypto.createHash('sha256').update(s, 'utf8').digest('hex'); }
+
+/* อีเมล: ตัดช่องว่าง + ตัวพิมพ์เล็ก (ตามกติกา Meta) ไม่ใช่รูปแบบอีเมล = ไม่ส่ง */
+function normalizeEmail(v) {
+  if (typeof v !== 'string') return null;
+  const e = v.trim().toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
+}
+
+/* เบอร์: เหลือแต่ตัวเลข ต้องมีรหัสประเทศ ไม่มี 0 นำหน้า (ตามกติกา Meta)
+   ลูกค้าไทยกรอก 0xxxxxxxx(x) -> 66xxxxxxxx(x)
+   รูปแบบที่ไม่รู้จัก (เบอร์ต่างประเทศ ฯลฯ) = ไม่ส่ง ดีกว่าเดารหัสประเทศผิด */
+function normalizePhone(v) {
+  if (typeof v !== 'string') return null;
+  const d = v.replace(/\D/g, '');
+  if (/^0[1-9]\d{7,8}$/.test(d)) return '66' + d.slice(1);     // 0812345678
+  if (/^660[1-9]\d{7,8}$/.test(d)) return '66' + d.slice(3);   // +66 0812345678
+  if (/^66[1-9]\d{7,8}$/.test(d)) return d;                    // +66812345678
+  return null;
+}
+
+/* หลักฐาน consent ที่เก็บคู่ออเดอร์มีแค่ attribution_status (migration 008)
+     captured   = checkout ส่ง consent === true มา -> ยอมรับคุกกี้แน่นอน -> ส่ง
+     none       = แยกไม่ได้ว่ายอมรับแต่ไม่มี touch หรือ client ไม่ได้ส่ง flag -> ไม่ส่ง
+     no_consent / erased / NULL / ค่าอื่น -> ไม่ส่ง                          */
+function consentProven(order) {
+  return !!order && order.attribution_status === 'captured';
+}
+
+/* fbc จาก click id ที่เก็บไว้ เฉพาะ click_id_platform === 'meta'
+   รูปแบบ fb.1.<เวลาที่เห็น fbclid เป็น ms>.<fbclid> — ไม่ hash
+   ใช้ last ก่อน first; เวลาใช้ t ของ touch นั้น ไม่มีใช้ captured_at */
+function buildFbc(snapshot) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  for (const touch of [snapshot.last, snapshot.first]) {
+    if (!touch || typeof touch !== 'object') continue;
+    if (touch.click_id_platform !== 'meta') continue;
+    const id = touch.click_id_value;
+    if (typeof id !== 'string' || !id) continue;
+    const ms = Date.parse(touch.t || snapshot.captured_at || '');
+    if (!Number.isFinite(ms)) continue;
+    return 'fb.1.' + ms + '.' + id;
+  }
+  return null;
+}
+
+/* payload ของ Purchase หนึ่งตัว (pure) — คืน null ถ้าข้อมูลไม่พอจะส่ง */
+function buildPurchaseEvent(order, opts) {
+  const satang = order && order.amount_satang;
+  if (!Number.isSafeInteger(satang) || satang <= 0) return null;
+  if (typeof order.currency !== 'string' || order.currency.toUpperCase() !== 'THB') return null;
+  if (typeof order.order_ref !== 'string' || !order.order_ref) return null;
+
+  const user = {};
+  const em = normalizeEmail(order.customer_email);
+  const ph = normalizePhone(order.customer_phone);
+  if (em) user.em = [sha256(em)];
+  if (ph) user.ph = [sha256(ph)];
+  const fbc = buildFbc(order.attribution_snapshot);
+  if (fbc) user.fbc = fbc;
+  if (!Object.keys(user).length) return null;
+
+  return {
+    event_name: 'Purchase',
+    event_time: Math.floor(((opts && opts.nowMs) || Date.now()) / 1000),
+    event_id: order.order_ref,
+    event_source_url: ((opts && opts.baseUrl) || '') + '/thank-you',
+    action_source: 'website',
+    user_data: user,
+    custom_data: {
+      value: satang / 100,
+      currency: 'THB',
+      order_id: order.order_ref,
+      content_ids: order.package_code ? [String(order.package_code)] : undefined,
+      content_type: 'product'
+    }
+  };
+}
+
+function safeCode(v) {
+  const s = typeof v === 'number' ? String(v) : v;
+  return typeof s === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(s) ? s : '-';
+}
+
+function logFail(status, code) {
+  console.error('[vinko][meta-capi] CAPI_FAILED status: ' + (Number.isInteger(status) ? status : '-') +
+                ' code: ' + safeCode(code));
+}
+
+async function send(orderRef, charge) {
+  const token = (process.env.META_CAPI_ACCESS_TOKEN || '').trim();
+  if (!token) {
+    if (!warnedNoToken) {
+      warnedNoToken = true;
+      console.warn('[vinko][meta-capi] META_CAPI_ACCESS_TOKEN not set — server Purchase events are skipped');
+    }
+    return { sent: false, reason: 'no_token' };
+  }
+  const testCode = (process.env.META_TEST_EVENT_CODE || '').trim();
+
+  // เหมือน guard ของ purchase ฝั่ง GA4: charge ทดสอบห้ามเข้าข้อมูลจริง
+  // ยกเว้นตั้ง META_TEST_EVENT_CODE ไว้ ซึ่ง Meta จะแยกไปที่ Test Events
+  if (!charge || (charge.livemode !== true && !testCode)) return { sent: false, reason: 'not_live' };
+
+  const sel = await db.select('orders',
+    'order_ref=eq.' + encodeURIComponent(orderRef) +
+    '&select=order_ref,status,amount_satang,currency,package_code,customer_email,customer_phone,' +
+    'attribution_status,attribution_snapshot&limit=1');
+  if (!sel.ok) {
+    logFail(sel.status, sel.body && sel.body.code);
+    return { sent: false, reason: 'db' };
+  }
+  const order = Array.isArray(sel.body) && sel.body[0];
+  if (!order || order.status !== 'paid') return { sent: false, reason: 'not_paid' };
+  if (!consentProven(order)) return { sent: false, reason: 'no_consent' };
+
+  const event = buildPurchaseEvent(order, { baseUrl: config.appBaseUrl() });
+  if (!event) return { sent: false, reason: 'bad_order' };
+
+  const body = { data: [event], access_token: token };
+  if (testCode) body.test_event_code = testCode;
+
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), TIMEOUT_MS);
+  try {
+    // token อยู่ใน body ไม่ใส่ใน URL — URL มักถูก log โดย proxy / platform
+    const r = await fetch('https://graph.facebook.com/' + GRAPH_VERSION + '/' + PIXEL_ID + '/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: ac.signal
+    });
+    if (!r.ok) {
+      let code = null;
+      try { const j = await r.json(); code = j && j.error && j.error.code; } catch (e) {}
+      logFail(r.status, code);
+      return { sent: false, reason: 'http' };
+    }
+    return { sent: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * ส่ง Purchase ของออเดอร์ที่เพิ่งเป็น paid — ไม่ throw ไม่ว่ากรณีใด
+ * @param {string} orderRef
+ * @param {object} charge  charge จาก Omise (ใช้ดู livemode เท่านั้น)
+ */
+async function sendPurchase(orderRef, charge) {
+  try {
+    return await send(orderRef, charge);
+  } catch (e) {
+    logFail(null, e && e.name);
+    return { sent: false, reason: 'error' };
+  }
+}
+
+module.exports = {
+  sendPurchase, buildPurchaseEvent, buildFbc, consentProven,
+  normalizeEmail, normalizePhone, sha256, PIXEL_ID, TIMEOUT_MS
+};

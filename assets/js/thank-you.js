@@ -28,27 +28,29 @@
   var pendingPurchase = null;
   var sentInPage = {};
 
-  function sentKey(ref) { return "vinko_ga_purchase_sent:" + ref; }
-  function alreadySent(ref) {
-    if (sentInPage[ref]) return true;
-    try { return localStorage.getItem(sentKey(ref)) === "1"; } catch (e) { return false; }
+  /* ธงแยกกันต่อปลายทาง (GA4 / Meta) เพราะพร้อมไม่พร้อมกัน
+     เช่น GA4 โหลดช้ากว่า fbq หรือ Meta ไม่ยิงบน localhost เลย */
+  function sentKey(dest, ref) { return "vinko_" + dest + "_purchase_sent:" + ref; }
+  function alreadySent(dest, ref) {
+    if (sentInPage[dest + ref]) return true;
+    try { return localStorage.getItem(sentKey(dest, ref)) === "1"; } catch (e) { return false; }
   }
-  function markSent(ref) {
-    sentInPage[ref] = true;
-    try { localStorage.setItem(sentKey(ref), "1"); } catch (e) {}
+  function markSent(dest, ref) {
+    sentInPage[dest + ref] = true;
+    try { localStorage.setItem(sentKey(dest, ref), "1"); } catch (e) {}
   }
 
   function sendPurchase(p) {
     if (!p || !p.transaction_id) return;
     pendingPurchase = p;
-    if (alreadySent(p.transaction_id)) return;
 
     var V = window.VINKO;
     if (!V || typeof V.track !== "function") return;
+    var ref = p.transaction_id;
 
     // ยังไม่ยอมรับคุกกี้ = ยังส่งไม่ได้ เก็บไว้รอ ไม่ตั้งธง
-    var ok = V.track("purchase", {
-      transaction_id: p.transaction_id,
+    if (!alreadySent("ga", ref) && V.track("purchase", {
+      transaction_id: ref,
       value: p.value,
       currency: p.currency || "THB",
       payment_mode: p.payment_mode,
@@ -58,10 +60,19 @@
         price: p.value,
         quantity: 1
       }]
-    });
+    })) markSent("ga", ref);
 
-    if (ok) { markSent(p.transaction_id); pendingPurchase = null; }
-    else { pendingPurchase = p; }
+    // Meta: eventID = order_ref ตัวเดียวกับที่ server ส่งผ่าน Conversions API
+    // Meta จึงนับสองฝั่งเป็น purchase เดียว
+    if (!alreadySent("meta", ref) && typeof V.metaTrack === "function" && V.metaTrack("Purchase", {
+      value: p.value,
+      currency: p.currency || "THB",
+      content_ids: [p.item_id],
+      content_type: "product",
+      payment_mode: p.payment_mode
+    }, ref)) markSent("meta", ref);
+
+    if (alreadySent("ga", ref) && alreadySent("meta", ref)) pendingPurchase = null;
   }
 
   // ยอมรับคุกกี้ทีหลังขณะยังอยู่หน้านี้ ต้องได้ส่ง ไม่ต้องให้รีเฟรช

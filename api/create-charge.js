@@ -15,6 +15,7 @@ const orders   = require('./_lib/orders');
 const tokens   = require('./_lib/tokens');
 const { buildSnapshot } = require('./_lib/attribution');
 const { deliver } = require('./_lib/deliver-order');
+const metaCapi = require('./_lib/meta-capi');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
 const config   = require('./_lib/config');
 
@@ -256,6 +257,8 @@ module.exports = async function handler(req, res) {
         deliver(result.order_ref).catch(function (e) {
           console.error('[vinko] deliver on instant charge failed', result.order_ref, e.message);
         });
+        // Meta CAPI หลังเปลี่ยนสถานะแล้ว — ไม่ throw, timeout 2 วินาที
+        await metaCapi.sendPurchase(result.order_ref, charge);
       }
     } catch (e) {
       console.error('[vinko] applyChargeResult on create failed', e.message);
