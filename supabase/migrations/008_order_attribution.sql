@@ -7,10 +7,11 @@
 --
 -- สิ่งที่เพิ่ม (additive ล้วน ไม่แตะข้อมูลเดิม):
 --   orders.attribution_snapshot  jsonb  {first, last, captured_at, schema_version}
---   orders.attribution_status    text   captured | none | no_consent
+--   orders.attribution_status    text   captured | none | no_consent | erased
 --     captured   = ลูกค้ายินยอม และมี touch ที่ใช้ได้
 --     none       = ยินยอมแต่ไม่มี touch / ข้อมูลเสีย / client ไม่ได้ส่ง flag มา
 --     no_consent = ลูกค้าไม่ยินยอม cookie -> ไม่เก็บอะไรเลย
+--     erased     = ลูกค้าขอลบตาม PDPA เจ้าของลบให้แล้ว (snapshot ต้องเป็น NULL)
 --     NULL       = ออเดอร์ก่อนมี migration นี้ (ไม่รู้) — ไม่ backfill
 --
 -- write-once: ค่าทั้งสองคอลัมน์ถูกกำหนดตอน INSERT เท่านั้น
@@ -18,6 +19,22 @@
 --   ORDER_ATTRIBUTION_IMMUTABLE เพราะ snapshot ต้องเป็นความจริง ณ เวลาสั่งซื้อ
 --   การเขียนทีหลังพิสูจน์ไม่ได้ว่าเป็นค่าของตอนนั้น
 --   UPDATE คอลัมน์อื่น (status, omise_charge_id ฯลฯ) ทำได้ตามปกติ
+--
+--   ข้อยกเว้นเดียว: การลบตามคำขอลูกค้า (privacy.html ข้อ 1 และ 4)
+--   เปลี่ยนเป็น (attribution_snapshot = NULL, attribution_status = 'erased')
+--   ได้ครั้งเดียว จากสถานะใดก็ได้ที่ยังไม่ใช่ 'erased'
+--   เมื่อเป็น 'erased' แล้ว เปลี่ยนอะไรในสองคอลัมน์นี้ไม่ได้อีกเลย
+--   ลบได้อย่างเดียว เขียนค่าใหม่กลับเข้าไปไม่ได้ ความจริง ณ เวลาสั่งซื้อจึงยังไม่ถูกปลอม
+--
+--   วิธีลบให้ลูกค้า (เจ้าของรันเองใน SQL Editor ของ production, ใส่เลขออเดอร์จริง):
+--     update public.orders
+--        set attribution_snapshot = null,
+--            attribution_status   = 'erased'
+--      where order_ref = 'VK-....';
+--   ต้องได้ "1 row affected" ต่อออเดอร์ ถ้าลูกค้ามีหลายออเดอร์ให้ทำทีละเลข
+--   ตรวจก่อน: select order_ref, attribution_status from public.orders
+--             where lower(customer_email) = lower('อีเมลลูกค้า');
+--   (ห้ามใช้ ilike — อีเมลมี _ ได้ จะกลายเป็นไวลด์การ์ดดึงออเดอร์คนอื่นมาปน)
 --
 -- ลำดับ deploy: รันไฟล์นี้บน production ก่อน แล้วค่อย deploy โค้ด
 -- (บทเรียนจาก 007 — โค้ดขึ้นก่อน DB = checkout พัง)
@@ -35,7 +52,7 @@ alter table public.orders
 
 alter table public.orders
   add constraint orders_attribution_status_check
-  check (attribution_status in ('captured', 'none', 'no_consent'));
+  check (attribution_status in ('captured', 'none', 'no_consent', 'erased'));
 
 -- snapshot มีได้เฉพาะตอน captured และต้องเป็น object
 -- ออเดอร์เก่า (NULL ทั้งคู่) ผ่านเงื่อนไขนี้
@@ -50,6 +67,7 @@ alter table public.orders
     case
       when attribution_status is null then attribution_snapshot is null
       when attribution_status = 'captured' then coalesce(jsonb_typeof(attribution_snapshot) = 'object', false)
+      when attribution_status = 'erased' then attribution_snapshot is null
       else attribution_snapshot is null
     end
   );
@@ -57,7 +75,7 @@ alter table public.orders
 comment on column public.orders.attribution_snapshot is
   'first/last touch ณ เวลาสั่งซื้อ (schema_version 1) — เขียนครั้งเดียวตอน insert, NULL = ไม่ได้เก็บ';
 comment on column public.orders.attribution_status is
-  'captured | none | no_consent — เขียนครั้งเดียวตอน insert, NULL = ออเดอร์ก่อน migration 008';
+  'captured | none | no_consent | erased — เขียนครั้งเดียวตอน insert ยกเว้นลบตามคำขอ (-> erased ครั้งเดียว), NULL = ออเดอร์ก่อน migration 008';
 
 create or replace function public.orders_attribution_write_once()
 returns trigger
@@ -67,6 +85,13 @@ as $$
 begin
   if new.attribution_snapshot is distinct from old.attribution_snapshot
      or new.attribution_status is distinct from old.attribution_status then
+    -- ข้อยกเว้นเดียว: ลบตามคำขอลูกค้า ทำได้ครั้งเดียว
+    -- ใช้ is distinct from เพื่อให้ old.status = NULL (ออเดอร์ก่อน 008) ผ่านด้วย
+    if old.attribution_status is distinct from 'erased'
+       and new.attribution_status = 'erased'
+       and new.attribution_snapshot is null then
+      return new;
+    end if;
     raise exception 'ORDER_ATTRIBUTION_IMMUTABLE: attribution is write-once (order %)', old.order_ref
       using errcode = 'P0001';
   end if;
@@ -104,7 +129,7 @@ commit;
 --     and conname in ('orders_attribution_status_check', 'orders_attribution_consistent_check')
 --   order by conname;
 --
--- ผลที่ต้องได้: 2 แถว และ status_check มี 'captured', 'none', 'no_consent'
+-- ผลที่ต้องได้: 2 แถว และ status_check มี 'captured', 'none', 'no_consent', 'erased'
 --
 -- 3) trigger write-once ต้องเปิดอยู่
 --   select tgname, tgenabled

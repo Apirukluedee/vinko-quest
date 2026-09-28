@@ -78,6 +78,40 @@ try {
   await assert.rejects(ins('VK-BAD-0005', null, snap), /orders_attribution_consistent_check/);
   pass('check constraints reject unknown status and status/snapshot mismatch');
 
+  // --- ลบตามคำขอลูกค้า (PDPA): ทางออกเดียวของ write-once ---
+  const ERASE = "update public.orders set attribution_snapshot = null, attribution_status = 'erased' where order_ref = $1";
+  await assert.rejects(db.query("update public.orders set attribution_status = 'erased' where order_ref='VK-ATTR-0001'"), IMMUTABLE);
+  await assert.rejects(db.query("update public.orders set attribution_snapshot = null where order_ref='VK-ATTR-0001'"), IMMUTABLE);
+  await assert.rejects(db.query("update public.orders set attribution_snapshot = '{\"first\":null,\"last\":{\"utm_source\":\"forged\"}}'::jsonb where order_ref='VK-ATTR-0001'"), IMMUTABLE);
+  assert.equal((await row('VK-ATTR-0001')).attribution_snapshot.last.utm_campaign, 'b2check');
+  pass('before erase: half-erase (status only / snapshot only) and editing snapshot to another value still fail');
+
+  const erased = await db.query(ERASE, ['VK-ATTR-0001']);
+  assert.equal(erased.affectedRows, 1);
+  assert.deepEqual(await row('VK-ATTR-0001'), { attribution_status: 'erased', attribution_snapshot: null, status: 'paid' });
+  await db.query(ERASE, ['VK-ATTR-0003']);   // no_consent -> erased
+  await db.query(ERASE, ['VK-PRE-0002']);    // ออเดอร์ก่อน 008 (NULL) -> erased
+  assert.equal((await row('VK-ATTR-0003')).attribution_status, 'erased');
+  assert.equal((await row('VK-PRE-0002')).attribution_status, 'erased');
+  pass('erase works: captured, no_consent and pre-008 rows -> (NULL, erased)');
+
+  await assert.rejects(db.query("update public.orders set attribution_status = 'captured', attribution_snapshot = $1::jsonb where order_ref='VK-ATTR-0001'", [snap]), IMMUTABLE);
+  await assert.rejects(db.query("update public.orders set attribution_snapshot = $1::jsonb where order_ref='VK-ATTR-0001'", [snap]), IMMUTABLE);
+  await assert.rejects(db.query("update public.orders set attribution_status = 'none' where order_ref='VK-ATTR-0001'"), IMMUTABLE);
+  await assert.rejects(db.query("update public.orders set attribution_status = null where order_ref='VK-ATTR-0001'"), IMMUTABLE);
+  assert.deepEqual(await row('VK-ATTR-0001'), { attribution_status: 'erased', attribution_snapshot: null, status: 'paid' });
+  pass('after erase: any change to snapshot or status fails');
+
+  await db.query(ERASE, ['VK-ATTR-0001']);   // ลบซ้ำ = ไม่เปลี่ยนค่า ไม่ error
+  await db.query("update public.orders set status='refunded' where order_ref='VK-ATTR-0001'");
+  assert.equal((await row('VK-ATTR-0001')).status, 'refunded');
+  pass('after erase: repeating the erase is a no-op; other columns still update');
+
+  await assert.rejects(ins('VK-BAD-0006', 'erased', snap), /orders_attribution_consistent_check/);
+  await ins('VK-ERASED-0001', 'erased', null);
+  await db.query("delete from public.orders where order_ref='VK-ERASED-0001'");
+  pass("consistency check: 'erased' requires snapshot IS NULL");
+
   await ins('VK-LEGACY-0001', null, null);
   pass('insert without attribution (fallback path) still succeeds as NULL');
 
