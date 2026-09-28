@@ -13,6 +13,7 @@ const omise    = require('./_lib/omise');
 const db       = require('./_lib/supabase');
 const orders   = require('./_lib/orders');
 const tokens   = require('./_lib/tokens');
+const { buildSnapshot } = require('./_lib/attribution');
 const { deliver } = require('./_lib/deliver-order');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
 const config   = require('./_lib/config');
@@ -115,7 +116,7 @@ module.exports = async function handler(req, res) {
   }
 
   const now = new Date().toISOString();
-  const ins = await db.insert('orders', {
+  const orderRow = {
     order_ref: orderRef,
     package_code: packageCode,
     amount_satang: amountSatang,
@@ -137,7 +138,38 @@ module.exports = async function handler(req, res) {
     unsubscribe_token: body.consent_marketing === true ? tokens.newToken() : null,
     ip_hash: ipHash,
     client_request_id: clientRequestId
-  });
+  };
+
+  // attribution ณ เวลาสั่งซื้อ (migration 008) — buildSnapshot ไม่ throw
+  // และไม่มีผลกับราคา การตรวจ input หรือการที่ checkout จะไปต่อได้
+  const attr = buildSnapshot(body.attribution, body.attribution_consent, now);
+  let ins = await db.insert('orders', Object.assign({}, orderRow, {
+    attribution_snapshot: attr.snapshot,
+    attribution_status: attr.status
+  }));
+
+  // ลองใหม่โดยไม่มี attribution เฉพาะเมื่อ error พิสูจน์ได้ว่า "แถวไม่ได้ถูกบันทึก
+  // และ attribution เป็นต้นเหตุ" เท่านั้น — 5xx / timeout / ไม่รู้สาเหตุ ห้าม retry
+  // เพราะแถวแรกอาจบันทึกไปแล้ว ลองซ้ำ = ออเดอร์ซ้ำ
+  const retryReason = attributionRetryReason(ins);
+  if (retryReason) {
+    console.error(
+      (retryReason === 'missing_column'
+        ? '[vinko] ATTRIBUTION_COLUMNS_MISSING — ยังไม่ได้รัน migration 008 บนฐานข้อมูลนี้ ลองบันทึกออเดอร์ใหม่โดยไม่มี attribution '
+        : '[vinko] ATTRIBUTION_CHECK_VIOLATION — ค่า attribution ไม่ผ่าน constraint ลองบันทึกออเดอร์ใหม่โดยไม่มี attribution ') +
+      safeDbLog(ins)
+    );
+    try {
+      ins = await db.insert('orders', orderRow);
+    } catch (e) {
+      // throw ต่อตามเดิม — แค่ให้ log บอกว่าการ retry เป็นตัวที่พัง
+      console.error('[vinko] ATTRIBUTION_RETRY_FAILED status: - code: ' + safeCode(e && (e.code || (e.cause && e.cause.code))));
+      throw e;
+    }
+    console.error(ins.ok
+      ? '[vinko] ATTRIBUTION_RETRY_OK — บันทึกออเดอร์โดยไม่มี attribution สำเร็จ'
+      : '[vinko] ATTRIBUTION_RETRY_FAILED ' + safeDbLog(ins));
+  }
 
   if (!ins.ok) {
     if (db.isUniqueViolation(ins) && clientRequestId) {
@@ -147,7 +179,7 @@ module.exports = async function handler(req, res) {
       const row = Array.isArray(again.body) && again.body[0];
       if (row) return json(res, 200, await describeExisting(row));
     }
-    return fail(res, 500, 'ไม่สามารถบันทึกคำสั่งซื้อได้ กรุณาลองใหม่', JSON.stringify(ins.body));
+    return fail(res, 500, 'ไม่สามารถบันทึกคำสั่งซื้อได้ กรุณาลองใหม่', safeDbLog(ins));
   }
 
   const order = Array.isArray(ins.body) ? ins.body[0] : ins.body;
@@ -276,3 +308,43 @@ async function describeExisting(row) {
 }
 
 function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+
+/* log error ของการบันทึกออเดอร์: status + code + ชื่อ constraint/คอลัมน์ในรายการที่อนุญาตเท่านั้น
+   ห้าม log message / details / hint ของ PostgREST เด็ดขาด — ข้อความอิสระพวกนี้
+   มีค่าจริงของแถวติดมาได้ (อีเมล ชื่อ ค่า utm) ตัดด้วย regex ไม่มีวันครบ
+   ชื่อยาวต้องมาก่อน เพราะ 'orders_attribution_status_check' มี 'attribution_status' อยู่ข้างใน */
+const LOGGABLE_DB_NAMES = [
+  'orders_attribution_consistent_check',
+  'orders_attribution_status_check',
+  'attribution_snapshot',
+  'attribution_status'
+];
+
+function safeCode(v) {
+  return typeof v === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(v) ? v : '-';
+}
+
+function safeDbLog(r) {
+  const b = r && r.body && typeof r.body === 'object' ? r.body : {};
+  const status = r && Number.isInteger(r.status) ? r.status : '-';
+  const name = LOGGABLE_DB_NAMES.find(n => String(b.message || '').includes(n));
+  return 'status: ' + status + ' code: ' + safeCode(b.code) + (name ? ' name: ' + name : '');
+}
+
+/* เหตุผลที่ยอม retry โดยไม่มี attribution — คืน null = ห้าม retry
+   (a) คอลัมน์ attribution ยังไม่มี (โค้ดขึ้นก่อนรัน 008)
+   (b) ค่า attribution ไม่ผ่าน check constraint ชื่อ orders_attribution_*
+   ทั้งสองกรณี Postgres ปฏิเสธก่อนบันทึก จึงมั่นใจได้ว่ายังไม่มีแถว */
+function attributionRetryReason(r) {
+  if (!r || r.ok) return null;
+  const b = r.body && typeof r.body === 'object' ? r.body : {};
+  const msg = String(b.message || '');
+  if ((b.code === 'PGRST204' || b.code === '42703') && /attribution_(snapshot|status)/.test(msg)) {
+    return 'missing_column';
+  }
+  if (b.code === '23514') {
+    const m = msg.match(/violates check constraint "([^"]+)"/);
+    if (m && m[1].startsWith('orders_attribution_')) return 'attribution_check';
+  }
+  return null;
+}
