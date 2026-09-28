@@ -315,6 +315,16 @@
       if (cartCodes) body.items = cartCodes;
       else body.package_code = PKG_CODE[selectedPkg()];
 
+      // attribution ณ เวลาสั่งซื้อ — attribution() คืน {} อยู่แล้วถ้ายังไม่ได้ consent
+      // พังหรือไม่มี window.VINKO ก็แค่ไม่ส่ง ห้ามขวางการจ่ายเงิน
+      try {
+        var V = window.VINKO;
+        if (V && typeof V.attribution === "function" && typeof V.consentGranted === "function") {
+          body.attribution = V.attribution();
+          body.attribution_consent = V.consentGranted();
+        }
+      } catch (e) {}
+
       return fetch("/api/create-charge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

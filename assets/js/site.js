@@ -306,6 +306,8 @@
 
   var ATTR_KEY = "vinko_attr";
   var UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"];
+  // click id ของแพลตฟอร์มโฆษณา -> ชื่อแพลตฟอร์มที่เก็บ ถ้ามาหลายตัวพร้อมกันใช้ตัวแรกตามลำดับนี้
+  var CLICK_IDS = [["fbclid", "meta"], ["gclid", "google"], ["ttclid", "tiktok"]];
 
   function readUtm() {
     var q = new URLSearchParams(location.search);
@@ -326,6 +328,17 @@
        รูปแบบนี้เป็นตัวพิมพ์ใหญ่ ห้าม lowercase ไม่งั้นเทียบกลับไม่ตรง */
     var aid = q.get("activation_id");
     if (aid) { out = out || {}; out.activation_id = String(aid).slice(0, 100); }
+
+    /* click id (fbclid/gclid/ttclid) นับเป็น hit ด้วย แม้ไม่มี utm เลย
+       เก็บค่าดิบตามที่แพลตฟอร์มส่งมา ห้าม lowercase — ค่าพวกนี้ case-sensitive */
+    for (var i = 0; i < CLICK_IDS.length; i++) {
+      var cid = q.get(CLICK_IDS[i][0]);
+      if (!cid) continue;
+      out = out || {};
+      out.click_id_platform = CLICK_IDS[i][1];
+      out.click_id_value = String(cid).slice(0, 255);
+      break;
+    }
 
     return out;
   }

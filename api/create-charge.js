@@ -13,6 +13,7 @@ const omise    = require('./_lib/omise');
 const db       = require('./_lib/supabase');
 const orders   = require('./_lib/orders');
 const tokens   = require('./_lib/tokens');
+const { buildSnapshot } = require('./_lib/attribution');
 const { deliver } = require('./_lib/deliver-order');
 const { json, fail, hashIp, isEmail, isPhone, clean, requireEnv } = require('./_lib/util');
 const config   = require('./_lib/config');
@@ -115,7 +116,7 @@ module.exports = async function handler(req, res) {
   }
 
   const now = new Date().toISOString();
-  const ins = await db.insert('orders', {
+  const orderRow = {
     order_ref: orderRef,
     package_code: packageCode,
     amount_satang: amountSatang,
@@ -137,7 +138,32 @@ module.exports = async function handler(req, res) {
     unsubscribe_token: body.consent_marketing === true ? tokens.newToken() : null,
     ip_hash: ipHash,
     client_request_id: clientRequestId
-  });
+  };
+
+  // attribution ณ เวลาสั่งซื้อ (migration 008) — buildSnapshot ไม่ throw
+  // และไม่มีผลกับราคา การตรวจ input หรือการที่ checkout จะไปต่อได้
+  const attr = buildSnapshot(body.attribution, body.attribution_consent, now);
+  let ins = await db.insert('orders', Object.assign({}, orderRow, {
+    attribution_snapshot: attr.snapshot,
+    attribution_status: attr.status
+  }));
+
+  // insert พังด้วยเหตุอื่นที่ไม่ใช่คำขอซ้ำ: ลองใหม่ครั้งเดียวโดยไม่มี attribution
+  // กรณีหลักคือโค้ดขึ้นก่อน migration 008 (คอลัมน์ยังไม่มี) — ห้ามให้ checkout พัง
+  // แถวที่ได้จะเป็น NULL = ไม่รู้ ซึ่งยอมรับได้ ดีกว่าขายไม่ได้
+  if (!ins.ok && !db.isUniqueViolation(ins)) {
+    const e = ins.body && typeof ins.body === 'object' ? ins.body : {};
+    const missingColumn = /attribution_(snapshot|status)/.test(String(e.message || '')) &&
+      (e.code === 'PGRST204' || e.code === '42703');
+    // log เฉพาะ code/message — details ของ PostgREST อาจมีข้อมูลลูกค้าทั้งแถว
+    console.error(
+      missingColumn
+        ? '[vinko] ATTRIBUTION_COLUMNS_MISSING — ยังไม่ได้รัน migration 008 บนฐานข้อมูลนี้ ลองบันทึกออเดอร์ใหม่โดยไม่มี attribution'
+        : '[vinko] ATTRIBUTION_INSERT_RETRY — บันทึกออเดอร์พร้อม attribution ไม่สำเร็จ ลองใหม่โดยไม่มี attribution',
+      'status:', ins.status, 'code:', e.code || '-', 'message:', String(e.message || '').slice(0, 200)
+    );
+    ins = await db.insert('orders', orderRow);
+  }
 
   if (!ins.ok) {
     if (db.isUniqueViolation(ins) && clientRequestId) {
