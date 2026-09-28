@@ -506,7 +506,9 @@ process.on('exit', () => {
 
     /* ---- claim-download: payload purchase ของ CUSTOM ---- */
     section('6b. claim-download ออเดอร์ CUSTOM มี purchase payload');
-    process.env.OMISE_SECRET_KEY = 'skey_live_FAKE';
+    // live key จริงของ Omise ไม่มีคำว่า live (skey_xxx) — ใช้รูปแบบเดียวกัน ค่าปลอม
+    const LIVE_SHAPED_SK = 'skey_' + 'fixtureNOTREAL0123';
+    process.env.OMISE_SECRET_KEY = LIVE_SHAPED_SK;
     const customRef = c.body.order_ref;
     const customOrder = S.orders[0];
     Object.assign(customOrder, { client_request_id: 'rid-custom-0000000001', download_token: 'TOKEN_FIXTURE', token_expires_at: '2027-01-01T00:00:00Z' });
@@ -519,8 +521,18 @@ process.on('exit', () => {
       return res;
     };
     const claimRes = await claim(customRef, 'rid-custom-0000000001');
-    process.env.OMISE_SECRET_KEY = 'skey_test_FAKE';
     customPurchase = claimRes.body && claimRes.body.purchase;
+    await check('key รูปแบบ live (skey_xxx ไม่มี _test_) -> payment_mode live -> เบราว์เซอร์ได้ payload ยิง purchase ได้', () => {
+      assert.ok(customPurchase, 'no purchase payload');
+      assert.equal(customPurchase.payment_mode, 'live');
+      assert.ok(!JSON.stringify(claimRes.body).includes(LIVE_SHAPED_SK));
+    });
+    for (const [label, key, want] of [['skey_test_xxx', 'skey_test_' + 'FAKE', 'test'], ['ว่าง/ขยะ', 'garbage', 'unknown']]) {
+      process.env.OMISE_SECRET_KEY = key;
+      const r2 = await claim(customRef, 'rid-custom-0000000001');
+      await check('key ' + label + ' -> payment_mode ' + want, () => assert.equal(r2.body.purchase.payment_mode, want));
+    }
+    process.env.OMISE_SECRET_KEY = 'skey_test_FAKE';
     await check('CUSTOM -> purchase: transaction_id = order_ref, value = ยอดรวม DB, THB, items จาก order_items', () => {
       assert.equal(claimRes.body.ready, true, JSON.stringify(claimRes.body));
       assert.ok(customPurchase, 'no purchase payload');
