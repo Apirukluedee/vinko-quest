@@ -148,21 +148,22 @@ module.exports = async function handler(req, res) {
     attribution_status: attr.status
   }));
 
-  // insert พังด้วยเหตุอื่นที่ไม่ใช่คำขอซ้ำ: ลองใหม่ครั้งเดียวโดยไม่มี attribution
-  // กรณีหลักคือโค้ดขึ้นก่อน migration 008 (คอลัมน์ยังไม่มี) — ห้ามให้ checkout พัง
-  // แถวที่ได้จะเป็น NULL = ไม่รู้ ซึ่งยอมรับได้ ดีกว่าขายไม่ได้
-  if (!ins.ok && !db.isUniqueViolation(ins)) {
-    const e = ins.body && typeof ins.body === 'object' ? ins.body : {};
-    const missingColumn = /attribution_(snapshot|status)/.test(String(e.message || '')) &&
-      (e.code === 'PGRST204' || e.code === '42703');
-    // log เฉพาะ code/message — details ของ PostgREST อาจมีข้อมูลลูกค้าทั้งแถว
+  // ลองใหม่โดยไม่มี attribution เฉพาะเมื่อ error พิสูจน์ได้ว่า "แถวไม่ได้ถูกบันทึก
+  // และ attribution เป็นต้นเหตุ" เท่านั้น — 5xx / timeout / ไม่รู้สาเหตุ ห้าม retry
+  // เพราะแถวแรกอาจบันทึกไปแล้ว ลองซ้ำ = ออเดอร์ซ้ำ
+  const retryReason = attributionRetryReason(ins);
+  if (retryReason) {
+    const e1 = dbError(ins);
     console.error(
-      missingColumn
+      retryReason === 'missing_column'
         ? '[vinko] ATTRIBUTION_COLUMNS_MISSING — ยังไม่ได้รัน migration 008 บนฐานข้อมูลนี้ ลองบันทึกออเดอร์ใหม่โดยไม่มี attribution'
-        : '[vinko] ATTRIBUTION_INSERT_RETRY — บันทึกออเดอร์พร้อม attribution ไม่สำเร็จ ลองใหม่โดยไม่มี attribution',
-      'status:', ins.status, 'code:', e.code || '-', 'message:', String(e.message || '').slice(0, 200)
+        : '[vinko] ATTRIBUTION_CHECK_VIOLATION — ค่า attribution ไม่ผ่าน constraint ลองบันทึกออเดอร์ใหม่โดยไม่มี attribution',
+      'status:', ins.status, 'code:', e1.code, 'message:', e1.message
     );
     ins = await db.insert('orders', orderRow);
+    console.error(ins.ok
+      ? '[vinko] ATTRIBUTION_RETRY_OK — บันทึกออเดอร์โดยไม่มี attribution สำเร็จ'
+      : '[vinko] ATTRIBUTION_RETRY_FAILED status: ' + ins.status + ' code: ' + dbError(ins).code);
   }
 
   if (!ins.ok) {
@@ -173,7 +174,9 @@ module.exports = async function handler(req, res) {
       const row = Array.isArray(again.body) && again.body[0];
       if (row) return json(res, 200, await describeExisting(row));
     }
-    return fail(res, 500, 'ไม่สามารถบันทึกคำสั่งซื้อได้ กรุณาลองใหม่', JSON.stringify(ins.body));
+    const e2 = dbError(ins);
+    return fail(res, 500, 'ไม่สามารถบันทึกคำสั่งซื้อได้ กรุณาลองใหม่',
+      'status: ' + ins.status + ' code: ' + e2.code + ' message: ' + e2.message);
   }
 
   const order = Array.isArray(ins.body) ? ins.body[0] : ins.body;
@@ -302,3 +305,33 @@ async function describeExisting(row) {
 }
 
 function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
+
+/* ข้อมูล error ที่ log ได้อย่างปลอดภัย: code + message สั้นๆ เท่านั้น
+   ห้าม log `details` ของ PostgREST (มีค่าทั้งแถว = ข้อมูลลูกค้า + attribution)
+   ค่าที่ Postgres ใส่ใน message มักอยู่หลัง `: "..."` จึงตัดทิ้ง
+   แต่ชื่อ constraint/relation ที่อยู่ในเครื่องหมายคำพูดยังเหลือไว้ใช้ debug */
+function dbError(r) {
+  const b = r && r.body && typeof r.body === 'object' ? r.body : {};
+  return {
+    code: typeof b.code === 'string' ? b.code.slice(0, 16) : '-',
+    message: String(b.message || '').replace(/: "[^"]*"/g, ': "…"').slice(0, 160)
+  };
+}
+
+/* เหตุผลที่ยอม retry โดยไม่มี attribution — คืน null = ห้าม retry
+   (a) คอลัมน์ attribution ยังไม่มี (โค้ดขึ้นก่อนรัน 008)
+   (b) ค่า attribution ไม่ผ่าน check constraint ชื่อ orders_attribution_*
+   ทั้งสองกรณี Postgres ปฏิเสธก่อนบันทึก จึงมั่นใจได้ว่ายังไม่มีแถว */
+function attributionRetryReason(r) {
+  if (!r || r.ok) return null;
+  const b = r.body && typeof r.body === 'object' ? r.body : {};
+  const msg = String(b.message || '');
+  if ((b.code === 'PGRST204' || b.code === '42703') && /attribution_(snapshot|status)/.test(msg)) {
+    return 'missing_column';
+  }
+  if (b.code === '23514') {
+    const m = msg.match(/violates check constraint "([^"]+)"/);
+    if (m && m[1].startsWith('orders_attribution_')) return 'attribution_check';
+  }
+  return null;
+}

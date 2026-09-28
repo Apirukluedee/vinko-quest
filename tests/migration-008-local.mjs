@@ -107,10 +107,16 @@ try {
   assert.equal((await row('VK-ATTR-0001')).status, 'refunded');
   pass('after erase: repeating the erase is a no-op; other columns still update');
 
-  await assert.rejects(ins('VK-BAD-0006', 'erased', snap), /orders_attribution_consistent_check/);
-  await ins('VK-ERASED-0001', 'erased', null);
-  await db.query("delete from public.orders where order_ref='VK-ERASED-0001'");
-  pass("consistency check: 'erased' requires snapshot IS NULL");
+  await assert.rejects(ins('VK-BAD-0006', 'erased', snap), /ORDER_ATTRIBUTION_ERASED_ON_INSERT|orders_attribution_consistent_check/);
+  await assert.rejects(ins('VK-BAD-0007', 'erased', null), /ORDER_ATTRIBUTION_ERASED_ON_INSERT/);
+  assert.equal((await db.query("select count(*)::int as n from public.orders where order_ref like 'VK-BAD-%'")).rows[0].n, 0);
+  pass("INSERT with 'erased' is rejected — reachable only via the erase UPDATE");
+
+  // ข้าม trigger ชั่วคราวเพื่อพิสูจน์ว่า CHECK เองก็กัน (erased + snapshot) ได้อีกชั้น
+  await db.exec('alter table public.orders disable trigger orders_attribution_write_once');
+  await assert.rejects(ins('VK-BAD-0008', 'erased', snap), /orders_attribution_consistent_check/);
+  await db.exec('alter table public.orders enable trigger orders_attribution_write_once');
+  pass("consistency check: 'erased' requires snapshot IS NULL (independent of trigger)");
 
   await ins('VK-LEGACY-0001', null, null);
   pass('insert without attribution (fallback path) still succeeds as NULL');

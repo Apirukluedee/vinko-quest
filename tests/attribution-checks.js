@@ -205,7 +205,7 @@ const NOW = '2026-09-28T10:00:00.000Z';
   process.env.APP_BASE_URL = 'https://vinko.example';
   process.env.IP_HASH_SALT = 'test-salt';
 
-  const DB = { orders: [], order_items: [], counter: 0, missingColumns: [], orderInserts: [] };
+  const DB = { orders: [], order_items: [], counter: 0, missingColumns: [], orderInserts: [], orderQueue: [] };
   const SB = 'https://fake.supabase.co/rest/v1';
   const reply = (status, body, headers) => ({
     ok: status >= 200 && status < 300, status,
@@ -230,6 +230,9 @@ const NOW = '2026-09-28T10:00:00.000Z';
         const rows = [].concat(JSON.parse(opts.body));
         if (table === 'orders') {
           DB.orderInserts.push(rows[0]);
+          // เทสต์กำหนดผลของ insert ครั้งถัดไปได้: คืน reply, throw (timeout/network) หรือ undefined = ทำงานปกติ
+          const scripted = DB.orderQueue.shift();
+          if (scripted) { const out = scripted(rows[0]); if (out) return out; }
           // จำลอง PostgREST ตอนคอลัมน์ยังไม่มี (ก่อนรัน 008)
           const miss = DB.missingColumns.find(c => c in rows[0]);
           if (miss) return reply(400, { code: 'PGRST204', message: "Could not find the '" + miss + "' column of 'orders' in the schema cache" });
@@ -264,7 +267,7 @@ const NOW = '2026-09-28T10:00:00.000Z';
     }
     return require(path.join(REPO, 'api', 'create-charge.js'));
   }
-  function reset() { DB.orders = []; DB.order_items = []; DB.counter = 0; DB.missingColumns = []; DB.orderInserts = []; }
+  function reset() { DB.orders = []; DB.order_items = []; DB.counter = 0; DB.missingColumns = []; DB.orderInserts = []; DB.orderQueue = []; }
   async function charge(extra) {
     const r = { statusCode: 200, headers: {}, body: null };
     r.setHeader = (k, v) => { r.headers[k] = v; };
@@ -345,6 +348,101 @@ const NOW = '2026-09-28T10:00:00.000Z';
       const l = logs.find(x => /ATTRIBUTION_COLUMNS_MISSING/.test(x));
       assert.ok(l, logs.join('\n'));
       assert.ok(!/b2check|test@example\.com/.test(logs.join('\n')));
+    });
+    await check('หลัง retry -> log บอกผลว่าสำเร็จ', () => {
+      assert.ok(logs.some(x => /ATTRIBUTION_RETRY_OK/.test(x)), logs.join('\n'));
+    });
+
+    /* ---- retry แคบ: ห้ามลองซ้ำถ้าไม่แน่ใจว่าแถวแรกไม่ได้ถูกบันทึก ---- */
+    // details ของ PostgREST มีค่าทั้งแถว — ใส่อีเมลไว้เพื่อพิสูจน์ว่าไม่หลุดลง log
+    const leakyDetails = 'Failing row contains (x, VK-2609-0001, LAB, 19900, THB, ทดสอบ, test@example.com, b2check)';
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => reply(503, { code: 'PGRST000', message: 'upstream timed out', details: leakyDetails })];
+    r = await charge(attrBody);
+    await check('insert แรกได้ 5xx -> ไม่ insert ซ้ำ และตอบ error ตามเดิม', () => {
+      assert.equal(DB.orderInserts.length, 1);
+      assert.equal(r.statusCode, 500);
+      assert.equal(r.body.ok, false);
+      assert.ok(!logs.some(x => /ATTRIBUTION_(COLUMNS_MISSING|CHECK_VIOLATION|RETRY)/.test(x)), logs.join('\n'));
+    });
+    await check('error path log แค่ code + message ไม่มี details/อีเมล/attribution', () => {
+      const all = logs.join('\n');
+      assert.ok(/code: PGRST000/.test(all), all);
+      assert.ok(!/Failing row|test@example\.com|b2check/.test(all), all);
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => { throw new Error('fetch failed: ETIMEDOUT'); }];
+    let threw = null;
+    try { r = await charge(attrBody); } catch (e) { threw = e; }
+    await check('insert แรก timeout/network (throw) -> ไม่ insert ซ้ำ', () => {
+      assert.equal(DB.orderInserts.length, 1);
+      assert.ok(threw || r.statusCode >= 500);
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => reply(400, { code: '23514', message: 'new row for relation "orders" violates check constraint "orders_package_code_check"', details: leakyDetails })];
+    r = await charge(attrBody);
+    await check('23514 จาก constraint อื่น (เช่น package_code แบบเคส 007) -> ไม่ retry', () => {
+      assert.equal(DB.orderInserts.length, 1);
+      assert.equal(r.statusCode, 500);
+      assert.ok(/orders_package_code_check/.test(logs.join('\n')), 'ชื่อ constraint ต้องยังอยู่ใน log ไว้ debug');
+      assert.ok(!/Failing row|test@example\.com/.test(logs.join('\n')));
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => reply(400, { code: '42703', message: 'column "attribution_status" of relation "orders" does not exist' })];
+    r = await charge(attrBody);
+    await check('(a) 42703 คอลัมน์ attribution ไม่มี -> retry แล้วขายได้', () => {
+      assert.equal(r.body.ok, true, JSON.stringify(r.body));
+      assert.equal(DB.orderInserts.length, 2);
+      assert.ok(!('attribution_status' in DB.orderInserts[1]));
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [() => reply(400, { code: '23514', message: 'new row for relation "orders" violates check constraint "orders_attribution_consistent_check"', details: leakyDetails })];
+    r = await charge(attrBody);
+    await check('(b) 23514 จาก orders_attribution_* -> retry แล้วขายได้', () => {
+      assert.equal(r.body.ok, true, JSON.stringify(r.body));
+      assert.equal(DB.orderInserts.length, 2);
+      assert.equal(DB.orders.length, 1);
+      assert.ok(!('attribution_snapshot' in DB.orderInserts[1]));
+      assert.ok(logs.some(x => /ATTRIBUTION_CHECK_VIOLATION/.test(x)) && logs.some(x => /ATTRIBUTION_RETRY_OK/.test(x)), logs.join('\n'));
+      assert.ok(!/Failing row|test@example\.com|b2check/.test(logs.join('\n')));
+    });
+
+    reset(); logs.length = 0;
+    DB.orderQueue = [
+      () => reply(400, { code: 'PGRST204', message: "Could not find the 'attribution_snapshot' column of 'orders' in the schema cache" }),
+      () => reply(500, { code: 'XX000', message: 'internal error', details: leakyDetails })
+    ];
+    r = await charge(attrBody);
+    await check('retry แล้วยังพัง -> log ว่า RETRY_FAILED พร้อม code เท่านั้น แล้วตอบ error', () => {
+      assert.equal(DB.orderInserts.length, 2);
+      assert.equal(r.statusCode, 500);
+      assert.ok(logs.some(x => /ATTRIBUTION_RETRY_FAILED.*code: XX000/.test(x)), logs.join('\n'));
+      assert.ok(!/Failing row|test@example\.com/.test(logs.join('\n')));
+    });
+
+    // คำขอซ้ำที่ชนกันพอดี: select กันซ้ำไม่เจอ แต่ระหว่างนั้นอีกคำขอบันทึกไปก่อน
+    // insert แรกพังเพราะ attribution -> retry -> ชน unique -> ต้องคืนออเดอร์เดิม
+    reset(); logs.length = 0;
+    DB.orderQueue = [
+      () => reply(400, { code: '23514', message: 'new row for relation "orders" violates check constraint "orders_attribution_status_check"' }),
+      row => {
+        DB.orders.push({ id: 'orders-race', order_ref: 'VK-2609-0999', status: 'pending', omise_charge_id: null,
+          payment_method: 'promptpay', amount_satang: 19900, client_request_id: row.client_request_id });
+        return reply(409, { code: '23505', message: 'duplicate key value violates unique constraint "orders_client_request_id_key"' });
+      }
+    ];
+    r = await charge(Object.assign({}, attrBody, { client_request_id: 'rid-race-0001' }));
+    await check('(3) unique violation หลัง retry -> คืนออเดอร์เดิมเหมือนเดิม', () => {
+      assert.equal(DB.orderInserts.length, 2);
+      assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+      assert.equal(r.body.order_ref, 'VK-2609-0999');
+      assert.equal(r.body.duplicate, true);
+      assert.equal(DB.orders.length, 1);
     });
 
     reset();

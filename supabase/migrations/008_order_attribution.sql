@@ -24,6 +24,7 @@
 --   เปลี่ยนเป็น (attribution_snapshot = NULL, attribution_status = 'erased')
 --   ได้ครั้งเดียว จากสถานะใดก็ได้ที่ยังไม่ใช่ 'erased'
 --   เมื่อเป็น 'erased' แล้ว เปลี่ยนอะไรในสองคอลัมน์นี้ไม่ได้อีกเลย
+--   และ INSERT ด้วย 'erased' ถูกปฏิเสธ (ORDER_ATTRIBUTION_ERASED_ON_INSERT)
 --   ลบได้อย่างเดียว เขียนค่าใหม่กลับเข้าไปไม่ได้ ความจริง ณ เวลาสั่งซื้อจึงยังไม่ถูกปลอม
 --
 --   วิธีลบให้ลูกค้า (เจ้าของรันเองใน SQL Editor ของ production, ใส่เลขออเดอร์จริง):
@@ -83,6 +84,16 @@ language plpgsql
 set search_path = ''
 as $$
 begin
+  -- 'erased' ได้มาทางเดียวคือ UPDATE ลบตามคำขอ ห้ามสร้างออเดอร์ใหม่ด้วยสถานะนี้
+  -- (ไม่งั้นจะแยกไม่ออกว่าลูกค้าขอลบจริง หรือแค่บันทึกมาแบบนี้ตั้งแต่แรก)
+  if tg_op = 'INSERT' then
+    if new.attribution_status = 'erased' then
+      raise exception 'ORDER_ATTRIBUTION_ERASED_ON_INSERT: erased is only reachable by the erase UPDATE (order %)', new.order_ref
+        using errcode = 'P0001';
+    end if;
+    return new;
+  end if;
+
   if new.attribution_snapshot is distinct from old.attribution_snapshot
      or new.attribution_status is distinct from old.attribution_status then
     -- ข้อยกเว้นเดียว: ลบตามคำขอลูกค้า ทำได้ครั้งเดียว
@@ -103,7 +114,7 @@ revoke execute on function public.orders_attribution_write_once() from public, a
 
 drop trigger if exists orders_attribution_write_once on public.orders;
 create trigger orders_attribution_write_once
-  before update on public.orders
+  before insert or update on public.orders
   for each row execute function public.orders_attribution_write_once();
 
 commit;
