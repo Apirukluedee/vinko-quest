@@ -86,7 +86,7 @@ module.exports = async function handler(req, res) {
 
   // ลูกค้าที่อีเมลอยู่คนละเครื่องกับ LINE เข้า My Library ไม่ได้ ต้องผูก LINE
   // จากหน้านี้ได้เลย ไม่ใช่ไปเจอ QR หลังล็อกอินซึ่งเข้าไม่ถึงตั้งแต่แรก
-  const connectUrl = email.connectLineUrl(order.customer_email);
+  const connectUrl = email.connectLineUrl(order.customer_email, email.CONNECT_TTL_PAGE_MS);
   if (connectUrl) {
     payload.connect_line_url = connectUrl;
     payload.connect_line_qr_svg = await QRCode.toString(connectUrl, { type: 'svg', width: 220, margin: 1 })

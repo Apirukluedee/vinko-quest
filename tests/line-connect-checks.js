@@ -42,7 +42,7 @@ const loginSrc = (function () {
   return blocks[blocks.length - 1];
 })();
 
-async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSession = false } = {}) {
+async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSession = false, callbackReply = { ok: true }, startReply = null } = {}) {
   const fetches = [], els = {};
   const el = () => ({ disabled: false, textContent: '', className: '', style: {}, value: '', addEventListener() {} });
   ['msg-box', 'btn-line', 'btn-magic', 'email-input'].forEach(id => { els[id] = el(); });
@@ -58,8 +58,8 @@ async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSessio
     document: { getElementById: id => els[id] }, history: { replaceState() {} }, console,
     fetch: async (url, opts) => {
       fetches.push({ url: String(url), opts });
-      if (String(url).startsWith('/api/auth/line-start')) return { json: async () => ({ ok: true, authorizeUrl: AUTH_URL }) };
-      if (String(url).startsWith('/api/auth/line-callback')) return { json: async () => ({ ok: true }) };
+      if (String(url).startsWith('/api/auth/line-start')) return { json: async () => (startReply || { ok: true, authorizeUrl: AUTH_URL }) };
+      if (String(url).startsWith('/api/auth/line-callback')) return { json: async () => callbackReply };
       return { json: async () => ({ ok: true }) };
     }
   };
@@ -173,6 +173,9 @@ async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSessio
     assert.equal(payload.p, 'connect');
     assert.equal(payload.email, 'parent@example.com');
     assert.ok(payload.exp > Date.now());
+    // QR บนหน้าเว็บอยู่ได้ 30 นาที (แคปไปแชร์ทีหลังใช้ไม่ได้)
+    assert.ok(payload.exp <= Date.now() + 30 * 60 * 1000 + 5000, 'page QR must expire within 30 min');
+    assert.ok(payload.exp > Date.now() + 29 * 60 * 1000);
   });
   r = await claim('rid-WRONG-0000000000');
   await check('rid ไม่ตรง -> 403 ไม่มีลิงก์ผูก LINE', () => {
@@ -232,6 +235,161 @@ async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSessio
     const ef = html.indexOf('class="vk-line-cta"');
     assert.ok(box > 0, 'no LINE connect box');
     assert.ok(ef > box, 'EF card should come after the LINE connect box');
+  });
+
+  /* ---------------- 4. auth.js — เพดาน 3 LINE ต่ออีเมล + อายุ ---------------- */
+  section('4. เพดาน LINE ต่ออีเมล, อายุลิงก์และการเข้าสู่ระบบ');
+  const signed = require(path.join(REPO, 'api', '_lib', 'signed_token.js'));
+  const SECRET = 'line-secret-fixture';
+  const BUYER = 'parent@example.com';
+  const uid = n => 'U' + String(n).padStart(32, '0');
+  const S = { sessions: [], profileUid: uid(9), lineEmail: '', failLookup: false, inserted: [] };
+  global.fetch = async (url, opts) => {
+    const u = String(url), method = ((opts && opts.method) || 'GET').toUpperCase();
+    if (u === 'https://api.line.me/oauth2/v2.1/token') return reply(200, { access_token: 'at', id_token: 'idt' });
+    if (u === 'https://api.line.me/v2/profile') return reply(200, { userId: S.profileUid });
+    if (u === 'https://api.line.me/oauth2/v2.1/verify') return reply(200, { email: S.lineEmail });
+    if (u.startsWith('https://fake.supabase.co/rest/v1/user_sessions')) {
+      const qs = new URLSearchParams(u.split('?')[1] || '');
+      if (method === 'GET') {
+        if (S.failLookup && qs.get('line_user_id') === 'not.is.null') return reply(503, { code: 'PGRST000' });
+        let rows = S.sessions;
+        if ((qs.get('email') || '').startsWith('eq.')) rows = rows.filter(r => r.email === qs.get('email').slice(3));
+        if (qs.get('line_user_id') === 'not.is.null') rows = rows.filter(r => r.line_user_id);
+        else if (qs.get('line_user_id')) rows = rows.filter(r => r.line_user_id === qs.get('line_user_id').replace(/^eq\./, ''));
+        if (qs.get('email') === 'not.is.null') rows = rows.filter(r => r.email);
+        return reply(200, rows);
+      }
+      if (method === 'POST') {
+        const row = Object.assign({ session_token: 'sess-' + (S.sessions.length + 1) }, JSON.parse(opts.body));
+        S.sessions.push(row); S.inserted.push(row);
+        return reply(201, [row]);
+      }
+    }
+    throw new Error('unmocked fetch ' + method + ' ' + u);
+  };
+  function loadAuth() {
+    for (const f of ['auth.js', '_lib/sessions.js', '_lib/email.js', '_lib/config.js', '_lib/supabase.js']) delete require.cache[require.resolve(path.join(REPO, 'api', f))];
+    return require(path.join(REPO, 'api', 'auth.js'));
+  }
+  function mres() {
+    const res = { statusCode: 200, headers: {}, body: null };
+    res.setHeader = (k, v) => { res.headers[k.toLowerCase()] = v; }; res.status = c => { res.statusCode = c; return res; };
+    res.send = b => { res.body = JSON.parse(b); return res; }; res.end = () => res;
+    return res;
+  }
+  const state = (extra) => signed.sign(Object.assign({ p: 'oauth', n: 'x', exp: Date.now() + 600000 }, extra), SECRET);
+  async function callback(extra) {
+    S.inserted = [];
+    const res = mres();
+    await loadAuth()({ method: 'POST', query: { action: 'line-callback' }, headers: {}, body: { code: 'c', state: state(extra) } }, res);
+    return res;
+  }
+  const seed = ids => { S.sessions = ids.map((id, i) => ({ email: BUYER, line_user_id: id, session_token: 'old-' + i })); };
+  const logs = []; const oe = console.error, ow = console.warn;
+  console.error = (...a) => logs.push(a.join(' ')); console.warn = (...a) => logs.push(a.join(' '));
+  try {
+    seed([uid(1), uid(2)]); S.profileUid = uid(9);
+    let r = await callback({ email: BUYER });
+    await check('QR/ลิงก์ผูก: ผูกไว้ 2 บัญชี -> บัญชีที่ 3 ผูกได้ ได้ session', () => {
+      assert.equal(r.body.ok, true, JSON.stringify(r.body));
+      assert.equal(S.inserted.length, 1);
+      assert.equal(S.inserted[0].email, BUYER);
+      assert.equal(S.inserted[0].line_user_id, uid(9));
+    });
+    seed([uid(1), uid(2), uid(3)]);
+    r = await callback({ email: BUYER });
+    await check('QR/ลิงก์ผูก: ครบ 3 บัญชีแล้ว -> บัญชีที่ 4 ถูกปฏิเสธ line_limit_reached ไม่สร้าง session', () => {
+      assert.deepEqual(r.body, { ok: false, error: 'line_limit_reached' });
+      assert.equal(S.inserted.length, 0);
+      assert.equal(r.headers['set-cookie'], undefined);
+    });
+    await check('log ของการถูกปฏิเสธไม่มีอีเมลหรือ LINE id', () => {
+      const all = logs.join('\n');
+      assert.ok(all.includes('LINE_LIMIT_REACHED'));
+      assert.ok(!all.includes(BUYER) && !all.includes(uid(9)));
+    });
+    seed([uid(1), uid(2), uid(3), uid(4)]); S.profileUid = uid(2);
+    r = await callback({ email: BUYER });
+    await check('LINE ที่ผูกไว้แล้วเข้าได้เสมอ แม้มีเกิน 3 บัญชี (ผูกก่อนมีกฎ)', () => {
+      assert.equal(r.body.ok, true);
+      assert.equal(S.inserted.length, 1);
+    });
+    S.sessions = [uid(1), uid(1), uid(1), uid(2)].map(id => ({ email: BUYER, line_user_id: id }))
+      .concat([{ email: BUYER, line_user_id: null }, { email: 'other@example.com', line_user_id: uid(5) }]);
+    S.profileUid = uid(9);
+    r = await callback({ email: BUYER });
+    await check('นับเฉพาะ LINE ไม่ซ้ำของอีเมลนี้ (session ซ้ำ / แถวไม่มี LINE / อีเมลอื่น ไม่นับ)', () => {
+      assert.equal(r.body.ok, true, JSON.stringify(r.body));
+    });
+    seed([uid(1), uid(2), uid(3)]); S.profileUid = uid(9); S.lineEmail = BUYER;
+    r = await callback({});
+    await check('LINE ที่ยืนยันอีเมลเดียวกับผู้ซื้อเอง (ไม่ได้มาจาก QR) -> ไม่ติดเพดาน', () => {
+      assert.equal(r.body.ok, true);
+      assert.equal(S.inserted[0].email, BUYER);
+    });
+    S.lineEmail = '';
+    seed([uid(1), uid(2), uid(3)]); S.profileUid = uid(1);
+    r = await callback({});
+    await check('LINE ที่เคยผูกไว้ กดปุ่ม LINE ธรรมดา -> เข้าได้ตามเดิม', () => assert.equal(r.body.ok, true));
+    seed([]); S.failLookup = true; S.profileUid = uid(9);
+    r = await callback({ email: BUYER });
+    S.failLookup = false;
+    await check('นับจำนวนไม่ได้ (DB ล่ม) -> ไม่ผูก ตอบ internal', () => {
+      assert.deepEqual(r.body, { ok: false, error: 'internal' });
+      assert.equal(S.inserted.length, 0);
+    });
+
+    seed([]); S.profileUid = uid(9);
+    r = await callback({ email: BUYER });
+    await check('session ใหม่หมดอายุใน 1 ปี (ทั้งในฐานข้อมูลและ cookie)', () => {
+      const exp = Date.parse(S.inserted[0].expires_at);
+      const year = 365 * 24 * 3600 * 1000;
+      assert.ok(Math.abs(exp - (Date.now() + year)) < 60000, 'expires_at ' + S.inserted[0].expires_at);
+      assert.match(r.headers['set-cookie'], /Max-Age=31536000/);
+      assert.match(r.headers['set-cookie'], /HttpOnly; Secure; SameSite=Lax/);
+    });
+
+    delete require.cache[require.resolve(path.join(REPO, 'api', '_lib', 'email.js'))];
+    const emailLib = require(path.join(REPO, 'api', '_lib', 'email.js'));
+    const mailUrl = emailLib.connectLineUrl(BUYER);
+    const mailTok = signed.verify(decodeURIComponent(mailUrl.match(/connect_token=([^&]+)/)[1]), SECRET);
+    await check('ลิงก์ผูก LINE ในอีเมลสั่งซื้อใช้ได้ 1 ปี', () => {
+      assert.ok(Math.abs(mailTok.exp - (Date.now() + 365 * 24 * 3600 * 1000)) < 60000);
+    });
+
+    async function start(token) {
+      const res = mres();
+      await loadAuth()({ method: 'GET', query: { action: 'line-start', connect_token: token }, headers: {} }, res);
+      return res;
+    }
+    r = await start(signed.sign({ p: 'connect', email: BUYER, exp: Date.now() - 1000 }, SECRET));
+    await check('QR หมดอายุ -> line-start ตอบ connect_expired (ไม่ปล่อยไป login แบบไม่ผูก)', () => {
+      assert.deepEqual(r.body, { ok: false, error: 'connect_expired' });
+    });
+    r = await start(signed.sign({ p: 'connect', email: BUYER, exp: Date.now() + 60000 }, 'wrong-secret'));
+    await check('QR ปลอม (ลายเซ็นผิด) -> connect_expired', () => assert.equal(r.body.error, 'connect_expired'));
+    r = await start(signed.sign({ p: 'oauth', email: BUYER, exp: Date.now() + 60000 }, SECRET));
+    await check('token ผิดประเภท (ไม่ใช่ connect) -> connect_expired', () => assert.equal(r.body.error, 'connect_expired'));
+    r = await start(signed.sign({ p: 'connect', email: BUYER, exp: Date.now() + 60000 }, SECRET));
+    await check('QR ยังไม่หมดอายุ -> ได้ลิงก์ไป LINE Login พร้อมอีเมลใน state', () => {
+      assert.equal(r.body.ok, true);
+      const st = new URL(r.body.authorizeUrl).searchParams.get('state');
+      assert.equal(signed.verify(st, SECRET).email, BUYER);
+    });
+    r = await start('');
+    await check('ปุ่ม LINE ธรรมดา (ไม่มี connect_token) -> ทำงานเหมือนเดิม', () => assert.equal(r.body.ok, true));
+  } finally { console.error = oe; console.warn = ow; }
+
+  p = await loginPage({ search: '?code=abc&state=signed', callbackReply: { ok: false, error: 'line_limit_reached' } });
+  await check('หน้า login แสดงข้อความ "ผูก LINE ครบ 3 บัญชีแล้ว" พร้อมทางออก (อีเมล/แอดมิน)', () => {
+    assert.match(p.els['msg-box'].textContent, /ครบ 3 บัญชี/);
+    assert.match(p.els['msg-box'].textContent, /อีเมล/);
+  });
+  p = await loginPage({ search: '?connect_token=old.tok&openExternalBrowser=1', startReply: { ok: false, error: 'connect_expired' } });
+  await check('หน้า login แสดงข้อความ QR หมดอายุ บอกวิธีรับ QR ใหม่', () => {
+    assert.match(p.els['msg-box'].textContent, /หมดอายุ/);
+    assert.match(p.els['msg-box'].textContent, /QR ใหม่/);
   });
 
   finished = true;
