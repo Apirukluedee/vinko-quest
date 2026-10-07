@@ -282,12 +282,24 @@ function requireEnv(names) {
   if (missing.length) throw new Error('ENV_MISSING: ' + missing.join(', '));
 }
 
-/** test / live / unknown — ใช้กันเผลอ deploy โดยที่ยังเป็น test key */
-function omiseKeyMode() {
-  const k = opt('OMISE_SECRET_KEY', '');
-  if (k.startsWith('skey_test_')) return 'test';
-  if (k.startsWith('skey_live_')) return 'live';
+/* จำแนก key ของ Omise เป็น test / live / unknown
+   ตามเอกสาร Omise (docs.omise.co/api-authentication):
+     test key มี "_test_" อยู่ในตัว เช่น skey_test_xxx / pkey_test_xxx
+     live key ไม่มีคำบอกโหมดเลย เช่น skey_xxx / pkey_xxx — ไม่มี "skey_live_"
+   เดิมเช็ค "skey_live_" ซึ่งไม่มีจริง production จึงได้ 'unknown' ตลอด
+   (ผล: purchase ฝั่งเบราว์เซอร์ไม่เคยยิง ดู purchaseMode ใน claim-download.js)
+   ห้าม log ค่า key — คืนแค่ชื่อโหมด */
+function classifyOmiseKey(key) {
+  const k = typeof key === 'string' ? key.trim() : '';
+  if (!k) return 'unknown';
+  if (k.includes('_test_')) return 'test';
+  if (/^(skey|pkey)_[A-Za-z0-9]/.test(k)) return 'live';
   return 'unknown';
+}
+
+/** test / live / unknown ของ secret key — ใช้กันเผลอ deploy โดยที่ยังเป็น test key */
+function omiseKeyMode() {
+  return classifyOmiseKey(opt('OMISE_SECRET_KEY', ''));
 }
 
 module.exports = {
@@ -300,6 +312,7 @@ module.exports = {
   omiseSecretKey:     () => req('OMISE_SECRET_KEY'),
   omisePublicKey:     () => opt('OMISE_PUBLIC_KEY', ''),
   omiseKeyMode,
+  classifyOmiseKey,
 
   /* --- อีเมล --- */
   resendApiKey:       () => opt('RESEND_API_KEY', ''),

@@ -21,6 +21,7 @@ const omise  = require('./_lib/omise');
 const db     = require('./_lib/supabase');
 const orders = require('./_lib/orders');
 const line   = require('./_lib/line');
+const metaCapi = require('./_lib/meta-capi');
 const { deliver } = require('./_lib/deliver-order');
 const { json, requireEnv } = require('./_lib/util');
 
@@ -139,6 +140,8 @@ module.exports = async function handler(req, res) {
         await db.update('webhook_events',
           'omise_event_id=eq.' + encodeURIComponent(eventId),
           { deliver_status: 'failed' }).catch(function () {});
+        // ออเดอร์เป็น paid แล้ว — รอบ retry จะไม่ผ่านจุด needs_delivery อีก จึงต้องส่งตอนนี้
+        await metaCapi.sendPurchase(result.order_ref, charge);
         // ตอบ 500 ให้ Omise retry — ครั้งถัดไปจะเจอ deliver_status='failed' แล้ว retry deliver
         return json(res, 500, { ok: false, error: 'deliver_failed' });
       }
@@ -146,6 +149,9 @@ module.exports = async function handler(req, res) {
       line.notifyOrder(result.order_ref).catch(function (e) {
         console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
       });
+      // Meta CAPI หลังส่งมอบเสร็จเท่านั้น — ไม่ throw, timeout 2 วินาที
+      // ต้อง await เหตุผลเดียวกับ deliver (Vercel ฆ่างานที่ค้างหลังตอบ)
+      await metaCapi.sendPurchase(result.order_ref, charge);
     }
 
     return json(res, 200, { ok: true, result: result });

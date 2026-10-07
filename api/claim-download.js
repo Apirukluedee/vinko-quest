@@ -93,20 +93,40 @@ module.exports = async function handler(req, res) {
       .catch(function () { return null; });
   }
 
+  const moneyOk = Number.isSafeInteger(satang) && satang > 0 &&
+    typeof order.currency === 'string' && order.currency.toUpperCase() === 'THB';
+
+  /* รายการสินค้า
+     แพ็กเกจสำเร็จรูป = 1 รายการ ชื่อจาก catalog
+     CUSTOM (ตะกร้าเล่มแยกจาก /books) ไม่มีใน catalog -> อ่านจาก order_items ที่บันทึกตอนสั่งซื้อ
+     ราคาต่อเล่ม = ยอดรวมใน DB หารจำนวนเล่ม (ไม่อ่านราคาจาก catalog ปัจจุบัน
+     เพราะราคาอาจเปลี่ยนหลังลูกค้าจ่ายไปแล้ว) */
+  let items = null;
+  if (moneyOk && pkg) {
+    items = [{ item_id: order.package_code, item_name: pkg.title || order.package_code, price: satang / 100, quantity: 1 }];
+  } else if (moneyOk && order.package_code === 'CUSTOM') {
+    let rows = [];
+    try { rows = await tokens.itemsFor(order.id); } catch (e) { rows = []; }
+    if (rows.length) {
+      const each = Math.round(satang / rows.length) / 100;
+      items = rows.map(it => ({ item_id: it.product_code, item_name: it.title || it.product_code, price: each, quantity: 1 }));
+    }
+  }
+
   // ยอดเงินต้องเป็นจำนวนเต็มบวกเท่านั้น ผิดจากนี้ไม่ส่ง purchase ออกไปเลย
   // ส่งยอดเพี้ยนเข้า GA4 แย่กว่าไม่ส่ง เพราะลบ event ย้อนหลังไม่ได้
-  if (Number.isSafeInteger(satang) && satang > 0 && pkg &&
-      typeof order.currency === 'string' && order.currency.toUpperCase() === 'THB') {
+  if (items) {
     payload.purchase = {
       transaction_id: order.order_ref,
       value: satang / 100,
       currency: 'THB',
       payment_mode: await purchaseMode(order),
       item_id: order.package_code,
-      item_name: (pkg && pkg.title) || order.package_code
+      item_name: pkg ? (pkg.title || order.package_code) : items.map(i => i.item_name).join(' + '),
+      items: items
     };
   } else {
-    console.warn('[vinko][claim] amount_satang ผิดรูปแบบ ไม่ส่ง purchase', order.order_ref);
+    console.warn('[vinko][claim] ไม่ส่ง purchase (ยอดผิดรูปแบบหรือไม่มีรายการสินค้า)', order.order_ref);
   }
 
   return json(res, 200, payload);
