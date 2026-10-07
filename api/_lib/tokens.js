@@ -43,6 +43,33 @@ async function issue(orderId, hours) {
   return token;
 }
 
+/* ออก token เฉพาะเมื่อออเดอร์ "ยังไม่มี token เลย" — ใช้ตอนจ่ายเงินสำเร็จ
+   สองทางออก token พร้อมกันได้: webhook (deliver → ใส่ลิงก์ในอีเมล) กับหน้าขอบคุณ
+   (claim-download → โชว์ปุ่มดาวน์โหลด ถามทุก 3 วินาทีระหว่างรอ webhook)
+   เดิมใช้ issue() ทั้งคู่ ตัวที่มาทีหลังเขียนทับ → ลิงก์ของอีกฝั่งใช้ไม่ได้
+   (เจอจริง VK-2610-0001 8 ต.ค. 2569: ลิงก์ในอีเมลขึ้น "ไม่พบลิงก์นี้")
+   ตอนนี้ UPDATE แบบมีเงื่อนไข download_token=is.null ใน request เดียว
+   ฐานข้อมูลให้ผ่านได้แค่ตัวแรก ตัวที่แพ้จะอ่าน token ที่ชนะมาใช้แทน
+   คืน token ที่อยู่ในฐานข้อมูลจริงเสมอ */
+async function issueIfMissing(orderId, hours) {
+  const token = newToken();
+  const expiresAt = expiryFromNow(hours);
+  const r = await db.update('orders', 'id=eq.' + orderId + '&download_token=is.null', {
+    download_token: token,
+    token_expires_at: expiresAt
+  });
+  if (!r.ok) throw new Error('ออก token ไม่สำเร็จ: status ' + r.status);
+  if (Array.isArray(r.body) && r.body.length > 0) {
+    return { token: token, expires_at: expiresAt, created: true };
+  }
+  // มีอีกทางออกให้ไปก่อนแล้ว — ใช้ตัวนั้น ห้ามออกใหม่ทับ
+  const cur = await db.select('orders',
+    'id=eq.' + orderId + '&select=download_token,token_expires_at&limit=1');
+  const row = cur.ok && Array.isArray(cur.body) && cur.body[0];
+  if (!row || !row.download_token) throw new Error('ออก token ไม่สำเร็จ: อ่าน token ที่มีอยู่ไม่ได้');
+  return { token: row.download_token, expires_at: row.token_expires_at, created: false };
+}
+
 /** ต่ออายุ token เดิม ถ้ายังไม่มีให้ออกใหม่ (ใช้ตอนขอลิงก์ใหม่ / ถึงกำหนดส่งนิทาน) */
 async function renew(order, hours) {
   if (order.download_token) {
@@ -171,7 +198,7 @@ async function getOrCreateReaderToken(order) {
 
 module.exports = {
   TTL_HOURS, MAX_DOWNLOADS_PER_ITEM,
-  newToken, issue, renew, resolve, resolveByReaderToken, resolveUnsubscribe,
+  newToken, issue, issueIfMissing, renew, resolve, resolveByReaderToken, resolveUnsubscribe,
   itemsFor, isReleased, downloadCount, expiryFromNow,
   issueReaderToken, getOrCreateReaderToken
 };

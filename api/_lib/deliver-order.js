@@ -28,9 +28,12 @@ async function deliver(orderRef, opts) {
     if (sent > 0) return { ok: true, skipped: 'ส่งอีเมลไปแล้ว' };
   }
 
-  const token = stillValid && !force
-    ? order.download_token
-    : await tokens.issue(order.id);
+  // ยังไม่มี token เลย = จ่ายเงินครั้งแรก — หน้าขอบคุณอาจออกให้ไปก่อนแล้วในจังหวะเดียวกัน
+  // ใช้ issueIfMissing ห้ามทับ (ดู tokens.js) ส่วน token หมดอายุ / force (แอดมินสั่ง) ออกใหม่ทับได้
+  let token;
+  if (stillValid && !force) token = order.download_token;
+  else if (!order.download_token && !force) token = (await tokens.issueIfMissing(order.id)).token;
+  else token = await tokens.issue(order.id);
 
   const fresh = await db.select('orders',
     'id=eq.' + order.id + '&select=token_expires_at&limit=1');
