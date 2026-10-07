@@ -10,7 +10,7 @@
    2. ห้ามขวาง / หน่วง / ทำให้การจ่ายเงิน สถานะออเดอร์ หรือการส่งมอบพัง
       sendPurchase() ไม่ throw เด็ดขาด และมี timeout
       ผู้เรียกต้องเรียกหลังเปลี่ยนสถานะและส่งมอบแล้วเท่านั้น
-   3. log ได้แค่ status / code — ห้าม log อีเมล เบอร์ hash ค่า fbc หรือ token
+   3. log ได้แค่ status / code, CAPI_SENT, CAPI_SKIPPED + เหตุผล — ห้าม log อีเมล เบอร์ hash ค่า fbc user agent หรือ token
    4. ไม่มี META_CAPI_ACCESS_TOKEN = ข้ามเงียบๆ เตือนครั้งเดียวต่อ instance
    ============================================================ */
 
@@ -87,6 +87,11 @@ function buildPurchaseEvent(order, opts) {
   if (ph) user.ph = [sha256(ph)];
   const fbc = buildFbc(order.attribution_snapshot);
   if (fbc) user.fbc = fbc;
+  // Meta บังคับใน website event — เก็บตอนกดสั่งซื้อ (migration 009) ไม่ hash
+  // ออเดอร์ก่อน 009 ไม่มีค่านี้ ยังส่งได้ แค่จับคู่ได้น้อยลง
+  if (typeof order.client_user_agent === 'string' && order.client_user_agent) {
+    user.client_user_agent = order.client_user_agent;
+  }
   if (!Object.keys(user).length) return null;
 
   return {
@@ -111,6 +116,13 @@ function safeCode(v) {
   return typeof s === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(s) ? s : '-';
 }
 
+/* ข้ามไม่ส่ง — log แค่เหตุผล (คำคงที่) ไม่มีเลขออเดอร์ อีเมล หรือข้อมูลลูกค้า
+   ทำให้ดูจาก Vercel Logs ได้ว่าออเดอร์ที่ไม่มี event ใน Meta เป็นเพราะอะไร */
+function skip(reason) {
+  console.log('[vinko][meta-capi] CAPI_SKIPPED reason: ' + reason);
+  return { sent: false, reason: reason };
+}
+
 function logFail(status, code) {
   console.error('[vinko][meta-capi] CAPI_FAILED status: ' + (Number.isInteger(status) ? status : '-') +
                 ' code: ' + safeCode(code));
@@ -128,21 +140,21 @@ async function send(orderRef, charge, signal) {
 
   // เหมือน guard ของ purchase ฝั่ง GA4: ส่งเฉพาะ charge จริงเท่านั้น เสมอ
   // META_TEST_EVENT_CODE แค่เปลี่ยนปลายทางไป Test Events ไม่ได้ปลดล็อก charge ทดสอบ
-  if (!charge || charge.livemode !== true) return { sent: false, reason: 'not_live' };
+  if (!charge || charge.livemode !== true) return skip('not_live');
   const testCode = (process.env.META_TEST_EVENT_CODE || '').trim();
 
   const sel = await db.select('orders',
     'order_ref=eq.' + encodeURIComponent(orderRef) +
     '&select=id,order_ref,status,amount_satang,currency,package_code,customer_email,customer_phone,' +
-    'attribution_status,attribution_snapshot&limit=1');
+    'attribution_status,attribution_snapshot,client_user_agent&limit=1');
   if (signal.aborted) return { sent: false, reason: 'timeout' };
   if (!sel.ok) {
     logFail(sel.status, sel.body && sel.body.code);
     return { sent: false, reason: 'db' };
   }
   const order = Array.isArray(sel.body) && sel.body[0];
-  if (!order || order.status !== 'paid') return { sent: false, reason: 'not_paid' };
-  if (!consentProven(order)) return { sent: false, reason: 'no_consent' };
+  if (!order || order.status !== 'paid') return skip('not_paid');
+  if (!consentProven(order)) return skip('no_consent');
 
   // content_ids = รหัสเล่มที่ซื้อจริง (ตะกร้า /books มีหลายเล่ม) ตรงกับฝั่งเบราว์เซอร์
   // อ่านไม่ได้ก็ใช้ package_code แทน ไม่ถือว่าล้มเหลว
@@ -154,7 +166,7 @@ async function send(orderRef, charge, signal) {
   }
 
   const event = buildPurchaseEvent(order, { baseUrl: config.appBaseUrl(), contentIds });
-  if (!event) return { sent: false, reason: 'bad_order' };
+  if (!event) return skip('bad_order');
 
   const body = { data: [event], access_token: token };
   if (testCode) {
@@ -175,6 +187,11 @@ async function send(orderRef, charge, signal) {
     if (!signal.aborted) logFail(r.status, code);
     return { sent: false, reason: 'http' };
   }
+  // ส่งสำเร็จ — log ยืนยันได้จาก Vercel Logs (เดิม log แค่ตอนพัง แยกไม่ออกว่าส่งหรือข้าม)
+  let received = null;
+  try { const j = await r.json(); received = j && j.events_received; } catch (e) {}
+  console.log('[vinko][meta-capi] CAPI_SENT events_received: ' + (Number.isInteger(received) ? received : '-') +
+              (event.user_data.client_user_agent ? '' : ' (no user agent)'));
   return { sent: true };
 }
 

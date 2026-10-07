@@ -40,6 +40,7 @@ const TOKEN = 'EAAG_FAKE_TOKEN_DO_NOT_LOG';
 const EMAIL = 'Parent.Test@Example.COM';
 const PHONE = '081-234-5678';
 const REF = 'VK-2609-0042';
+const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1';
 
 /* ---------------- mock เครือข่าย ---------------- */
 const SB = 'https://fake.supabase.co/rest/v1';
@@ -75,6 +76,9 @@ global.fetch = async function (url, opts) {
     if (method === 'GET') return reply(200, S[table].filter(match));
     if (method === 'POST') {
       const rows = [].concat(JSON.parse(opts.body));
+      // จำลองฐานข้อมูลที่ยังไม่ได้รัน migration (เช่น 009) — PostgREST ปฏิเสธก่อนบันทึก
+      const miss = table === 'orders' && (S.missingColumns || []).find(c => c in rows[0]);
+      if (miss) return reply(400, { code: 'PGRST204', message: "Could not find the '" + miss + "' column of 'orders' in the schema cache" });
       if (table === 'webhook_events' && S.webhook_events.some(e => e.omise_event_id === rows[0].omise_event_id)) {
         return reply(409, { code: '23505', message: 'duplicate key' });
       }
@@ -102,13 +106,13 @@ global.fetch = async function (url, opts) {
 };
 
 function reset() {
-  Object.assign(S, { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null, stallCapiRead: false });
+  Object.assign(S, { orders: [], order_items: [], webhook_events: [], counter: 0, graph: [], graphReply: null, charge: null, stallCapiRead: false, missingColumns: [] });
 }
 function seedOrder(extra) {
   const o = Object.assign({
     id: 'orders-1', order_ref: REF, status: 'paid', package_code: 'STORIES', amount_satang: 19900, currency: 'THB',
     customer_name: 'ผู้ปกครอง ทดสอบ', customer_email: EMAIL, customer_phone: PHONE,
-    omise_charge_id: 'chrg_live_1', attribution_status: 'captured',
+    omise_charge_id: 'chrg_live_1', attribution_status: 'captured', client_user_agent: UA,
     attribution_snapshot: { first: { utm_source: 'facebook', t: '2026-09-27T08:00:00.000Z' },
       last: { utm_source: 'facebook', click_id_platform: 'meta', click_id_value: 'IwAR0abcDEF', t: '2026-09-28T09:00:00.000Z' },
       captured_at: '2026-09-28T10:00:00.000Z', schema_version: 1 }
@@ -151,8 +155,10 @@ function captureLogs() {
   logs.length = 0;
   console.error = (...a) => logs.push('E ' + a.join(' '));
   console.warn = (...a) => logs.push('W ' + a.join(' '));
+  // console.log ของโค้ดที่ทดสอบ (CAPI_SENT / CAPI_SKIPPED) — บรรทัด PASS ของเทสต์ยังพิมพ์ปกติ
+  console.log = (...a) => { const t = a.join(' '); if (t.startsWith('[vinko]')) logs.push('L ' + t); else orig.log(...a); };
 }
-function restoreLogs() { console.error = orig.error; console.warn = orig.warn; }
+function restoreLogs() { console.error = orig.error; console.warn = orig.warn; console.log = orig.log; }
 function assertNoLeak() {
   const all = logs.join('\n');
   for (const bad of [EMAIL, EMAIL.toLowerCase(), '0812345678', '66812345678', sha('parent.test@example.com'), TOKEN, 'IwAR0abcDEF']) {
@@ -438,9 +444,9 @@ process.on('exit', () => {
     });
 
     section('6. create-charge บัตรผ่านทันที');
-    async function payCard(extra) {
+    async function payCard(extra, ua) {
       const res = mockRes();
-      await fresh('create-charge.js')({ method: 'POST', url: '/', headers: { 'x-forwarded-for': '9.9.9.' + S.counter }, socket: {},
+      await fresh('create-charge.js')({ method: 'POST', url: '/', headers: { 'x-forwarded-for': '9.9.9.' + S.counter, 'user-agent': ua === undefined ? UA : ua }, socket: {},
         body: Object.assign({ customer_name: 'ผู้ปกครอง ทดสอบ', customer_email: EMAIL, customer_phone: PHONE,
           consent_terms: true, consent_privacy: true, package_code: 'LAB', payment_method: 'card', card_token: 'tokn_test_1',
           attribution: { last: { utm_source: 'facebook', click_id_platform: 'meta', click_id_value: 'IwAR0abcDEF', t: new Date(Date.now() - 60000).toISOString() } },
@@ -505,7 +511,72 @@ process.on('exit', () => {
     });
 
     /* ---- claim-download: payload purchase ของ CUSTOM ---- */
+    /* ---- user agent (migration 009) + log ตอนส่งสำเร็จ / ข้าม ---- */
+    section('6a. user agent สำหรับ Meta + log CAPI_SENT / CAPI_SKIPPED');
+    reset(); calls.deliver = []; logs.length = 0;
+    c = await payCard();
+    await check('ออเดอร์ captured -> บันทึก client_user_agent จาก header ตอนกดสั่งซื้อ', () => {
+      assert.equal(S.orders[0].attribution_status, 'captured');
+      assert.equal(S.orders[0].client_user_agent, UA);
+    });
+    await check('CAPI ส่ง user_data.client_user_agent (ไม่ hash) ตามข้อกำหนด website event', () => {
+      assert.equal(S.graph[0].body.data[0].user_data.client_user_agent, UA);
+    });
+    await check('ส่งสำเร็จ -> log CAPI_SENT events_received: 1 ไม่มีข้อมูลลูกค้า/เลขออเดอร์/user agent', () => {
+      assert.ok(capiLogs().includes('L [vinko][meta-capi] CAPI_SENT events_received: 1'), capiLogs().join(' | '));
+      const all = logs.join(' ');
+      assert.ok(!all.includes(c.body.order_ref) && !all.includes('iPhone'));
+      assertNoLeak();
+    });
+    reset(); logs.length = 0;
+    c = await payCard({ attribution_consent: false });
+    await check('ไม่ยอมรับคุกกี้ (no_consent) -> ไม่เก็บ user agent', () => {
+      assert.equal(S.orders[0].attribution_status, 'no_consent');
+      assert.equal('client_user_agent' in S.orders[0], false);
+    });
+    await check('ข้ามไม่ส่ง -> log CAPI_SKIPPED reason: no_consent', () => {
+      assert.ok(capiLogs().includes('L [vinko][meta-capi] CAPI_SKIPPED reason: no_consent'), capiLogs().join(' | '));
+      assert.ok(!logs.join(' ').includes(c.body.order_ref));
+    });
+    reset();
+    c = await payCard({ attribution_consent: undefined });
+    await check('status none -> ไม่เก็บ user agent', () => assert.equal('client_user_agent' in S.orders[0], false));
+    reset();
+    c = await payCard({}, 'Agent\u0000With\u001fControl ' + 'x'.repeat(600));
+    await check('user agent: ตัด control char และตัดเหลือ 512 ตัว (ตรง constraint 009)', () => {
+      const v = S.orders[0].client_user_agent;
+      assert.equal(v.length, 512);
+      assert.ok(v.startsWith('AgentWithControl '));
+      assert.ok(!/[\u0000-\u001f]/.test(v));
+    });
+    reset();
+    c = await payCard({}, '');
+    await check('ไม่มี user agent -> ไม่ใส่คอลัมน์ CAPI ยังส่งได้ และ log บอก (no user agent)', () => {
+      assert.equal('client_user_agent' in S.orders[0], false);
+      assert.equal(S.graph.length, 1);
+      assert.equal(S.graph[0].body.data[0].user_data.client_user_agent, undefined);
+    });
+    reset(); logs.length = 0; S.missingColumns = ['client_user_agent'];
+    c = await payCard();
+    await check('ยังไม่ได้รัน 009 -> retry ตัดแค่ user agent: ขายได้ attribution ยังอยู่ log CLIENT_UA_COLUMN_MISSING', () => {
+      assert.equal(c.body.ok, true, JSON.stringify(c.body));
+      assert.equal(S.orders.length, 1);
+      assert.equal(S.orders[0].attribution_status, 'captured');
+      assert.equal('client_user_agent' in S.orders[0], false);
+      assert.ok(logs.some(l => /CLIENT_UA_COLUMN_MISSING.* status: 400 code: PGRST204 name: client_user_agent$/.test(l)), logs.join(' | '));
+      assert.ok(!logs.join(' ').includes('iPhone'));
+    });
+    reset(); S.missingColumns = ['client_user_agent'];
+    c = await payCard({ attribution_consent: false });
+    await check('ยังไม่ได้รัน 009 + ออเดอร์ no_consent -> ไม่แตะคอลัมน์นี้เลย ไม่ต้อง retry', () => {
+      assert.equal(c.body.ok, true);
+      assert.equal(S.orders.length, 1);
+    });
+    S.missingColumns = [];
+
     section('6b. claim-download ออเดอร์ CUSTOM มี purchase payload');
+    reset(); calls.deliver = [];
+    c = await payCard({ package_code: undefined, items: ['STORY-03', 'STORY-01'] });
     // live key จริงของ Omise ไม่มีคำว่า live (skey_xxx) — ใช้รูปแบบเดียวกัน ค่าปลอม
     const LIVE_SHAPED_SK = 'skey_' + 'fixtureNOTREAL0123';
     process.env.OMISE_SECRET_KEY = LIVE_SHAPED_SK;
