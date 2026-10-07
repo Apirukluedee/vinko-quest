@@ -20,6 +20,9 @@ const QRCode = require('qrcode');
 
 function base() { return config.appBaseUrl() || 'https://vinko.quest'; }
 
+// จำนวนบัญชี LINE สูงสุดที่ผูกกับอีเมลเดียวผ่านลิงก์/QR ผูก LINE ได้
+const MAX_LINE_PER_EMAIL = 3;
+
 /* ── send-magic-link ─────────────────────────────────────── */
 
 const FROM   = 'VINKO <hello@mail.vinko.quest>';
@@ -179,9 +182,12 @@ function handleLineStart(req, res) {
   const connectTokenRaw = ((req.query && req.query.connect_token) || '').trim();
   if (connectTokenRaw) {
     const connectPayload = signedToken.verify(connectTokenRaw, secret);
-    if (connectPayload && connectPayload.p === 'connect' && connectPayload.email) {
-      statePayload.email = connectPayload.email;
+    if (!connectPayload || connectPayload.p !== 'connect' || !connectPayload.email) {
+      // QR บนหน้าเว็บอยู่ได้ 30 นาที — บอกตรงๆ ว่าหมดอายุ ดีกว่าปล่อยไป login
+      // แบบไม่ผูกแล้วไปค้างที่ "กรอกอีเมล" โดยไม่รู้สาเหตุ
+      return json(res, 200, { ok: false, error: 'connect_expired' });
     }
+    statePayload.email = connectPayload.email;
   }
 
   const state       = signedToken.sign(statePayload, secret);
@@ -289,7 +295,24 @@ async function handleLineCallback(req, res) {
   // ลำดับความสำคัญของอีเมล: connect_token จากลิงก์ในอีเมลคำสั่งซื้อ (ความ
   // ตั้งใจชัดเจนที่สุด — ลูกค้ากดลิงก์นี้เพื่อผูกบัญชีกับอีเมลนี้โดยเฉพาะ)
   // > อีเมลที่ LINE แชร์มาเอง > อีเมลที่เคยผูกไว้จาก need_email รอบก่อน
-  if (connectEmail) email = connectEmail;
+  if (connectEmail) {
+    /* เพดาน LINE ต่ออีเมล — ใช้กับลิงก์/QR ผูก LINE เท่านั้น เพราะแชร์ต่อได้ง่าย
+       LINE ที่ผูกไว้แล้วเข้าได้เสมอ ไม่ถูกนับซ้ำ ผู้ที่ผูกเกินไว้ก่อนมีกฎนี้ใช้ต่อได้
+       ช่องทางอีเมล (ลิงก์เข้าสู่ระบบส่งไปที่กล่องจดหมายผู้ซื้อ) ไม่ติดเพดานนี้
+       อ่านจำนวนไม่ได้ = ไม่ผูก (ลูกค้ายังเข้าทางอีเมลได้) */
+    let linked;
+    try {
+      linked = await sessions.lineUserIdsForEmail(connectEmail);
+    } catch (e) {
+      console.error('[line-cb] line limit check failed:', e.message);
+      return json(res, 200, { ok: false, error: 'internal' });
+    }
+    if (!linked.includes(lineUserId) && linked.length >= MAX_LINE_PER_EMAIL) {
+      console.warn('[line-cb] LINE_LIMIT_REACHED linked: ' + linked.length);
+      return json(res, 200, { ok: false, error: 'line_limit_reached' });
+    }
+    email = connectEmail;
+  }
 
   if (!email) {
     // LINE ไม่ได้แชร์อีเมลมารอบนี้ — เช็คก่อนว่าเคยผูกอีเมลไว้กับ LINE user
@@ -375,7 +398,7 @@ async function handleMyLibrary(req, res) {
   // ลิงก์ผูกบัญชี LINE เดียวกับที่ส่งในอีเมลยืนยันคำสั่งซื้อ (email.js:connectLineUrl)
   // ใช้โชว์เป็น QR ให้สแกนจากมือถือที่มี LINE ได้เลย ไม่ต้องรออีเมล
   // คืน null เองถ้า LINE Login ยังไม่ได้ตั้งค่า — หน้าเว็บต้องซ่อนส่วนนี้เมื่อเป็น null
-  const connectLineUrl = email.connectLineUrl(user.email);
+  const connectLineUrl = email.connectLineUrl(user.email, email.CONNECT_TTL_PAGE_MS);
   // เจนเป็น SVG ฝั่ง server เลย (ไม่ต้องโหลด lib QR เพิ่มฝั่ง client)
   // ล้มเหลวก็ไม่ควรทำให้ทั้งหน้า my-library พังไปด้วย แค่ไม่มี QR โชว์
   const connectLineQrSvg = connectLineUrl

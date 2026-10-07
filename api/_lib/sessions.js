@@ -3,6 +3,17 @@
 const crypto = require('crypto');
 const db     = require('./supabase');
 
+/* จำการเข้าสู่ระบบไว้ 1 ปี (เดิม 30 วัน)
+   ลูกค้าเปิดหนังสือจากเมนู LINE เป็นระยะๆ 30 วันทำให้หลุดบ่อยจนนึกว่าระบบเสีย
+   ของที่ปกป้องคือ ebook ที่มีลายน้ำผู้ซื้อ ไม่ใช่เงินหรือข้อมูลอ่อนไหว
+   และมีปุ่มออกจากระบบให้กดเองได้
+   ใส่ expires_at เองทุกครั้งที่สร้างแถว ไม่พึ่งค่า default ของฐานข้อมูล
+   (session เดิมที่สร้างไปแล้วยังหมดอายุตามค่าเดิม) */
+const SESSION_DAYS = 365;
+function sessionExpiresAt() {
+  return new Date(Date.now() + SESSION_DAYS * 24 * 3600 * 1000).toISOString();
+}
+
 function genToken() {
   return crypto.randomBytes(32).toString('hex');
 }
@@ -16,7 +27,7 @@ async function createMagicSession(email, line_user_id) {
   const magic_token      = genToken();
   const magic_expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 
-  const row = { email, magic_token, magic_expires_at };
+  const row = { email, magic_token, magic_expires_at, expires_at: sessionExpiresAt() };
   if (line_user_id) row.line_user_id = line_user_id;
 
   const r = await db.insert('user_sessions', row);
@@ -59,10 +70,23 @@ async function activateMagicSession(magic_token) {
 
 /* สร้าง session จาก LINE login */
 async function createLineSession(email, line_user_id) {
-  const r = await db.insert('user_sessions', { email, line_user_id });
+  const r = await db.insert('user_sessions', { email, line_user_id, expires_at: sessionExpiresAt() });
   if (!r.ok) throw new Error('session_create_failed');
   const s = Array.isArray(r.body) ? r.body[0] : r.body;
   return { session_token: s.session_token };
+}
+
+/* LINE ที่ผูกกับอีเมลนี้แล้วทั้งหมด (ไม่ซ้ำ) — ทุกช่องทาง:
+   ลิงก์/QR ผูก LINE, LINE ที่แชร์อีเมลนี้มาเอง, และผูกผ่านลิงก์ในอีเมล (need_email)
+   รวม session ที่หมดอายุแล้วด้วย เพราะ LINE นั้นยังถือว่าผูกอยู่
+   ใช้นับเพดานจำนวน LINE ต่ออีเมล — อ่านไม่ได้ให้ throw (ผู้เรียกตัดสินเอง) */
+async function lineUserIdsForEmail(email) {
+  const r = await db.select('user_sessions',
+    'email=eq.' + encodeURIComponent(String(email || '').toLowerCase()) +
+    '&line_user_id=not.is.null&select=line_user_id&limit=5000'
+  );
+  if (!r.ok || !Array.isArray(r.body)) throw new Error('line_ids_lookup_failed: ' + r.status);
+  return Array.from(new Set(r.body.map(function (x) { return x.line_user_id; }).filter(Boolean)));
 }
 
 /* ตรวจ session cookie → คืน {id, email} หรือ null */
@@ -88,7 +112,7 @@ function getSessionToken(req) {
 /* สร้าง Set-Cookie header */
 function cookieHeader(token, clear) {
   if (clear) return 'vnk_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0';
-  const maxAge = 30 * 24 * 3600;
+  const maxAge = SESSION_DAYS * 24 * 3600;
   return `vnk_sid=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
 }
 
@@ -97,6 +121,8 @@ module.exports = {
   activateMagicSession,
   createLineSession,
   findEmailByLineUserId,
+  lineUserIdsForEmail,
+  SESSION_DAYS,
   validateSession,
   getSessionToken,
   cookieHeader
