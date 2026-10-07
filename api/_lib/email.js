@@ -59,13 +59,21 @@ function unsubscribeUrl(token) {
   return baseUrl() + '/api/unsubscribe?token=' + encodeURIComponent(token);
 }
 
-function connectLineUrl(customerEmail) {
+/* อายุลิงก์/QR ผูก LINE
+   ในอีเมลยืนยันคำสั่งซื้อ: 1 ปี — ลูกค้าเปิดอีเมลช้าหรือกลับมาหาทีหลังได้
+   บนหน้าเว็บ (หน้าขอบคุณ, My Library): 30 นาที — เจ้าของอยู่หน้าจอและสแกนทันที
+   ถ้าแคปจอไปแชร์ทีหลังจะใช้ไม่ได้
+   ทั้งสองแบบผูก LINE ได้ไม่เกิน MAX_LINE_PER_EMAIL บัญชีต่ออีเมล (ตรวจที่ auth.js) */
+const CONNECT_TTL_EMAIL_MS = 365 * 24 * 3600 * 1000;
+const CONNECT_TTL_PAGE_MS  = 30 * 60 * 1000;
+
+function connectLineUrl(customerEmail, ttlMs) {
   const secret = config.lineLoginChannelSecret();
   if (!config.lineLoginChannelId() || !secret || !customerEmail) return null;
   const token = signedToken.sign({
     p: 'connect',
     email: String(customerEmail).trim().toLowerCase(),
-    exp: Date.now() + 30 * 24 * 3600 * 1000 // 30 วัน — อีเมลอาจถูกเปิดอ่านช้าได้
+    exp: Date.now() + (ttlMs || CONNECT_TTL_EMAIL_MS)
   }, secret);
   return baseUrl() + '/login?connect_token=' + encodeURIComponent(token) + '&openExternalBrowser=1';
 }
@@ -380,5 +388,6 @@ async function logEvent(rec) {
 
 module.exports = {
   FROM, purchaseEmail, storyEmail, resendEmail, send, connectLineUrl, unsubscribeUrl,
+  CONNECT_TTL_EMAIL_MS, CONNECT_TTL_PAGE_MS,
   thaiDate, thaiDateTime, maskless: esc
 };

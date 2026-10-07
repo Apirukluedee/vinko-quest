@@ -257,7 +257,9 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
       <h2>📱 เปิดจากมือถือเครื่องอื่นด้วย LINE</h2>
       <p>ถ้ามือถือเครื่องนี้ใช้ LINE อยู่แต่ไม่มีอีเมลนี้ ให้เปิดแอป LINE แล้วสแกน QR นี้ (หรือใช้กล้องมือถือสแกนก็ได้)
         ระบบจะผูกบัญชี LINE ให้เข้าหนังสือชุดนี้ได้ทันที ไม่ต้องรออีเมล</p>
-      <button class="btn-copy-line" id="btn-copy-line" type="button">คัดลอกลิงก์แทน</button>
+      <button class="btn-copy-line" id="btn-copy-line" type="button">สแกนไม่ได้? คัดลอกลิงก์</button>
+      <p style="margin:8px 0 0">เปิดหน้านี้อยู่บนมือถือที่มี LINE: กดคัดลอก แล้ววางในแชท LINE ของตัวเอง (เช่น Keep Memo) จากนั้นกดลิงก์จากในแชทนั้น</p>
+      <p style="margin:6px 0 0;color:#9a3412;font-size:12.5px">ลิงก์และ QR นี้ผูกกับหนังสือของคุณ ห้ามส่งต่อหรือโพสต์ให้คนอื่น</p>
     </div>
   </div>
 
@@ -306,8 +308,8 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
       var copyBtn = document.getElementById('btn-copy-line');
       copyBtn.addEventListener('click', function () {
         navigator.clipboard.writeText(data.connect_line_url).then(function () {
-          copyBtn.textContent = 'คัดลอกแล้ว ✓';
-          setTimeout(function () { copyBtn.textContent = 'คัดลอกลิงก์แทน'; }, 2000);
+          copyBtn.textContent = 'คัดลอกแล้ว ✓ ไปวางในแชท LINE ได้เลย';
+          setTimeout(function () { copyBtn.textContent = 'สแกนไม่ได้? คัดลอกลิงก์'; }, 3000);
         }).catch(function () {});
       });
     }
