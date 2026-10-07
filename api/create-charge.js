@@ -144,10 +144,28 @@ module.exports = async function handler(req, res) {
   // attribution ณ เวลาสั่งซื้อ (migration 008) — buildSnapshot ไม่ throw
   // และไม่มีผลกับราคา การตรวจ input หรือการที่ checkout จะไปต่อได้
   const attr = buildSnapshot(body.attribution, body.attribution_consent, now);
-  let ins = await db.insert('orders', Object.assign({}, orderRow, {
-    attribution_snapshot: attr.snapshot,
-    attribution_status: attr.status
-  }));
+  const extras = { attribution_snapshot: attr.snapshot, attribution_status: attr.status };
+
+  // user agent สำหรับ Meta CAPI (migration 009) — Meta บังคับใน website event
+  // เก็บเฉพาะออเดอร์ captured = ออเดอร์เดียวที่ CAPI จะส่ง (ดู meta-capi.js consentProven)
+  // ไม่ captured = ไม่มีที่ใช้ = ไม่เก็บ
+  const ua = attr.status === 'captured' ? cleanUserAgent(req.headers && req.headers['user-agent']) : null;
+  if (ua) extras.client_user_agent = ua;
+
+  let ins = await db.insert('orders', Object.assign({}, orderRow, extras));
+
+  // ยังไม่ได้รัน 009 -> ลองใหม่โดยตัดแค่ user agent (attribution ยังเก็บได้ตามเดิม)
+  // retry เฉพาะ error ที่พิสูจน์ว่าแถวไม่ถูกบันทึก (คอลัมน์ไม่มี) เหมือนกติกาของ attribution
+  if (extras.client_user_agent && missingColumn(ins, 'client_user_agent')) {
+    console.error('[vinko] CLIENT_UA_COLUMN_MISSING — ยังไม่ได้รัน migration 009 ลองบันทึกออเดอร์ใหม่โดยไม่มี user agent ' + safeDbLog(ins));
+    delete extras.client_user_agent;
+    try {
+      ins = await db.insert('orders', Object.assign({}, orderRow, extras));
+    } catch (e) {
+      console.error('[vinko] CLIENT_UA_RETRY_FAILED status: - code: ' + safeCode(e && (e.code || (e.cause && e.cause.code))));
+      throw e;
+    }
+  }
 
   // ลองใหม่โดยไม่มี attribution เฉพาะเมื่อ error พิสูจน์ได้ว่า "แถวไม่ได้ถูกบันทึก
   // และ attribution เป็นต้นเหตุ" เท่านั้น — 5xx / timeout / ไม่รู้สาเหตุ ห้าม retry
@@ -319,9 +337,26 @@ function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; }
 const LOGGABLE_DB_NAMES = [
   'orders_attribution_consistent_check',
   'orders_attribution_status_check',
+  'orders_client_user_agent_len_check',
   'attribution_snapshot',
-  'attribution_status'
+  'attribution_status',
+  'client_user_agent'
 ];
+
+/* user agent จาก header — ตัด control char, ตัดเหลือ 512 ตัว (ตรง constraint ของ 009)
+   ไม่ใช่ string / ว่าง = null */
+function cleanUserAgent(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  return s ? Array.from(s).slice(0, 512).join('') : null;
+}
+
+/* PostgREST / Postgres ตอบว่าไม่มีคอลัมน์นี้ = แถวไม่ถูกบันทึกแน่นอน */
+function missingColumn(r, column) {
+  if (!r || r.ok) return false;
+  const b = r.body && typeof r.body === 'object' ? r.body : {};
+  return (b.code === 'PGRST204' || b.code === '42703') && String(b.message || '').includes(column);
+}
 
 function safeCode(v) {
   return typeof v === 'string' && /^[A-Za-z0-9_]{1,32}$/.test(v) ? v : '-';
