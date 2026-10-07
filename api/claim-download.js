@@ -48,19 +48,21 @@ module.exports = async function handler(req, res) {
     return json(res, 200, { ok: true, status: order.status, ready: false });
   }
 
-  /* จ่ายแล้วแต่ยังไม่มี token = webhook ออกให้ไม่สำเร็จ
-     ออกให้เดี๋ยวนี้เลย ไม่ปล่อยให้ลูกค้าที่จ่ายเงินแล้วรอเก้อ
+  /* จ่ายแล้วแต่ยังไม่มี token = webhook ยังทำไม่เสร็จ (ปกติสำหรับ PromptPay
+     เพราะหน้านี้ถามทุก 3 วินาที) หรือ webhook ล้ม — ออกให้เดี๋ยวนี้เลย
+     ต้องเป็น issueIfMissing: ถ้า webhook ออกไปก่อนในจังหวะเดียวกัน ใช้ตัวนั้น
+     ห้ามออกใหม่ทับ ไม่งั้นลิงก์ในอีเมลจะใช้ไม่ได้ (ดู tokens.js)
      ปลอดภัยเพราะผ่านด่าน client_request_id กับ status=paid มาแล้วทั้งคู่ */
   let token = order.download_token;
   let expiresAt = order.token_expires_at;
   if (!token) {
     try {
-      token = await tokens.issue(order.id);
-      const fresh = await db.select('orders',
-        'id=eq.' + order.id + '&select=token_expires_at&limit=1');
-      expiresAt = (Array.isArray(fresh.body) && fresh.body[0] && fresh.body[0].token_expires_at) ||
-                  tokens.expiryFromNow();
-      console.warn('[vinko][claim] ออก token ย้อนหลังให้', order.order_ref, '— webhook ทำไม่สำเร็จ');
+      const issued = await tokens.issueIfMissing(order.id);
+      token = issued.token;
+      expiresAt = issued.expires_at || tokens.expiryFromNow();
+      if (issued.created) {
+        console.warn('[vinko][claim] ออก token ก่อน webhook ให้', order.order_ref, '— หน้าขอบคุณมาถึงก่อน หรือ webhook ล้ม');
+      }
     } catch (e) {
       console.error('[vinko][claim] ออก token ไม่สำเร็จ', order.order_ref, e.message);
       return json(res, 200, { ok: true, status: 'paid', ready: false });
