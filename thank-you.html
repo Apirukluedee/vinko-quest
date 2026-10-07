@@ -20,6 +20,17 @@
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&amp;family=Mali:wght@500;600;700&amp;family=Mitr:wght@400;500;600;700&amp;family=Anuphan:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="/assets/css/main.css" rel="stylesheet"/>
+<style>
+.ty-line-connect{background:#fff;border:2px solid #06C755;border-radius:16px;padding:20px;margin:-8px 0 24px;display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;text-align:left}
+.ty-line-connect-qr{flex-shrink:0;width:140px;height:140px;border:1px solid #eee;border-radius:10px;padding:6px;background:#fff}
+.ty-line-connect-qr svg{width:100%;height:100%;display:block}
+.ty-line-connect-body{flex:1;min-width:210px}
+.ty-line-connect-body h3{font-family:'Mitr',sans-serif;font-size:17px;color:#06A847;margin:0 0 6px;line-height:1.35}
+.ty-line-connect-body p{font-family:'Anuphan',sans-serif;font-size:14px;color:#555;margin:0 0 10px;line-height:1.6}
+.ty-line-connect-body .ty-line-warn{font-size:12.5px;color:#9a3412;margin:10px 0 0}
+.ty-btn-copy-line{background:#06C755;color:#fff;border:0;border-radius:10px;padding:10px 18px;font-family:'Mitr',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.ty-line-connect-fallback{width:100%;margin-top:8px;font-size:12px;padding:8px;border:1px solid #ddd;border-radius:8px}
+</style>
 </head>
 <body class="premium">
 <nav class="nav">
@@ -80,13 +91,15 @@
   </a>
 </div>
 
-<div class="vk-line-cta">
-<a aria-label="สแกนหรือกดเพื่อเพิ่มเพื่อน LINE VINKO" class="vk-line-cta-qr" data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank"><img alt="QR code เพิ่มเพื่อน LINE VINKO" decoding="async" height="264" loading="lazy" src="/assets/img/line-qr.svg" width="264"/></a>
-<div class="vk-line-cta-body">
-<h3>แอด LINE รับ &ldquo;แบบสำรวจทักษะ EF&rdquo; ฟรี</h3>
-<p>แบบประเมินให้พ่อแม่เช็กทักษะสมองส่วนหน้าของลูกวัย 5&ndash;7 ขวบด้วยตัวเอง พร้อมคำแนะนำว่าข้อไหนควรฝึกต่อยังไง <strong>ส่งให้ทันทีที่แอด</strong> และเราจะแจ้งทาง LINE ทุกครั้งที่มีนิทานเล่มใหม่พร้อมดาวน์โหลดด้วย</p>
-<a class="btn-line" data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">เพิ่มเพื่อนรับแบบสำรวจ EF</a>
-</div>
+<div class="ty-line-connect" data-vk-ty-line hidden>
+  <div class="ty-line-connect-qr" data-vk-ty-line-qr></div>
+  <div class="ty-line-connect-body">
+    <h3>📱 อีเมลกับ LINE อยู่คนละเครื่อง? ผูก LINE ตรงนี้เลย</h3>
+    <p>ใช้มือถือเครื่องที่มี LINE สแกน QR นี้ (ใช้กล้องหรือแอป LINE ก็ได้) แล้วกดยืนยันเข้าสู่ระบบด้วย LINE ครั้งเดียว ครั้งต่อไปกด &ldquo;เข้าสู่ระบบด้วย LINE&rdquo; ก็เห็นหนังสือทุกเล่มพร้อมเสียงอ่านทันที ไม่ต้องหาอีเมล</p>
+    <button class="ty-btn-copy-line" data-vk-ty-line-copy type="button">สแกนไม่ได้? คัดลอกลิงก์</button>
+    <p style="font-size:13px;margin:8px 0 0">เปิดหน้านี้อยู่บนมือถือที่มี LINE: กดคัดลอก แล้ววางในแชท LINE ของตัวเอง (เช่น Keep Memo) จากนั้นกดลิงก์จากในแชทนั้น</p>
+    <p class="ty-line-warn">ลิงก์และ QR นี้ผูกกับหนังสือของคุณ ห้ามส่งต่อหรือโพสต์ให้คนอื่น</p>
+  </div>
 </div>
 
 <div data-vk-bundle hidden style="text-align:left">
@@ -103,13 +116,22 @@
 </div>
 
 <h3 style="font-size:19px;color:var(--navy);margin:30px 0 8px">ดาวน์โหลดไม่ได้ หรือมีปัญหา?</h3>
-<p style="color:var(--muted);line-height:1.8;margin:0">ทักหาเราทาง <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" style="color:var(--navy);font-weight:800" target="_blank">LINE</a> ด้านบน แจ้งอีเมลที่ใช้สั่งซื้อมาด้วย เราจะช่วยแก้ให้เร็วที่สุด</p>
+<p style="color:var(--muted);line-height:1.8;margin:0">ทักหาเราทาง <a data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" style="color:var(--navy);font-weight:800" target="_blank">LINE</a> แจ้งอีเมลที่ใช้สั่งซื้อมาด้วย เราจะช่วยแก้ให้เร็วที่สุด</p>
 
 <div class="cta-row" style="justify-content:center;margin-top:26px">
 <a class="btn" href="/certificate">สร้างใบประกาศให้ลูก</a>
 <a class="btn light" href="/">กลับหน้าแรก</a>
 </div>
 <p style="color:var(--muted);font-size:14.5px;line-height:1.7;margin:14px 0 0">ใบประกาศสร้างกี่ครั้งก็ได้ ไม่ต้องเก็บหน้านี้ไว้ กลับมาทำได้ทุกเมื่อที่ <a href="/certificate" style="color:var(--navy);font-weight:800">vinko.quest/certificate</a> หรือกดลิงก์ &ldquo;ใบประกาศ&rdquo; ที่ท้ายเว็บทุกหน้า</p>
+
+<div class="vk-line-cta" style="margin-top:30px">
+<a aria-label="สแกนหรือกดเพื่อเพิ่มเพื่อน LINE VINKO" class="vk-line-cta-qr" data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank"><img alt="QR code เพิ่มเพื่อน LINE VINKO" decoding="async" height="264" loading="lazy" src="/assets/img/line-qr.svg" width="264"/></a>
+<div class="vk-line-cta-body">
+<h3>แอด LINE รับ &ldquo;แบบสำรวจทักษะ EF&rdquo; ฟรี</h3>
+<p>แบบประเมินให้พ่อแม่เช็กทักษะสมองส่วนหน้าของลูกวัย 5&ndash;7 ขวบด้วยตัวเอง พร้อมคำแนะนำว่าข้อไหนควรฝึกต่อยังไง <strong>ส่งให้ทันทีที่แอด</strong> และเราจะแจ้งทาง LINE ทุกครั้งที่มีนิทานเล่มใหม่พร้อมดาวน์โหลดด้วย</p>
+<a class="btn-line" data-vk-line href="https://lin.ee/8F08BYJ" rel="noopener" target="_blank">เพิ่มเพื่อนรับแบบสำรวจ EF</a>
+</div>
+</div>
 </div>
 </div>
 </section>

@@ -72,6 +72,33 @@
     if (pendingPurchase) sendPurchase(pendingPurchase);
   });
 
+  function showLineConnect(d) {
+    var box = $("[data-vk-ty-line]");
+    if (!box || !d.connect_line_url || !d.connect_line_qr_svg) return;
+    $("[data-vk-ty-line-qr]").innerHTML = d.connect_line_qr_svg;
+    box.hidden = false;
+
+    var btn = $("[data-vk-ty-line-copy]");
+    var label = btn.textContent;
+    function showRawLink() {
+      if (box.querySelector(".ty-line-connect-fallback")) return;
+      var input = document.createElement("input");
+      input.className = "ty-line-connect-fallback";
+      input.readOnly = true;
+      input.value = d.connect_line_url;
+      btn.parentNode.insertBefore(input, btn.nextSibling);
+      input.focus();
+      input.select();
+    }
+    btn.addEventListener("click", function () {
+      if (!navigator.clipboard || !navigator.clipboard.writeText) { showRawLink(); return; }
+      navigator.clipboard.writeText(d.connect_line_url).then(function () {
+        btn.textContent = "คัดลอกแล้ว ✓ ไปวางในแชท LINE ได้เลย";
+        setTimeout(function () { btn.textContent = label; }, 3000);
+      }).catch(showRawLink);
+    });
+  }
+
   function showEmailOnly() {
     loading.hidden = true;
     ready.hidden = true;
@@ -128,6 +155,7 @@
           }
           loading.hidden = true;
           ready.hidden = false;
+          try { showLineConnect(d); } catch (e) {}
 
           // ยิง analytics หลังลูกค้าเห็นลิงก์แล้วเท่านั้น และห้ามให้ error
           // ของ analytics ไปขวางการรับไฟล์ของคนที่จ่ายเงินมาแล้ว

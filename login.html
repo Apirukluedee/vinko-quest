@@ -284,6 +284,31 @@
     completeLineLogin(lineCode, lineState);
   }
 
+  /* ── เปิดมาจากแอป LINE = พาไปเข้าสู่ระบบด้วย LINE ให้เลย ──
+     ลูกค้าส่วนใหญ่เปิด My Library จากเมนูในแชท LINE พอ session หมดอายุ
+     (30 วัน) ก็มาเจอหน้านี้แล้วไม่รู้ว่าต้องกดปุ่มไหน
+     openExternalBrowser=1 = มาจากเบราว์เซอร์ในแอป LINE (ตัวดีดด้านบนใส่ให้)
+     หรือมาจากลิงก์ "เชื่อมบัญชี LINE" (connect_token ก็ใส่ไว้เหมือนกัน)
+     ไม่ทำเมื่อ: กำลังรับ code กลับจาก LINE, มี error (รวมกดยกเลิกที่ LINE),
+     เพิ่งออกจากระบบ, หรือกำลังรอกรอกอีเมล (need_email)
+     ทำครั้งเดียวต่อแท็บใน 10 นาที — กด Back กลับมาจากหน้า LINE ต้องไม่โดนดีดซ้ำ
+     ถ้า sessionStorage ใช้ไม่ได้ ไม่ทำเลย ปุ่มยังกดเองได้ตามเดิม */
+  const AUTO_KEY = 'vnk_line_auto_at';
+  function autoLineAllowed() {
+    if (params.get('openExternalBrowser') !== '1') return false;
+    if (lineCode || err || loggedOut || needEmail || params.get('error')) return false;
+    try {
+      const last = Number(sessionStorage.getItem(AUTO_KEY) || 0);
+      if (last && Date.now() - last < 10 * 60 * 1000) return false;
+      sessionStorage.setItem(AUTO_KEY, String(Date.now()));
+      return sessionStorage.getItem(AUTO_KEY) !== null;
+    } catch (e) { return false; }
+  }
+  if (autoLineAllowed()) {
+    showMsg('กำลังพาไปเข้าสู่ระบบด้วย LINE… ถ้าไม่ไปต่อ กดปุ่มสีเขียวด้านล่างได้เลย', 'success');
+    window.beginLineLogin();
+  }
+
   window.sendMagicLink = async function () {
     const email = document.getElementById('email-input').value.trim();
     const btn   = document.getElementById('btn-magic');

@@ -1,0 +1,240 @@
+/* ============================================================
+   ชุดตรวจ LINE: เข้าสู่ระบบอัตโนมัติเมื่อเปิดจากแอป LINE + QR ผูก LINE บนหน้าขอบคุณ
+
+   รันด้วย:  node tests/line-connect-checks.js
+   ไม่ยิงเครือข่าย ไม่ต้องมี key จริง — fetch ถูก stub ทั้งหมด
+   สคริปต์ของ login.html / thank-you.js รันใน VM แยก
+
+   ครอบคลุม:
+   1. login.html — เปิดจากแอป LINE (openExternalBrowser=1) พาไป LINE Login เอง
+      และไม่ทำในกรณีที่ไม่ควร (เปิดตรง, error, ออกจากระบบ, รอกรอกอีเมล,
+      กลับมาซ้ำในแท็บเดิม, sessionStorage ใช้ไม่ได้)
+   2. claim-download — คืนลิงก์/QR ผูก LINE เฉพาะคนที่ผ่านด่าน rid + paid
+   3. thank-you.js — แสดงกล่อง QR เมื่อมีข้อมูล, ไม่แสดงเมื่อไม่มี
+   ============================================================ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const assert = require('assert/strict');
+const REPO = path.join(__dirname, '..');
+
+let passed = 0, failed = 0, finished = false;
+async function check(name, fn) {
+  try { await fn(); passed++; console.log('  PASS  ' + name); }
+  catch (e) { failed++; console.log('  FAIL  ' + name + '  → ' + (e && e.message)); }
+}
+function section(t) { console.log('\n' + t); }
+const tick = () => new Promise(r => setTimeout(r, 10));
+process.on('exit', () => {
+  if (!finished) { console.log('\nFAIL  ชุดทดสอบไม่จบ — ' + passed + ' passed ก่อนค้าง'); process.exitCode = 1; }
+});
+
+const SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1';
+const LINE_IAB = SAFARI.replace('Safari/604.1', 'Safari Line/14.12.0');
+const AUTH_URL = 'https://access.line.me/oauth2/v2.1/authorize?fixture=1';
+
+/* ---------------- 1. login.html ---------------- */
+const loginSrc = (function () {
+  const html = fs.readFileSync(path.join(REPO, 'login.html'), 'utf8');
+  const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+  return blocks[blocks.length - 1];
+})();
+
+async function loginPage({ search = '', ua = SAFARI, session = {}, blockedSession = false } = {}) {
+  const fetches = [], els = {};
+  const el = () => ({ disabled: false, textContent: '', className: '', style: {}, value: '', addEventListener() {} });
+  ['msg-box', 'btn-line', 'btn-magic', 'email-input'].forEach(id => { els[id] = el(); });
+  const loc = { search, origin: 'https://vinko.quest', pathname: '/login', href: 'https://vinko.quest/login' + search, replaced: null,
+    replace(u) { this.replaced = u; } };
+  const store = {
+    getItem(k) { if (blockedSession) throw Error('blocked'); return k in session ? session[k] : null; },
+    setItem(k, v) { if (blockedSession) throw Error('blocked'); session[k] = String(v); },
+    removeItem(k) { if (blockedSession) throw Error('blocked'); delete session[k]; }
+  };
+  const c = {
+    navigator: { userAgent: ua }, location: loc, URLSearchParams, sessionStorage: store, Date, JSON, Number, String,
+    document: { getElementById: id => els[id] }, history: { replaceState() {} }, console,
+    fetch: async (url, opts) => {
+      fetches.push({ url: String(url), opts });
+      if (String(url).startsWith('/api/auth/line-start')) return { json: async () => ({ ok: true, authorizeUrl: AUTH_URL }) };
+      if (String(url).startsWith('/api/auth/line-callback')) return { json: async () => ({ ok: true }) };
+      return { json: async () => ({ ok: true }) };
+    }
+  };
+  c.window = c;
+  vm.createContext(c);
+  vm.runInContext(loginSrc, c);
+  await tick();
+  return { c, loc, fetches, els, session, starts: () => fetches.filter(f => f.url.startsWith('/api/auth/line-start')) };
+}
+
+(async function run() {
+  section('1. login.html — เปิดจากแอป LINE แล้วพาไป LINE Login ให้เอง');
+
+  let p = await loginPage({ search: '?openExternalBrowser=1' });
+  await check('มาจากแอป LINE (openExternalBrowser=1) -> เรียก line-start และไปหน้า LINE Login เอง', () => {
+    assert.equal(p.starts().length, 1);
+    assert.equal(p.starts()[0].url, '/api/auth/line-start');
+    assert.equal(p.loc.href, AUTH_URL);
+    assert.match(p.els['msg-box'].textContent, /กำลังพาไปเข้าสู่ระบบด้วย LINE/);
+  });
+  const sameTab = p.session;
+  p = await loginPage({ search: '?openExternalBrowser=1', session: sameTab });
+  await check('กด Back กลับมาในแท็บเดิมภายใน 10 นาที -> ไม่ดีดซ้ำ (ไม่ติดวน)', () => {
+    assert.equal(p.starts().length, 0);
+    assert.equal(p.loc.href, 'https://vinko.quest/login?openExternalBrowser=1');
+  });
+  p = await loginPage({ search: '?openExternalBrowser=1', session: { vnk_line_auto_at: String(Date.now() - 11 * 60 * 1000) } });
+  await check('ผ่านไปเกิน 10 นาทีในแท็บเดิม -> พาไปได้อีกครั้ง', () => assert.equal(p.starts().length, 1));
+
+  for (const [label, search, session] of [
+    ['เปิด /login ตรงๆ (ไม่ได้มาจาก LINE)', '', {}],
+    ['LINE ส่ง error กลับมา (กดยกเลิก)', '?error=access_denied&state=x&openExternalBrowser=1', {}],
+    ['เพิ่งออกจากระบบ', '?logged_out=1&openExternalBrowser=1', {}],
+    ['กำลังรอกรอกอีเมล (need_email)', '?openExternalBrowser=1', { vnk_need_email_line_uid_token: 'signed-fixture' }]
+  ]) {
+    p = await loginPage({ search, session });
+    await check(label + ' -> ไม่พาไปเอง', () => assert.equal(p.starts().length, 0));
+  }
+
+  p = await loginPage({ search: '?openExternalBrowser=1', blockedSession: true });
+  await check('sessionStorage ใช้ไม่ได้ -> ไม่พาไปเอง ไม่ error ปุ่มยังใช้ได้', () => {
+    assert.equal(p.starts().length, 0);
+    assert.equal(typeof p.c.beginLineLogin, 'function');
+  });
+
+  p = await loginPage({ search: '?code=abc&state=signed' });
+  await check('กลับมาจาก LINE พร้อม code -> ส่ง code ไป line-callback ไม่เริ่ม LINE Login ใหม่', () => {
+    assert.equal(p.starts().length, 0);
+    assert.equal(p.fetches.filter(f => f.url === '/api/auth/line-callback').length, 1);
+  });
+
+  p = await loginPage({ search: '?connect_token=tok.sig&openExternalBrowser=1' });
+  await check('ลิงก์ "เชื่อมบัญชี LINE" -> พาไป LINE Login เองพร้อม connect_token', () => {
+    assert.equal(p.starts().length, 1);
+    assert.equal(p.starts()[0].url, '/api/auth/line-start?connect_token=tok.sig');
+    assert.equal(p.loc.href, AUTH_URL);
+  });
+
+  p = await loginPage({ search: '', ua: LINE_IAB });
+  await check('เบราว์เซอร์ในแอป LINE -> ดีดออกเบราว์เซอร์จริงก่อน (เหมือนเดิม) ยังไม่เริ่ม LINE Login', () => {
+    assert.equal(p.loc.replaced, 'https://vinko.quest/login?openExternalBrowser=1');
+    assert.equal(p.fetches.length, 0);
+  });
+
+  /* ---------------- 2. claim-download ---------------- */
+  section('2. claim-download — ลิงก์/QR ผูก LINE บนหน้าขอบคุณ');
+  Object.assign(process.env, {
+    SUPABASE_URL: 'https://fake.supabase.co', SUPABASE_SERVICE_ROLE_KEY: 'service_FAKE',
+    OMISE_SECRET_KEY: 'skey_test_FAKE', APP_BASE_URL: 'https://vinko.quest',
+    LINE_LOGIN_CHANNEL_ID: '1234567890', LINE_LOGIN_CHANNEL_SECRET: 'line-secret-fixture',
+    IP_HASH_SALT: 'test-salt-fixture', RESEND_API_KEY: 're_FAKE', SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_FAKEFAKEFAKEFAKE'
+  });
+  const DB = { orders: [], order_items: [] };
+  const reply = (status, body) => ({ ok: status < 300, status, headers: { get: () => null },
+    text: async () => JSON.stringify(body), json: async () => body });
+  global.fetch = async (url, opts) => {
+    const u = String(url), method = ((opts && opts.method) || 'GET').toUpperCase();
+    if (u.startsWith('https://fake.supabase.co/rest/v1/')) {
+      const [p2, qs] = u.slice('https://fake.supabase.co/rest/v1/'.length).split('?');
+      const f = [...new URLSearchParams(qs || '')].filter(([k]) => !['select', 'limit', 'order'].includes(k))
+        .map(([k, v]) => [k, v.replace(/^eq\./, '')]);
+      const rows = (DB[p2] || []).filter(r => f.every(([k, v]) => String(r[k]) === v));
+      if (method === 'GET') return reply(200, rows);
+      if (method === 'PATCH') { rows.forEach(r => Object.assign(r, JSON.parse(opts.body))); return reply(200, rows); }
+    }
+    throw new Error('unmocked fetch ' + method + ' ' + u);
+  };
+  const order = (extra) => Object.assign({ id: 'o1', order_ref: 'VK-2610-0001', status: 'paid', client_request_id: 'rid-0123456789abcdef',
+    download_token: 'TOKEN_FIXTURE', token_expires_at: '2027-01-01T00:00:00Z', amount_satang: 19900, currency: 'THB',
+    package_code: 'LAB', omise_charge_id: 'chrg_test_1', customer_email: 'Parent@Example.com' }, extra);
+  async function claim(rid) {
+    for (const f of ['claim-download.js', '_lib/email.js', '_lib/config.js']) delete require.cache[require.resolve(path.join(REPO, 'api', f))];
+    const res = { statusCode: 200, headers: {}, body: null };
+    res.setHeader = () => {}; res.status = s => { res.statusCode = s; return res; };
+    res.send = b => { res.body = JSON.parse(b); return res; };
+    await require(path.join(REPO, 'api', 'claim-download.js'))({ method: 'POST', headers: {}, body: { order_ref: 'VK-2610-0001', client_request_id: rid } }, res);
+    return res;
+  }
+
+  DB.orders = [order()];
+  let r = await claim('rid-0123456789abcdef');
+  await check('จ่ายแล้ว + rid ตรง -> มี connect_line_url และ QR (SVG)', () => {
+    assert.equal(r.body.ready, true);
+    assert.match(r.body.connect_line_url, /^https:\/\/vinko\.quest\/login\?connect_token=[^&]+&openExternalBrowser=1$/);
+    assert.match(r.body.connect_line_qr_svg, /^<svg[\s\S]*<\/svg>\s*$/);
+  });
+  await check('connect_token ผูกกับอีเมลของออเดอร์นี้ (ตรวจลายเซ็นด้วย secret ได้)', () => {
+    const tok = decodeURIComponent(r.body.connect_line_url.match(/connect_token=([^&]+)/)[1]);
+    const signed = require(path.join(REPO, 'api', '_lib', 'signed_token.js'));
+    const payload = signed.verify(tok, 'line-secret-fixture');
+    assert.equal(payload.p, 'connect');
+    assert.equal(payload.email, 'parent@example.com');
+    assert.ok(payload.exp > Date.now());
+  });
+  r = await claim('rid-WRONG-0000000000');
+  await check('rid ไม่ตรง -> 403 ไม่มีลิงก์ผูก LINE', () => {
+    assert.equal(r.statusCode, 403);
+    assert.equal(r.body.connect_line_url, undefined);
+  });
+  DB.orders = [order({ status: 'pending' })];
+  r = await claim('rid-0123456789abcdef');
+  await check('ยังไม่จ่าย -> ไม่มีลิงก์ผูก LINE', () => {
+    assert.equal(r.body.ready, false);
+    assert.equal(r.body.connect_line_url, undefined);
+  });
+  DB.orders = [order()];
+  delete process.env.LINE_LOGIN_CHANNEL_SECRET;
+  r = await claim('rid-0123456789abcdef');
+  await check('ยังไม่ได้ตั้ง LINE Login -> ไม่มีกล่อง แต่ลิงก์ดาวน์โหลดยังได้', () => {
+    assert.equal(r.body.ready, true);
+    assert.equal(r.body.connect_line_url, undefined);
+  });
+  process.env.LINE_LOGIN_CHANNEL_SECRET = 'line-secret-fixture';
+
+  /* ---------------- 3. thank-you.js ---------------- */
+  section('3. thank-you.js — แสดงกล่อง QR');
+  async function thankYou(payload) {
+    const els = {};
+    const el = () => ({ hidden: true, textContent: '', innerHTML: '', href: '', parentNode: { insertBefore() {} },
+      querySelector: () => null, addEventListener(n, f) { this['on' + n] = f; } });
+    ['[data-vk-ty-loading]', '[data-vk-ty-ready]', '[data-vk-ty-email]', '[data-vk-ty-link]', '[data-vk-ty-expires]',
+     '[data-vk-ty-ref-box]', '[data-vk-ty-ref]', '[data-vk-ty-line]', '[data-vk-ty-line-qr]', '[data-vk-ty-line-copy]']
+      .forEach(s => { els[s] = el(); });
+    els['[data-vk-ty-loading]'].hidden = false;
+    const c = { document: { querySelector: s => els[s] || null, createElement: () => el() }, URLSearchParams, JSON, Date,
+      location: { search: '?ref=VK-2610-0001' }, navigator: {}, console, setTimeout: () => {},
+      sessionStorage: { getItem: () => JSON.stringify({ ref: 'VK-2610-0001', rid: 'rid-0123456789abcdef' }) },
+      localStorage: { getItem: () => null, setItem() {} }, addEventListener() {},
+      fetch: async () => ({ json: async () => payload }) };
+    c.window = c;
+    vm.createContext(c);
+    vm.runInContext(fs.readFileSync(path.join(REPO, 'assets/js/thank-you.js'), 'utf8'), c);
+    await tick();
+    return els;
+  }
+  let e = await thankYou({ ok: true, ready: true, download_url: '/download?token=X', connect_line_url: 'https://vinko.quest/login?connect_token=t&openExternalBrowser=1', connect_line_qr_svg: '<svg>qr</svg>' });
+  await check('มีลิงก์ผูก LINE -> แสดงกล่องพร้อม QR', () => {
+    assert.equal(e['[data-vk-ty-ready]'].hidden, false);
+    assert.equal(e['[data-vk-ty-line]'].hidden, false);
+    assert.equal(e['[data-vk-ty-line-qr]'].innerHTML, '<svg>qr</svg>');
+  });
+  e = await thankYou({ ok: true, ready: true, download_url: '/download?token=X' });
+  await check('ไม่มีลิงก์ผูก LINE -> ซ่อนกล่อง ลิงก์ดาวน์โหลดยังแสดง', () => {
+    assert.equal(e['[data-vk-ty-ready]'].hidden, false);
+    assert.equal(e['[data-vk-ty-line]'].hidden, true);
+  });
+  await check('thank-you.html มีกล่อง QR และการ์ด EF อยู่ท้ายหน้า', () => {
+    const html = fs.readFileSync(path.join(REPO, 'thank-you.html'), 'utf8');
+    const box = html.indexOf('data-vk-ty-line hidden');
+    const ef = html.indexOf('class="vk-line-cta"');
+    assert.ok(box > 0, 'no LINE connect box');
+    assert.ok(ef > box, 'EF card should come after the LINE connect box');
+  });
+
+  finished = true;
+  console.log('\nLINE connect: ' + passed + ' passed, ' + failed + ' failed (no network)');
+  process.exit(failed ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });
