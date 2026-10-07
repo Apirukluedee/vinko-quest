@@ -8,6 +8,10 @@
       "destination": "/api/health?_route=unsubscribe"
     },
     {
+      "source": "/api/cron/keepalive",
+      "destination": "/api/health?_route=keepalive"
+    },
+    {
       "source": "/api/public-config",
       "destination": "/api/health?_route=public-config"
     },
@@ -104,6 +108,10 @@
     {
       "path": "/api/cron/deliver-preorders",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/keepalive",
+      "schedule": "0 14 * * *"
     }
   ],
   "functions": {

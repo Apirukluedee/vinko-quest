@@ -203,6 +203,13 @@ function validate(env) {
                   'ซึ่งทำให้ hash IP ย้อนกลับได้ง่าย ตั้งเป็นค่าสุ่มยาวๆ แล้วอย่าเปลี่ยนอีก');
   }
 
+  // งานอัตโนมัติทั้งสองตัว (ส่ง pre-order, keepalive ฐานข้อมูล) ปฏิเสธทุก request
+  // ถ้าไม่มีค่านี้ — Supabase แพ็กเกจฟรีจะหยุดโปรเจกต์เมื่อเงียบ 7 วัน
+  if (!has('CRON_SECRET')) {
+    warnings.push('CRON_SECRET: ยังไม่ได้ตั้ง — งานอัตโนมัติรายวัน (ส่ง pre-order และ keepalive ' +
+                  'ฐานข้อมูล) จะไม่ทำงาน Supabase อาจหยุดโปรเจกต์เมื่อไม่มีการใช้งาน 7 วัน');
+  }
+
   /* ---------------- แจ้งเตือน LINE (ตั้งครึ่งเดียว = ไม่ทำงานเงียบๆ ไม่ error) ---------------- */
   if (has('LINE_CHANNEL_ACCESS_TOKEN') !== has('LINE_ADMIN_USER_ID')) {
     warnings.push('ตั้ง LINE_CHANNEL_ACCESS_TOKEN กับ LINE_ADMIN_USER_ID ไว้แค่ตัวเดียว ' +
