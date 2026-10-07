@@ -231,7 +231,7 @@
   if (needEmail) {
     showMsg('LINE ของคุณไม่ได้แชร์อีเมล กรุณากรอกอีเมลที่ใช้สั่งซื้อแล้วกดรับลิงก์', 'error');
   } else if (connectToken && !lineCode) {
-    showMsg('กดปุ่ม "เข้าสู่ระบบด้วย LINE" ด้านล่างเพื่อเชื่อมบัญชี LINE กับคำสั่งซื้อนี้', 'success');
+    showMsg('กดปุ่มสีเขียว "เข้าสู่ระบบด้วย LINE" ด้านบน เพื่อเชื่อมบัญชี LINE กับคำสั่งซื้อนี้', 'success');
   }
   if (err) showMsg(ERROR_MSGS[err] || 'เกิดข้อผิดพลาด: ' + err, 'error');
 
@@ -305,7 +305,7 @@
     } catch (e) { return false; }
   }
   if (autoLineAllowed()) {
-    showMsg('กำลังพาไปเข้าสู่ระบบด้วย LINE… ถ้าไม่ไปต่อ กดปุ่มสีเขียวด้านล่างได้เลย', 'success');
+    showMsg('กำลังพาไปเข้าสู่ระบบด้วย LINE… ถ้าไม่ไปต่อ กดปุ่มสีเขียวด้านบนได้เลย', 'success');
     window.beginLineLogin();
   }
 
