@@ -40,6 +40,37 @@ module.exports = async function handler(req, res) {
     return handleUnsubscribe(req, res);
   }
 
+  /* /api/cron/keepalive rewrite มาที่นี่ (vercel.json) — Vercel Cron เรียกวันละครั้ง
+     Supabase แพ็กเกจฟรีหยุดโปรเจกต์ที่ไม่มีการใช้งาน 7 วัน (เคยได้อีเมลเตือน 7 ต.ค. 2569)
+     ช่วงไม่มีลูกค้าเข้าเว็บ ฐานข้อมูลจะเงียบสนิทจนถูกหยุด ลูกค้าคนถัดไปซื้อไม่ได้
+     งานนี้อ่านแถวเดียวเพื่อให้มีการใช้งานทุกวัน แยกจากงาน pre-order โดยตั้งใจ
+     — ลบงานนั้นวันไหน ping ก็ยังอยู่
+     สิทธิ์: Vercel Cron ส่ง Authorization: Bearer <CRON_SECRET> มาเอง
+     ไม่ได้ตั้ง CRON_SECRET = ตอบ 503 + log ชัดๆ ให้เห็นในแท็บ Cron Jobs (ไม่เงียบ)
+     ไม่คืนข้อมูลในตารางออกไปเลย — แค่ ok/status */
+  if (route === 'keepalive') {
+    const secret = config.cronSecret();
+    if (!secret) {
+      console.error('[vinko][keepalive] CRON_SECRET ยังไม่ได้ตั้งใน Vercel — keepalive ไม่ได้แตะฐานข้อมูล Supabase อาจหยุดโปรเจกต์');
+      return json(res, 503, { ok: false, error: 'cron_secret_missing' });
+    }
+    const auth = String(req.headers.authorization || '');
+    const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+    if (!given || !safeEqual(given, secret)) return json(res, 401, { ok: false });
+
+    let r;
+    try {
+      r = await db.select('orders', 'select=id&limit=1');
+    } catch (e) {
+      r = { ok: false, status: 0 };
+    }
+    if (!r.ok) {
+      console.error('[vinko][keepalive] อ่านฐานข้อมูลไม่สำเร็จ status: ' + (Number.isInteger(r.status) ? r.status : '-'));
+      return json(res, 502, { ok: false, status: r.status });
+    }
+    return json(res, 200, { ok: true });
+  }
+
   // /api/public-config rewrite มาที่นี่ (ลด function count)
   if (route === 'public-config') {
     if (req.method !== 'GET') return json(res, 405, { ok: false });

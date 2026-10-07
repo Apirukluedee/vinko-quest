@@ -158,6 +158,10 @@ check('env ว่างเปล่า -> รายงานว่าขาด�
       r.missing.join(', '));
 check('ไม่ตั้ง IP_HASH_SALT -> เตือน',
       r.warnings.some(w => /IP_HASH_SALT/.test(w)), r.warnings.join(' | '));
+check('ไม่ตั้ง CRON_SECRET -> เตือนว่า keepalive/pre-order ไม่ทำงาน',
+      r.warnings.some(w => /CRON_SECRET/.test(w) && /keepalive/.test(w)), r.warnings.join(' | '));
+check('ตั้ง CRON_SECRET แล้ว -> ไม่เตือนเรื่องนี้',
+      !config.validate(Object.assign({}, GOOD, { CRON_SECRET: 'x'.repeat(32) })).warnings.some(w => /CRON_SECRET/.test(w)));
 
 r = config.validate(Object.assign({}, GOOD, { LINE_CHANNEL_ACCESS_TOKEN: 'abc' }));
 check('ตั้ง LINE_CHANNEL_ACCESS_TOKEN แต่ไม่ตั้ง LINE_ADMIN_USER_ID -> เตือน',
