@@ -10,8 +10,8 @@
    2. กันซ้ำด้วย unique constraint บน webhook_events.omise_event_id
       insert ก่อนทำงานเสมอ ถ้าชน = เคยประมวลผลแล้ว ตอบ 200 จบทันที
 
-   3. ตอบ 200 ให้เร็วที่สุด งานหนักไปทำใน request แยก (รอบ 3B)
-      ถ้าตอบช้า Omise จะ retry แล้วจะยุ่ง
+   3. ส่งมอบให้เสร็จก่อนตอบ 200 — ล้มเมื่อไรตอบ 500 ให้ Omise ส่งซ้ำ
+      ทุกขั้นทำซ้ำได้ปลอดภัย (ดูหมายเหตุในตัว handler)
    ============================================================ */
 
 'use strict';
@@ -85,81 +85,78 @@ module.exports = async function handler(req, res) {
 
   if (!claim.ok) {
     if (db.isUniqueViolation(claim)) {
-      // เคยประมวลผลแล้ว — ตรวจ deliver_status ก่อนคืน 200
-      // ถ้า 'failed' ต้อง retry deliver ไม่ใช่คืน 200 ทันที
-      const existing = await db.select('webhook_events',
-        'omise_event_id=eq.' + encodeURIComponent(eventId) +
-        '&select=deliver_status&limit=1');
-      const ds = Array.isArray(existing.body) && existing.body[0] && existing.body[0].deliver_status;
-      if (ds !== 'failed') {
-        return json(res, 200, { ok: true, duplicate: true });
-      }
-      // deliver_status = 'failed' → หา order แล้ว retry
-      try {
-        const orderSel = await db.select('orders',
-          'omise_charge_id=eq.' + encodeURIComponent(chargeId) +
-          '&select=order_ref&limit=1');
-        const orderRef = Array.isArray(orderSel.body) && orderSel.body[0] && orderSel.body[0].order_ref;
-        if (orderRef) {
-          await deliver(orderRef);
-          await db.update('webhook_events',
-            'omise_event_id=eq.' + encodeURIComponent(eventId),
-            { deliver_status: 'delivered' }).catch(function () {});
-          console.log('[vinko][webhook] retry deliver สำเร็จ', orderRef);
-        }
-      } catch (retryErr) {
-        console.error('[vinko][webhook] retry deliver ไม่สำเร็จ', chargeId, retryErr.message);
-        return json(res, 500, { ok: false });
-      }
-      return json(res, 200, { ok: true, retried: true });
+      // เคยประมวลผลสำเร็จแล้ว — รอบที่ล้มจะลบแถวนี้ทิ้งเสมอ (ดู releaseClaim)
+      // แถวที่ยังอยู่จึงหมายถึงจบงานแล้วเท่านั้น
+      return json(res, 200, { ok: true, duplicate: true });
     }
-    console.error('[vinko][webhook] บันทึก event ไม่สำเร็จ', JSON.stringify(claim.body));
+    console.error('[vinko][webhook] บันทึก event ไม่สำเร็จ status', claim.status);
     // ตอบ 500 เพื่อให้ Omise retry ดีกว่าปล่อยให้ออเดอร์ค้าง pending
     return json(res, 500, { ok: false });
   }
 
-  /* ---------- อัปเดตออเดอร์ ---------- */
-  // รองรับทั้งสำเร็จ ล้มเหลว และหมดอายุ (QR PromptPay มีอายุจำกัด)
-  try {
-    const result = await orders.applyChargeResult(charge);
+  /* ---------- อัปเดตออเดอร์ + ส่งมอบ ----------
+     รองรับทั้งสำเร็จ ล้มเหลว และหมดอายุ (QR PromptPay มีอายุจำกัด)
 
-    // จ่ายสำเร็จ: ออก token + ส่งอีเมล + แจ้งเตือน LINE
-    //
-    // ต้อง await ทั้งคู่ ห้ามยิงทิ้งแล้วรีบตอบ 200
-    // เพราะ Vercel หยุดการทำงานของฟังก์ชันทันทีที่ตอบ response ออกไป
-    // งานที่ค้างอยู่จะถูกฆ่าทิ้งกลางคัน ลูกค้าจ่ายเงินแล้วแต่ไม่มี token
-    // (เคยพลาดตรงนี้มาแล้วกับออเดอร์ VK-2608-0001)
-    if (result && result.needs_delivery) {
-      try {
-        await deliver(result.order_ref);
-        await db.update('webhook_events',
-          'omise_event_id=eq.' + encodeURIComponent(eventId),
-          { deliver_status: 'delivered' }).catch(function () {});
-      } catch (deliverErr) {
-        console.error('[vinko][webhook] ส่งมอบไม่สำเร็จ', result.order_ref, deliverErr.message);
-        await db.update('webhook_events',
-          'omise_event_id=eq.' + encodeURIComponent(eventId),
-          { deliver_status: 'failed' }).catch(function () {});
-        // ออเดอร์เป็น paid แล้ว — รอบ retry จะไม่ผ่านจุด needs_delivery อีก จึงต้องส่งตอนนี้
-        await metaCapi.sendPurchase(result.order_ref, charge);
-        // ตอบ 500 ให้ Omise retry — ครั้งถัดไปจะเจอ deliver_status='failed' แล้ว retry deliver
-        return json(res, 500, { ok: false, error: 'deliver_failed' });
-      }
-      // LINE notification — ไม่ critical swallow ได้
-      line.notifyOrder(result.order_ref).catch(function (e) {
+     ล้มตรงไหนก็ตาม: ลบแถวกันซ้ำทิ้ง แล้วตอบ 500 ให้ Omise ส่ง event เดิมมาใหม่
+     รอบใหม่จะทำซ้ำได้ปลอดภัย — applyChargeResult ไม่แตะออเดอร์ที่ paid แล้ว
+     และ deliver() ไม่ส่งอีเมลซ้ำถ้าเคยส่งสำเร็จ
+     ถ้าลบแถวไม่ได้ (DB ล่มทั้งระบบ) cron รายวันจะไล่ซ่อมให้ (api/cron/deliver-preorders.js)
+
+     ต้อง await ทุกอย่าง ห้ามยิงทิ้งแล้วรีบตอบ 200
+     เพราะ Vercel หยุดการทำงานของฟังก์ชันทันทีที่ตอบ response ออกไป
+     (เคยพลาดตรงนี้มาแล้วกับออเดอร์ VK-2608-0001) */
+  let result;
+  try {
+    result = await orders.applyChargeResult(charge);
+  } catch (e) {
+    console.error('[vinko][webhook] อัปเดตออเดอร์ไม่สำเร็จ', e.message);
+    await releaseClaim(eventId);
+    return json(res, 500, { ok: false });
+  }
+
+  // จ่ายแล้ว (รอบนี้ หรือรอบก่อนที่ส่งของไม่สำเร็จ หรือ create-charge ตั้ง paid ไว้แล้ว)
+  // → ส่งมอบเสมอ deliver() ข้ามเองถ้าเคยส่งอีเมลแล้ว
+  if (result && result.status === 'paid') {
+    const out = await deliver(result.order_ref).catch(function (e) {
+      return { ok: false, error: e.message };
+    });
+    // อีเมลส่งไม่ออก = ยังไม่ถือว่าส่งมอบ (ลิงก์ดาวน์โหลดอยู่ในอีเมล)
+    const delivered = out.ok === true && out.emailed !== false;
+
+    if (result.changed) {
+      // LINE แจ้งแอดมิน — ไม่ critical แต่ต้อง await เหตุผลเดียวกับ deliver
+      await line.notifyOrder(result.order_ref).catch(function (e) {
         console.error('[vinko][webhook] แจ้งเตือน LINE ไม่สำเร็จ', result.order_ref, e.message);
       });
-      // Meta CAPI หลังส่งมอบเสร็จเท่านั้น — ไม่ throw, timeout 2 วินาที
-      // ต้อง await เหตุผลเดียวกับ deliver (Vercel ฆ่างานที่ค้างหลังตอบ)
+      // Meta CAPI เฉพาะรอบที่เปลี่ยนเป็น paid — ไม่ throw, timeout 2 วินาที
+      // ส่งแม้ส่งมอบล้ม: การซื้อเกิดขึ้นจริงแล้ว และรอบ retry จะไม่ผ่านจุด changed อีก
       await metaCapi.sendPurchase(result.order_ref, charge);
     }
 
-    return json(res, 200, { ok: true, result: result });
-  } catch (e) {
-    console.error('[vinko][webhook] อัปเดตออเดอร์ไม่สำเร็จ', e.message);
-    return json(res, 500, { ok: false });
+    if (!delivered) {
+      // log เฉพาะเหตุผลแบบสั้น ไม่ log ข้อความ error จากผู้ให้บริการอีเมล
+      console.error('[vinko][webhook] ส่งมอบไม่สำเร็จ', result.order_ref,
+        out.ok !== true ? 'deliver_failed' : 'email_failed');
+      await releaseClaim(eventId);
+      return json(res, 500, { ok: false, error: 'deliver_failed' });
+    }
   }
+
+  return json(res, 200, { ok: true, result: result });
 };
+
+/**
+ * ลบแถวกันซ้ำของ event ที่ประมวลผลไม่สำเร็จ ให้ Omise retry แล้วทำใหม่ได้
+ * ล้มเองก็ไม่ throw — แค่ log ไว้ cron รายวันเป็นด่านสุดท้าย
+ */
+async function releaseClaim(eventId) {
+  try {
+    const r = await db.remove('webhook_events', 'omise_event_id=eq.' + encodeURIComponent(eventId));
+    if (!r.ok) console.error('[vinko][webhook] ลบแถวกันซ้ำไม่สำเร็จ status', r.status);
+  } catch (e) {
+    console.error('[vinko][webhook] ลบแถวกันซ้ำไม่สำเร็จ', e.message);
+  }
+}
 
 /**
  * ดึง charge id ออกจาก payload — เอาแค่ "ตัวชี้" เท่านั้น

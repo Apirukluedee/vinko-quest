@@ -90,6 +90,10 @@ global.fetch = async function (url, opts) {
       const hit = S[table].filter(match); hit.forEach(r => Object.assign(r, JSON.parse(opts.body)));
       return reply(200, hit);
     }
+    if (method === 'DELETE') {
+      S[table] = S[table].filter(r => !match(r));
+      return reply(204, undefined);
+    }
   }
   if (u.startsWith('https://api.omise.co')) {
     const p = u.slice('https://api.omise.co'.length);
@@ -384,7 +388,7 @@ process.on('exit', () => {
       assert.deepEqual(calls.deliver, [REF]);
       assert.deepEqual(calls.line, [REF]);
       assert.equal(S.graph.length, 1);
-      assert.equal(S.webhook_events[0].deliver_status, 'delivered');
+      assert.equal(S.webhook_events.length, 1);   // ส่งมอบสำเร็จ: เก็บแถวกันซ้ำไว้
       assertNoLeak();
     });
     S.graphReply = null;
@@ -406,9 +410,9 @@ process.on('exit', () => {
     deliverImpl = async () => { throw new Error('resend down'); };
     w = await webhook('evnt_4');
     deliverImpl = async () => ({ ok: true });
-    await check('deliver พัง -> ยังตอบ 500 ให้ Omise retry เหมือนเดิม และ CAPI ถูกส่งครั้งเดียว', () => {
+    await check('deliver พัง -> ยังตอบ 500 ให้ Omise retry (ลบแถวกันซ้ำ) และ CAPI ถูกส่งครั้งเดียว', () => {
       assert.equal(w.statusCode, 500);
-      assert.equal(S.webhook_events[0].deliver_status, 'failed');
+      assert.equal(S.webhook_events.length, 0);   // ส่งมอบล้ม: ลบแถวกันซ้ำ ให้ Omise retry ทำใหม่ได้
       assert.equal(S.graph.length, 1);
     });
     reset(); calls.deliver = []; seedOrder({ status: 'pending', attribution_status: 'no_consent', attribution_snapshot: null });
@@ -430,7 +434,7 @@ process.on('exit', () => {
       assert.ok(tookS < BOUND, 'took ' + tookS);
       assert.equal(S.orders[0].status, 'paid');
       assert.deepEqual(calls.deliver, [REF]);
-      assert.equal(S.webhook_events[0].deliver_status, 'delivered');
+      assert.equal(S.webhook_events.length, 1);   // ส่งมอบสำเร็จ: เก็บแถวกันซ้ำไว้
       assert.equal(S.graph.length, 0);
     });
     reset(); calls.deliver = []; seedOrder({ status: 'pending' }); S.stallCapiRead = true; S.charge = liveCh();
@@ -440,7 +444,7 @@ process.on('exit', () => {
     await check('Supabase ค้าง + deliver พัง -> ยังตอบ 500 ภายใน ' + BOUND + 'ms (took ' + tookS + 'ms)', () => {
       assert.equal(w.statusCode, 500);
       assert.ok(tookS < BOUND, 'took ' + tookS);
-      assert.equal(S.webhook_events[0].deliver_status, 'failed');
+      assert.equal(S.webhook_events.length, 0);   // ส่งมอบล้ม: ลบแถวกันซ้ำ ให้ Omise retry ทำใหม่ได้
     });
 
     section('6. create-charge บัตรผ่านทันที');
@@ -474,6 +478,28 @@ process.on('exit', () => {
       assert.equal(ev.event_id, c.body.order_ref);
       assert.equal(ev.custom_data.value, 199);
       assert.match(ev.user_data.fbc, /\.IwAR0abcDEF$/);
+    });
+    reset(); calls.deliver = [];
+    let deliverDone = false;
+    deliverImpl = async () => { await new Promise(r => setTimeout(r, 40)); deliverDone = true; return { ok: true, emailed: true }; };
+    c = await payCard();
+    const doneAtResponse = deliverDone;
+    deliverImpl = async () => ({ ok: true });
+    await check('บัตรผ่านทันที -> ส่งมอบเสร็จก่อนตอบลูกค้า (Vercel ตัดงานที่ค้างหลังตอบ)', () => {
+      assert.equal(c.body.ok, true);
+      assert.equal(doneAtResponse, true);
+    });
+    await check('เก็บอีเมลเป็นตัวพิมพ์เล็ก ชั้นหนังสือ (login ตัวเล็ก) หาออเดอร์เจอ', () => {
+      assert.equal(S.orders[0].customer_email, EMAIL.toLowerCase());
+    });
+    reset(); calls.deliver = [];
+    deliverImpl = async () => { throw new Error('resend down'); };
+    c = await payCard();
+    deliverImpl = async () => ({ ok: true });
+    await check('บัตรผ่านทันทีแต่ส่งมอบพัง -> ลูกค้ายังได้ ok (เงินเข้าแล้ว webhook/cron ซ่อมต่อ)', () => {
+      assert.equal(c.statusCode, 200);
+      assert.equal(c.body.ok, true);
+      assert.equal(S.orders[0].status, 'paid');
     });
     reset(); calls.deliver = [];
     c = await payCard({ attribution_consent: false });

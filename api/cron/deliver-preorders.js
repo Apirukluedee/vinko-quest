@@ -6,6 +6,11 @@
 
    ถ้าไฟล์ยังไม่มีใน Storage ห้ามส่งอีเมล
    ระบบต้องไม่บอกลูกค้าว่าของพร้อมแล้วทั้งที่ยังไม่มีไฟล์
+
+   ก่อนส่ง pre-order: ไล่ซ่อมออเดอร์ 7 วันล่าสุดที่หลุดจาก webhook (reconcile)
+   - pending ที่มี charge → ถาม Omise ว่าจ่ายจริงไหม แล้วอัปเดตสถานะ
+   - paid ที่ยังไม่มีอีเมลส่งของสำเร็จ → deliver() ใหม่ (ข้ามเองถ้าเคยส่งแล้ว)
+   เป็นด่านสุดท้ายเมื่อ webhook/create-charge ล้มกลางทาง (DB ล่ม, Resend ล่ม, ฟังก์ชันถูกตัด)
    ============================================================ */
 'use strict';
 
@@ -15,6 +20,13 @@ const storage = require('./../_lib/storage');
 const email   = require('./../_lib/email');
 const { json, safeEqual } = require('./../_lib/util');
 const config  = require('./../_lib/config');
+const omise   = require('./../_lib/omise');
+const orders  = require('./../_lib/orders');
+const metaCapi = require('./../_lib/meta-capi');
+const { deliver } = require('./../_lib/deliver-order');
+
+const RECONCILE_DAYS = 7;
+const RECONCILE_LIMIT = 50;   // กันรันนานเกินเวลาของฟังก์ชัน ที่เหลือรอรอบพรุ่งนี้
 
 module.exports = async function handler(req, res) {
   // Vercel Cron ส่ง Authorization: Bearer <CRON_SECRET> มาให้
@@ -26,6 +38,8 @@ module.exports = async function handler(req, res) {
   }
 
   const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);   // วันที่ตามเวลาไทย
+
+  const reconcile = await reconcileRecent();
 
   // ดึงทุกแถวด้วย pagination — limit=200 ต่อรอบ จนกว่าหน้าสุดท้ายจะสั้นกว่า 200
   const PAGE = 200;
@@ -98,5 +112,65 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  return json(res, 200, Object.assign({ ok: true, date: today }, out));
+  return json(res, 200, Object.assign({ ok: true, date: today, reconcile: reconcile }, out));
 };
+
+/** ไล่ซ่อมออเดอร์ล่าสุดที่จ่ายแล้วแต่ระบบยังไม่ได้ส่งมอบ — ห้าม throw ออกไปทำ cron pre-order พัง */
+async function reconcileRecent() {
+  const since = new Date(Date.now() - RECONCILE_DAYS * 86400000).toISOString();
+  const out = { pending_checked: 0, marked_paid: 0, delivered: 0, failed: 0 };
+
+  // 1. pending ที่สร้าง charge แล้ว: ถาม Omise ตรงๆ (ห้ามเชื่ออะไรอื่น)
+  try {
+    const r = await db.select('orders',
+      'status=eq.pending&omise_charge_id=not.is.null&created_at=gte.' + encodeURIComponent(since) +
+      '&select=order_ref,omise_charge_id&order=created_at.asc&limit=' + RECONCILE_LIMIT);
+    for (const o of (Array.isArray(r.body) ? r.body : [])) {
+      out.pending_checked++;
+      try {
+        const c = await omise.retrieveCharge(o.omise_charge_id);
+        if (!c.ok || !c.body || c.body.object !== 'charge') continue;
+        const result = await orders.applyChargeResult(c.body);
+        if (result && result.changed && result.status === 'paid') {
+          out.marked_paid++;
+          console.warn('[vinko][cron][reconcile] พบออเดอร์จ่ายแล้วแต่ค้าง pending', o.order_ref);
+          await metaCapi.sendPurchase(o.order_ref, c.body);
+        }
+      } catch (e) {
+        out.failed++;
+        console.error('[vinko][cron][reconcile] ตรวจ charge ไม่สำเร็จ', o.order_ref, e.message);
+      }
+    }
+  } catch (e) {
+    out.failed++;
+    console.error('[vinko][cron][reconcile] ดึงออเดอร์ pending ไม่สำเร็จ', e.message);
+  }
+
+  // 2. paid ล่าสุด: deliver() ทุกตัว — ตัวที่ส่งอีเมลแล้วจะข้ามเอง (นับ email_events)
+  try {
+    const r = await db.select('orders',
+      'status=eq.paid&paid_at=gte.' + encodeURIComponent(since) +
+      '&select=order_ref&order=paid_at.asc&limit=' + RECONCILE_LIMIT);
+    for (const o of (Array.isArray(r.body) ? r.body : [])) {
+      try {
+        const d = await deliver(o.order_ref);
+        if (d.ok && d.emailed === true) {
+          out.delivered++;
+          console.warn('[vinko][cron][reconcile] ส่งมอบออเดอร์ที่ตกหล่น', o.order_ref);
+        } else if (!d.ok || d.emailed === false) {
+          out.failed++;
+          console.error('[vinko][cron][reconcile] ส่งมอบไม่สำเร็จ', o.order_ref,
+            !d.ok ? 'deliver_failed' : 'email_failed');
+        }
+      } catch (e) {
+        out.failed++;
+        console.error('[vinko][cron][reconcile] ส่งมอบไม่สำเร็จ', o.order_ref, e.message);
+      }
+    }
+  } catch (e) {
+    out.failed++;
+    console.error('[vinko][cron][reconcile] ดึงออเดอร์ paid ไม่สำเร็จ', e.message);
+  }
+
+  return out;
+}

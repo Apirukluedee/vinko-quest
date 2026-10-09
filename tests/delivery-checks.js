@@ -144,6 +144,11 @@ function mockRes() {
     catch (e) { r.body = null; }
     return r;
   };
+  // ไฟล์ PDF ถูกทยอยเขียนทีละก้อน (download.js) — เก็บทุกก้อนไว้ตรวจ
+  r.chunks = [];
+  r.write = b => { r.chunks.push(Buffer.from(b)); return true; };
+  r.end = () => { if (r.chunks.length) r.raw = Buffer.concat(r.chunks); r.ended = true; return r; };
+  r.once = () => r;
   return r;
 }
 const post = (body, headers) => ({ method: 'POST', url: '/', headers: Object.assign({ 'x-forwarded-for': '1.2.3.4' }, headers || {}), body, socket: {} });
@@ -270,10 +275,11 @@ function seedOrder(over) {
   /* ---- 5. deliver-order + อีเมล ---- */
   section('5. ส่งอีเมลยืนยันการสั่งซื้อ');
   reset(); const o4 = seedOrder({ download_token: null });
-  let deliver = load('deliver-order.js');
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': process.env.INTERNAL_TASK_SECRET }), r);
-  check('ส่งสำเร็จ', r.statusCode === 200 && r.body.ok, JSON.stringify(r.body));
+  // deliver-order ย้ายจาก endpoint ไปเป็น _lib/deliver-order.js ที่ webhook เรียกตรง
+  // (ไม่มี HTTP / x-vinko-task secret แล้ว จึงไม่มีเคส 401 ให้ตรวจ)
+  let { deliver } = load('_lib/deliver-order.js');
+  let dr = await deliver(o4.order_ref);
+  check('ส่งสำเร็จ', dr.ok && dr.emailed === true, JSON.stringify(dr));
   check('ออก token ให้ออเดอร์แล้ว', !!DB.orders[0].download_token);
   check('ส่งอีเมล 1 ฉบับ', SENT.length === 1);
   check('มีทั้ง html และ text', SENT[0] && !!SENT[0].html && !!SENT[0].text);
@@ -281,15 +287,8 @@ function seedOrder(over) {
   check('มีลิงก์ /download ในอีเมล', /\/download\?token=/.test(SENT[0].html));
   check('บันทึก message id ลง email_events', DB.email_events.length === 1 && !!DB.email_events[0].provider_message_id);
 
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': process.env.INTERNAL_TASK_SECRET }), r);
-  check('เรียกซ้ำไม่ส่งอีเมลซ้ำ', SENT.length === 1, 'ส่งไป ' + SENT.length + ' ฉบับ');
-
-  r = mockRes();
-  await deliver(post({ order_ref: o4.order_ref }, { 'x-vinko-task': 'wrong' }), r);
-  check('secret ผิด -> 401', r.statusCode === 401);
-  r = mockRes(); await deliver(post({ order_ref: o4.order_ref }), r);
-  check('ไม่มี secret -> 401', r.statusCode === 401);
+  dr = await deliver(o4.order_ref);
+  check('เรียกซ้ำไม่ส่งอีเมลซ้ำ', SENT.length === 1 && !!dr.skipped, 'ส่งไป ' + SENT.length + ' ฉบับ');
 
   /* ---- 6. resend-link ---- */
   section('6. ขอลิงก์ใหม่');

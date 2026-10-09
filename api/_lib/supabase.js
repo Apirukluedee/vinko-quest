@@ -103,6 +103,12 @@ async function update(table, query, patch) {
   });
 }
 
+/** ลบแถวตามเงื่อนไข query — ต้องมีเงื่อนไขเสมอ ห้ามส่ง query ว่าง (จะลบทั้งตาราง) */
+async function remove(table, query) {
+  if (!query) throw new Error('db.remove ต้องมีเงื่อนไข');
+  return call('/' + table + '?' + query, { method: 'DELETE', headers: headers() });
+}
+
 /** select — ระบุคอลัมน์เสมอ อย่าใช้ * เพื่อไม่ให้เผลอดึงข้อมูลเกินจำเป็น */
 async function select(table, query) {
   return call('/' + table + '?' + query, { method: 'GET', headers: headers() });
@@ -159,6 +165,6 @@ function isUniqueViolation(r) {
 }
 
 module.exports = {
-  insert, insertMany, update, select, count, ping, rpc, isUniqueViolation,
+  insert, insertMany, update, remove, select, count, ping, rpc, isUniqueViolation,
   assertServerKey, _resetKeyCache
 };

@@ -54,7 +54,9 @@ module.exports = async function handler(req, res) {
   const requiresPreorderConsent = isCart ? false : pkg.requires_preorder_consent;
 
   const name  = clean(body.customer_name, 120);
-  const email = clean(body.customer_email, 254);
+  // เก็บอีเมลเป็นตัวพิมพ์เล็กเสมอ — login แปลงเป็นตัวเล็ก ชั้นหนังสือจะได้หาออเดอร์เจอ
+  // (มือถือมักขึ้นต้นด้วยตัวใหญ่ให้เอง เช่น Parent@gmail.com)
+  const email = clean(body.customer_email, 254).toLowerCase();
   const phone = clean(body.customer_phone, 30);
   const method = body.payment_method === 'card' ? 'card'
                : body.payment_method === 'promptpay' ? 'promptpay' : null;
@@ -268,13 +270,24 @@ module.exports = async function handler(req, res) {
 
   // บัตรที่ผ่านทันที (ไม่ต้อง 3DS) รู้ผลตั้งแต่ตอนนี้ อัปเดตและส่งมอบเลย
   // webhook อาจมาช้าหรือไม่มาเลยสำหรับ card ที่ settle ทันที
+  //
+  // ต้อง await deliver ก่อนตอบ — Vercel หยุดฟังก์ชันทันทีที่ตอบ response
+  // งานออก token/ส่งอีเมลที่ยังค้างจะถูกตัดกลางคัน
+  // ถ้าส่งมอบล้มก็ยังตอบลูกค้าตามปกติ (เงินเข้าแล้ว) — webhook ของ charge นี้
+  // และ cron รายวันจะเรียก deliver() ซ้ำให้ ส่วนหน้าขอบคุณออก token เองได้
   if (charge.status === 'successful') {
     try {
       const result = await orders.applyChargeResult(charge);
-      if (result && result.needs_delivery) {
-        deliver(result.order_ref).catch(function (e) {
-          console.error('[vinko] deliver on instant charge failed', result.order_ref, e.message);
+      if (result && result.status === 'paid') {
+        const out = await deliver(result.order_ref).catch(function (e) {
+          return { ok: false, error: e.message };
         });
+        if (out.ok !== true || out.emailed === false) {
+          console.error('[vinko] deliver on instant charge failed', result.order_ref,
+            out.ok !== true ? 'deliver_failed' : 'email_failed');
+        }
+      }
+      if (result && result.changed) {
         // Meta CAPI หลังเปลี่ยนสถานะแล้ว — ไม่ throw, timeout 2 วินาที
         await metaCapi.sendPurchase(result.order_ref, charge);
       }

@@ -105,5 +105,27 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Length', String(stamped.bytes.length));
   res.setHeader('Cache-Control', 'no-store, private');
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.status(200).send(Buffer.from(stamped.bytes));
+  res.statusCode = 200;
+  // ทยอยเขียนทีละก้อน ห้าม send() ทั้งไฟล์ในครั้งเดียว
+  // Vercel จำกัด response แบบก้อนเดียวไว้ 4.5 MB แต่ LAB-MAIN ใหญ่ ~10 MB / นิทานเล่มละ ~6 MB
+  // response แบบ streaming ไม่ติดเพดานนี้ (vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions)
+  await writeChunks(res, Buffer.from(stamped.bytes));
 };
+
+const CHUNK_BYTES = 1024 * 1024;
+
+/** เขียน buffer ออกทีละ 1 MB รอ drain เมื่อ buffer ฝั่งส่งเต็ม หยุดถ้าผู้ใช้ปิดการเชื่อมต่อ */
+async function writeChunks(res, buf) {
+  let closed = false;
+  if (typeof res.once === 'function') res.once('close', function () { closed = true; });
+  for (let i = 0; i < buf.length && !closed; i += CHUNK_BYTES) {
+    const ok = res.write(buf.subarray(i, i + CHUNK_BYTES));
+    if (!ok && !closed && typeof res.once === 'function') {
+      await new Promise(function (resolve) {
+        res.once('drain', resolve);
+        res.once('close', resolve);
+      });
+    }
+  }
+  res.end();
+}

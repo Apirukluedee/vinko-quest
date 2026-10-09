@@ -40,6 +40,13 @@ const PHONE_RE = /^[0-9+\-\s()]{9,20}$/;
 function isEmail(v) { return typeof v === 'string' && v.length <= 254 && EMAIL_RE.test(v.trim()); }
 function isPhone(v) { return typeof v === 'string' && PHONE_RE.test(v.trim()); }
 
+/**
+ * escape อักขระพิเศษของ LIKE (\ % _) ให้เป็นตัวอักษรธรรมดา ใช้กับ ilike ของ PostgREST
+ * อีเมลมี `_` ได้จริง (เช่น my_name@example.com) ถ้าไม่หนีจะแมตช์อักขระอะไรก็ได้ ดึงแถวคนอื่นติดมา
+ * PostgREST ยังแปลง * เป็น wildcard อยู่ ผู้เรียกต้องกรองผลซ้ำด้วยการเทียบตรงตัวเสมอ
+ */
+function likeLiteral(s) { return String(s).replace(/([\\%_])/g, '\\$1'); }
+
 function clean(v, max) {
   if (typeof v !== 'string') return '';
   return v.trim().slice(0, max);
@@ -59,4 +66,4 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(x, y);
 }
 
-module.exports = { json, fail, hashIp, isEmail, isPhone, clean, requireEnv, safeEqual };
+module.exports = { json, fail, hashIp, isEmail, isPhone, clean, likeLiteral, requireEnv, safeEqual };

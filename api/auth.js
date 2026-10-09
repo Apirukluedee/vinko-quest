@@ -13,7 +13,8 @@ const crypto   = require('crypto');
 const sessions = require('./_lib/sessions');
 const config   = require('./_lib/config');
 const db       = require('./_lib/supabase');
-const { json } = require('./_lib/util');
+const tokens = require('./_lib/tokens');
+const { json, likeLiteral } = require('./_lib/util');
 const signedToken = require('./_lib/signed_token');
 const email = require('./_lib/email');
 const QRCode = require('qrcode');
@@ -388,12 +389,24 @@ async function handleMyLibrary(req, res) {
 
   // nested select — ดึง orders + order_items ใน 1 request เดียว
   // PostgREST embed via FK: order_items.order_id → orders.id
+  //
+  // ค้นแบบไม่สนตัวพิมพ์ (ilike) — ออเดอร์ก่อน 9 ต.ค. 2569 เก็บอีเมลตามที่ลูกค้าพิมพ์
+  // เช่น Parent@gmail.com แต่ login แปลงเป็นตัวเล็กเสมอ ถ้าเทียบตรงตัวชั้นหนังสือจะว่าง
+  // แล้วกรองซ้ำแบบตรงตัวอีกชั้น เพราะ PostgREST ยังแปลง * ในค่าเป็น wildcard
   const ordersRes = await db.select('orders',
-    'customer_email=eq.' + encodeURIComponent(user.email) +
+    'customer_email=ilike.' + encodeURIComponent(likeLiteral(user.email)) +
     '&status=eq.paid' +
-    '&select=id,order_ref,package_code,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at,refunded_at)'
+    '&select=id,order_ref,package_code,customer_email,reader_token,order_items(id,product_code,title,delivery_type,scheduled_delivery_date,delivered_at,refunded_at)'
   );
-  const orders = Array.isArray(ordersRes.body) ? ordersRes.body : [];
+  const want = String(user.email || '').trim().toLowerCase();
+  const orders = (Array.isArray(ordersRes.body) ? ordersRes.body : []).filter(function (o) {
+    return String(o.customer_email || '').trim().toLowerCase() === want;
+  });
+
+  // ออเดอร์ที่ไม่มี reader_token (ตอนส่งมอบออกไม่สำเร็จ) ออกให้ตรงนี้ ไม่งั้นเปิดอ่านไม่ได้
+  for (const o of orders) {
+    if (!o.reader_token) o.reader_token = await tokens.getOrCreateReaderToken(o).catch(function () { return null; });
+  }
 
   // ลิงก์ผูกบัญชี LINE เดียวกับที่ส่งในอีเมลยืนยันคำสั่งซื้อ (email.js:connectLineUrl)
   // ใช้โชว์เป็น QR ให้สแกนจากมือถือที่มี LINE ได้เลย ไม่ต้องรออีเมล
