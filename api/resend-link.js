@@ -22,7 +22,7 @@
 const db     = require('./_lib/supabase');
 const tokens = require('./_lib/tokens');
 const email  = require('./_lib/email');
-const { json, fail, hashIp, requireEnv } = require('./_lib/util');
+const { json, fail, hashIp, likeLiteral, requireEnv } = require('./_lib/util');
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const REF_RE   = /^VK-\d{4}-\d{4,6}$/;
@@ -150,8 +150,3 @@ module.exports = async function handler(req, res) {
 };
 
 function safeParse(s) { try { return JSON.parse(s); } catch (e) { return null; } }
-
-/** หนีอักขระพิเศษของ LIKE เพื่อให้ค่าที่ใส่มาถูกใช้เป็นข้อความตรงๆ
-    อีเมลมี `_` ได้จริง (เช่น my_name@example.com) ถ้าไม่หนี `_` จะกลาย
-    เป็นไวลด์การ์ดที่แมตช์อักขระอะไรก็ได้ ทำให้ดึงแถวของคนอื่นติดมาด้วย */
-function likeLiteral(s) { return String(s).replace(/([\\%_])/g, '\\$1'); }

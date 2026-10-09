@@ -192,6 +192,17 @@ function get(url) {
   return { method: 'GET', url, headers: { 'x-forwarded-for': '1.2.3.4' }, socket: {} };
 }
 
+/* ---------------- ส่งมอบปลอม ----------------
+   ชุดนี้ตรวจสถานะออเดอร์/กันซ้ำ ไม่ได้ตรวจอีเมล (อีเมลจริงอยู่ใน delivery-checks)
+   webhook ตอบ 500 เมื่อส่งมอบไม่สำเร็จ จึงต้องให้ deliver สำเร็จเสมอที่นี่ */
+const DELIVERED = [];
+{
+  const dp = require.resolve(path.join(REPO, 'api', '_lib', 'deliver-order.js'));
+  require.cache[dp] = { id: dp, filename: dp, loaded: true, exports: {
+    deliver: async ref => { DELIVERED.push(ref); return { ok: true, emailed: true }; }
+  } };
+}
+
 /* ---------------- โหลด handler ใหม่ทุกครั้ง ---------------- */
 function load(name) {
   const p = path.join(REPO, 'api', name);
@@ -495,14 +506,15 @@ const BASE = {
 
   /* ---- 16. public-config ---- */
   section('16. /api/public-config ต้องไม่รั่ว secret');
-  const pc = load('public-config.js');
+  // public-config ถูกรวมเข้า health.js แล้ว (vercel.json rewrite → /api/health?_route=public-config)
+  const pc = load('health.js');
   let pr = mockRes();
-  await pc(get('/api/public-config'), pr);
+  await pc(get('/api/health?_route=public-config'), pr);
   check('คืน public key', pr.body.omise_public_key === 'pkey_test_FAKE');
   check('ไม่มี secret key ใน response', !/skey_|service_/.test(JSON.stringify(pr.body)), JSON.stringify(pr.body));
   process.env.OMISE_PUBLIC_KEY = 'skey_test_OOPS';
   pr = mockRes();
-  await pc(get('/api/public-config'), pr);
+  await pc(get('/api/health?_route=public-config'), pr);
   check('ถ้าเผลอใส่ skey_ ในช่อง public ต้องปฏิเสธ', pr.statusCode === 500 && !/skey_/.test(JSON.stringify(pr.body)));
   process.env.OMISE_PUBLIC_KEY = 'pkey_test_FAKE';
 

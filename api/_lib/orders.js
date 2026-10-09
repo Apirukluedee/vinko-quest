@@ -67,10 +67,12 @@ async function applyChargeResult(charge) {
 
   // เปลี่ยนสถานะเฉพาะตอนที่ยังเป็น pending เท่านั้น (กัน race ระหว่าง webhook หลายตัว)
   const upd = await db.update('orders', 'id=eq.' + order.id + '&status=eq.pending', patch);
+  // update ล้ม (DB ล่ม/timeout) ต้องโยน error ห้ามคืนเหมือน "ไม่มีอะไรเปลี่ยน"
+  // ไม่งั้น webhook ตอบ 200 ทั้งที่ออเดอร์ยังค้าง pending — Omise ไม่ส่งซ้ำ ลูกค้าจ่ายแล้วไม่ได้ของ
+  if (!upd.ok) throw new Error('order_update_failed status ' + upd.status);
   const changed = Array.isArray(upd.body) && upd.body.length > 0;
 
-  // ออก token + ส่งอีเมล ทำที่ /api/deliver-order ซึ่งถูกยิงจาก webhook แบบไม่รอผล
-  // (ดู triggerDelivery ใน api/omise-webhook.js)
+  // ออก token + ส่งอีเมล: ผู้เรียก (webhook / create-charge / cron) เรียก deliver() เองเมื่อ status เป็น paid
 
   return {
     handled: true, changed: changed,

@@ -182,12 +182,21 @@ async function downloadCount(orderItemId) {
   }
 }
 
-/** ออก reader_token ใหม่ให้ออเดอร์ (ไม่หมดอายุ) */
+/**
+ * ออก reader_token ให้ออเดอร์ที่ยังไม่มี (ไม่หมดอายุ)
+ * เขียนแบบมีเงื่อนไข reader_token=is.null เหมือน issueIfMissing — สองทางออกพร้อมกัน
+ * (deliver กับชั้นหนังสือ) ใครเขียนก่อนชนะ อีกทางอ่านค่าที่ชนะกลับมาใช้ ห้ามเขียนทับ
+ * ไม่งั้นลิงก์อ่านในอีเมลที่ส่งไปแล้วจะใช้ไม่ได้
+ */
 async function issueReaderToken(orderId) {
   const token = newToken();
-  const r = await db.update('orders', 'id=eq.' + orderId, { reader_token: token });
-  if (!r.ok) throw new Error('ออก reader_token ไม่สำเร็จ: ' + JSON.stringify(r.body));
-  return token;
+  const r = await db.update('orders', 'id=eq.' + orderId + '&reader_token=is.null', { reader_token: token });
+  if (!r.ok) throw new Error('ออก reader_token ไม่สำเร็จ status ' + r.status);
+  if (Array.isArray(r.body) && r.body.length > 0) return token;
+  const cur = await db.select('orders', 'id=eq.' + orderId + '&select=reader_token&limit=1');
+  const existing = Array.isArray(cur.body) && cur.body[0] && cur.body[0].reader_token;
+  if (!existing) throw new Error('ออก reader_token ไม่สำเร็จ: ไม่พบออเดอร์');
+  return existing;
 }
 
 /** คืน reader_token ที่มีอยู่ หรือออกใหม่ถ้ายังไม่มี */
