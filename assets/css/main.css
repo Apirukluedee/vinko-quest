@@ -3430,3 +3430,13 @@ body.premium .vk-panel h2, body.premium .vk-panel h3 {
   border-radius: 24px;
   box-shadow: 0 18px 40px rgba(7, 27, 93, 0.12);
 }
+
+/* ราคาในหน้าแรก + ทางลัดไปนิทานรายเล่ม (คนที่มาจากแอด STORIES) */
+.hero-price { margin:16px 0 0; font-size:15px; color:var(--muted); font-weight:700; }
+.hero-price b { color:var(--navy, #071f49); font-size:18px; }
+.hero-stories-hook { margin:8px 0 0; font-size:14.5px; font-weight:800; }
+.hero-stories-hook a { color:var(--orange); text-decoration:none; }
+.hero-stories-hook a:hover { text-decoration:underline; text-underline-offset:3px; }
+.hero-price + .cta-note { margin-top:12px; }
+.vk-single-link { text-align:center; margin-top:12px; }
+.vk-single-link a { color:var(--orange); font-weight:800; text-decoration:underline; text-underline-offset:3px; }
