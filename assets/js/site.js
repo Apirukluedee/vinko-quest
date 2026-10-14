@@ -96,6 +96,10 @@
       if (C.UPGRADE_PRICE) el.textContent = baht(C.UPGRADE_PRICE);
     });
 
+    $$("[data-vk-single-price]").forEach(function (el) {
+      if (C.SINGLE_BOOK_PRICE) el.textContent = baht(C.SINGLE_BOOK_PRICE);
+    });
+
     // หมดช่วงเปิดตัวแล้ว: ซ่อนราคาขีดฆ่าและป้าย "ราคาเปิดตัว" ให้หมด
     if (!active) $$("[data-vk-launch-only]").forEach(function (el) { el.hidden = true; });
   }
