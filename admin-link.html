@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex, nofollow"/>
+<title>ลิงก์เข้าชั้นหนังสือ (แอดมิน) | VINKO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Anuphan:wght@400;600;700&display=swap" rel="stylesheet"/>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #F7F4EF; color: #071B5D; font-family: 'Anuphan', sans-serif; }
+.wrap { max-width: 520px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.sub { color: #6B7285; font-size: 14px; margin: 0 0 20px; line-height: 1.6; }
+.card { background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 4px 16px rgba(7,27,93,.08); margin-bottom: 16px; }
+label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 6px; }
+input { width: 100%; font: inherit; font-size: 16px; padding: 12px; border: 1.5px solid #d8dbe6; border-radius: 10px; margin-bottom: 14px; color: #071B5D; }
+input:focus { outline: none; border-color: #071B5D; }
+button { font: inherit; font-weight: 700; font-size: 16px; border: 0; border-radius: 999px; padding: 12px 20px; cursor: pointer; }
+.btn-main { background: #071B5D; color: #fff; width: 100%; }
+.btn-copy { background: #06C755; color: #fff; width: 100%; margin-top: 10px; }
+.btn-main:disabled { opacity: .6; }
+.msg { font-size: 14px; margin-top: 12px; line-height: 1.6; }
+.msg.error { color: #b42318; }
+textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; padding: 12px; border: 1.5px solid #d8dbe6; border-radius: 10px; min-height: 190px; color: #071B5D; resize: vertical; }
+.note { font-size: 13px; color: #6B7285; line-height: 1.6; margin: 10px 0 0; }
+.secret-row { display: flex; gap: 8px; align-items: center; font-size: 13px; color: #6B7285; }
+.secret-row button { background: none; color: #6B7285; text-decoration: underline; padding: 0; font-size: 13px; font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🔗 ลิงก์เข้าชั้นหนังสือ (แอดมิน)</h1>
+  <p class="sub">ใส่อีเมลที่ลูกค้าใช้สั่งซื้อ แล้วคัดลอกข้อความไปส่งในแชท LINE ลูกค้ากดลิงก์ในแชท จะเข้าสู่ระบบด้วย LINE และเห็นหนังสือทันที</p>
+
+  <div class="card">
+    <div id="secret-box">
+      <label for="secret">รหัสแอดมิน (ADMIN_SECRET)</label>
+      <input id="secret" type="password" autocomplete="off"/>
+    </div>
+    <div class="secret-row" id="secret-saved" hidden>
+      <span>🔒 จำรหัสแอดมินไว้ในเครื่องนี้แล้ว</span>
+      <button type="button" id="btn-forget">ลืมรหัส</button>
+    </div>
+
+    <label for="email" style="margin-top:12px">อีเมลที่ลูกค้าใช้สั่งซื้อ</label>
+    <input id="email" type="email" autocomplete="off" placeholder="customer@email.com"/>
+    <button class="btn-main" id="btn-make" type="button">สร้างลิงก์</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card" id="result" hidden>
+    <label for="out">ข้อความพร้อมส่งให้ลูกค้า</label>
+    <textarea id="out" readonly></textarea>
+    <button class="btn-copy" id="btn-copy" type="button">คัดลอกข้อความ</button>
+    <p class="note">ลิงก์ใช้ได้ 7 วัน ผูก LINE ได้ไม่เกิน 3 บัญชีต่ออีเมล ส่งให้ลูกค้าคนนั้นคนเดียวเท่านั้น</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY = 'vnk_admin_secret';
+  var secretEl = document.getElementById('secret');
+  var emailEl = document.getElementById('email');
+  var msgEl = document.getElementById('msg');
+  var btn = document.getElementById('btn-make');
+
+  function saved() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
+  function showSecretState() {
+    var has = !!saved();
+    document.getElementById('secret-box').hidden = has;
+    document.getElementById('secret-saved').hidden = !has;
+  }
+  showSecretState();
+
+  document.getElementById('btn-forget').addEventListener('click', function () {
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    showSecretState();
+  });
+
+  function show(text, isError) {
+    msgEl.textContent = text;
+    msgEl.className = 'msg' + (isError ? ' error' : '');
+  }
+
+  btn.addEventListener('click', async function () {
+    var secret = saved() || secretEl.value.trim();
+    var email = emailEl.value.trim();
+    if (!secret) return show('กรุณาใส่รหัสแอดมิน', true);
+    if (!email) return show('กรุณาใส่อีเมลลูกค้า', true);
+    btn.disabled = true;
+    show('กำลังสร้างลิงก์…');
+    document.getElementById('result').hidden = true;
+    try {
+      var r = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-vinko-admin': secret },
+        body: JSON.stringify({ action: 'line-link', email: email })
+      });
+      var d = await r.json().catch(function () { return {}; });
+      if (r.status === 401) {
+        try { localStorage.removeItem(KEY); } catch (e) {}
+        showSecretState();
+        return show('รหัสแอดมินไม่ถูกต้อง', true);
+      }
+      if (!d.ok) return show(d.error || 'สร้างลิงก์ไม่สำเร็จ', true);
+      try { localStorage.setItem(KEY, secret); } catch (e) {}
+      showSecretState();
+      document.getElementById('out').value =
+        'ลิงก์เข้าชั้นหนังสือของคุณค่ะ 📚\n' +
+        d.url + '\n\n' +
+        '1️⃣ กดลิงก์นี้ในแชท LINE\n' +
+        '2️⃣ กดยืนยัน "เข้าสู่ระบบด้วย LINE"\n' +
+        '3️⃣ จะเห็นหนังสือทุกเล่ม กด "🎧 ฟังเสียงอ่าน · อ่านนิทาน" ได้เลยค่ะ\n\n' +
+        'ครั้งต่อไปกดเมนู "หนังสือของฉัน" ในแชทนี้ได้เลย ไม่ต้องใช้ลิงก์อีกค่ะ 😊';
+      document.getElementById('result').hidden = false;
+      show('สร้างลิงก์แล้ว (ออเดอร์ที่ชำระแล้ว ' + d.paid_orders + ' รายการ)');
+    } catch (e) {
+      show('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  document.getElementById('btn-copy').addEventListener('click', function () {
+    var out = document.getElementById('out');
+    var b = this;
+    navigator.clipboard.writeText(out.value).then(function () {
+      b.textContent = 'คัดลอกแล้ว ✓ ไปวางในแชท LINE ได้เลย';
+      setTimeout(function () { b.textContent = 'คัดลอกข้อความ'; }, 3000);
+    }).catch(function () { out.select(); });
+  });
+})();
+</script>
+</body>
+</html>
