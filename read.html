@@ -763,7 +763,9 @@ function showPage(idx, onLoad, flipDir) {
   }
 
   // update URL without reload
-  history.replaceState(null, '', `?story=${storyId}&token=${token}&p=${idx + 1}`);
+  // token อยู่ใน start() ไม่ใช่ตัวแปรระดับบน — เดิมอ้าง `token` ตรงๆ แล้วพังทุกครั้ง
+  // (ReferenceError) ทำให้ init() หยุดก่อนผูกปัดหน้าจอ/ปุ่มคีย์บอร์ด/เล่นต่อเนื่อง/ดนตรี
+  history.replaceState(null, '', `?story=${storyId}&token=${encodeURIComponent(params.get('token') || '')}&p=${idx + 1}`);
 }
 
 // ── Audio controls ────────────────────────────────────────────────────────────
