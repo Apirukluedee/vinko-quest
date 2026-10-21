@@ -90,10 +90,13 @@ async function handleSendMagicLink(req, res) {
   if (!resendKey) return json(res, 503, { ok: false, error: 'email_not_configured' });
 
   // กัน spam: สูงสุด 3 magic link ต่อ 10 นาทีต่ออีเมล
+  // นับเฉพาะแถวที่มาจาก magic link (มี magic_expires_at) — เดิมนับ session จาก
+  // LINE login ด้วย ลูกค้ากด LINE วนไม่กี่รอบก็ขอลิงก์ทางอีเมลไม่ได้อีก 10 นาที
   try {
     const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const recent = await db.count('user_sessions',
       'email=eq.' + encodeURIComponent(email) +
+      '&magic_expires_at=not.is.null' +
       '&created_at=gte.' + encodeURIComponent(since));
     if (recent >= 3) return json(res, 429, { ok: false, error: 'rate_limited' });
   } catch (e) {

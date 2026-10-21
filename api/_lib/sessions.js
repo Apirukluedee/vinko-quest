@@ -49,18 +49,19 @@ async function findEmailByLineUserId(line_user_id) {
 }
 
 /* ตรวจ magic token → คืน {email, session_token} หรือ null
-   ใช้ atomic UPDATE (ไม่ใช่ SELECT แล้วค่อย UPDATE) เพื่อกัน TOCTOU race:
-   สอง request ที่มาพร้อมกันจะผ่านเงื่อนไขเดียวกันพร้อมกันไม่ได้
-   เพราะ DB จะให้แก้ไขแถวเดียวกันได้แค่ครั้งเดียวใน transaction */
+   กดลิงก์ซ้ำได้จนครบ 15 นาที (ไม่ลบ token ทิ้งหลังใช้ครั้งแรก)
+   เดิมใช้ได้ครั้งเดียว แต่แอป Gmail / ตัวสแกนลิงก์ของอีเมลเปิดลิงก์ไปก่อน
+   ลูกค้ากดเองจึงเจอ "ลิงก์หมดอายุแล้ว" ทุกครั้ง (เจอจริง 21 ต.ค. 2569)
+   ทุกครั้งที่กดได้ session เดิมของแถวนี้ ไม่สร้างแถวใหม่ */
 async function activateMagicSession(magic_token) {
   if (!magic_token) return null;
 
   const now = new Date().toISOString();
-  const r = await db.update(
+  const r = await db.select(
     'user_sessions',
     'magic_token=eq.' + encodeURIComponent(magic_token) +
-    '&magic_expires_at=gt.' + encodeURIComponent(now),
-    { magic_token: null, magic_expires_at: null }
+    '&magic_expires_at=gt.' + encodeURIComponent(now) +
+    '&select=email,session_token&limit=1'
   );
   if (!r.ok || !Array.isArray(r.body) || !r.body[0]) return null;
   const { email, session_token } = r.body[0];
