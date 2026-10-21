@@ -14,6 +14,7 @@
      refund-status  { order_ref }                    ดูสถานะคืนเงิน เทียบ DB กับ Omise
      refund         { order_ref, scope, note }       บันทึกการคืนเงินและตัดสิทธิ์โหลด
      line-link      { email }                        ลิงก์เข้าชั้นหนังสือผ่าน LINE ให้แอดมินส่งในแชท
+     direct-link    { email }                        ลิงก์เข้าชั้นหนังสือตรง ไม่ผ่าน LINE Login (24 ชม.)
 
    หมายเหตุ: action refund ไม่ได้สั่งคืนเงินเอง เจ้าของต้องกดคืนที่แดชบอร์ด
    Omise ก่อน แล้วตัวนี้จะไปยืนยันกับ Omise ว่าคืนจริงถึงจะยอมตัดสิทธิ์
@@ -27,11 +28,16 @@ const { json, safeEqual, likeLiteral } = require('./_lib/util');
 const config = require('./_lib/config');
 const db = require('./_lib/supabase');
 const email = require('./_lib/email');
+const sessions = require('./_lib/sessions');
 
 // ลิงก์ที่แอดมินส่งในแชท LINE อยู่ได้ 7 วัน — ลูกค้าไม่ได้กดทันทีเสมอ
 // แต่ไม่ควรอยู่เป็นปีแบบลิงก์ในอีเมล เพราะแชทถูกแคปส่งต่อได้ง่ายกว่า
 // (ผูก LINE ได้ไม่เกิน 3 บัญชีต่ออีเมล เป็นเพดานกันส่งต่ออีกชั้น)
 const LINE_LINK_TTL_MS = 7 * 24 * 3600 * 1000;
+
+// ลิงก์เข้าตรง = ใครได้ลิงก์ไปก็เข้าชั้นหนังสือนี้ได้ ไม่มีเพดาน LINE กั้น จึงให้อยู่แค่ 24 ชม.
+// ทำไว้ให้ลูกค้าที่ LINE Login พัง (เจอจริงบน Android: "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ")
+const DIRECT_LINK_TTL_MS = 24 * 3600 * 1000;
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false });
@@ -85,7 +91,7 @@ module.exports = async function handler(req, res) {
       return json(res, out.ok ? 200 : 400, out);
     }
 
-    if (action === 'line-link') {
+    if (action === 'line-link' || action === 'direct-link') {
       const addr = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
         return json(res, 400, { ok: false, error: 'อีเมลไม่ถูกต้อง' });
@@ -94,6 +100,13 @@ module.exports = async function handler(req, res) {
       const paid = await db.count('orders',
         'customer_email=ilike.' + encodeURIComponent(likeLiteral(addr)) + '&status=eq.paid');
       if (!paid) return json(res, 404, { ok: false, error: 'ไม่พบออเดอร์ที่ชำระแล้วของอีเมลนี้' });
+      if (action === 'direct-link') {
+        const { magic_token } = await sessions.createMagicSession(addr, null, DIRECT_LINK_TTL_MS);
+        const base = config.appBaseUrl() || 'https://vinko.quest';
+        const directUrl = base.replace(/\/$/, '') + '/api/auth/verify-magic?token=' +
+          encodeURIComponent(magic_token) + '&openExternalBrowser=1';
+        return json(res, 200, { ok: true, email: addr, paid_orders: paid, url: directUrl, valid_hours: 24 });
+      }
       const url = email.connectLineUrl(addr, LINE_LINK_TTL_MS);
       if (!url) return json(res, 503, { ok: false, error: 'LINE Login ยังไม่ได้ตั้งค่า' });
       return json(res, 200, { ok: true, email: addr, paid_orders: paid, url: url, valid_days: 7 });
