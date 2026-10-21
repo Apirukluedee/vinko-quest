@@ -21,6 +21,8 @@ button { font: inherit; font-weight: 700; font-size: 16px; border: 0; border-rad
 .btn-main { background: #071B5D; color: #fff; width: 100%; }
 .btn-copy { background: #06C755; color: #fff; width: 100%; margin-top: 10px; }
 .btn-main:disabled { opacity: .6; }
+.btn-alt { background: #fff; color: #071B5D; border: 1.5px solid #071B5D; width: 100%; margin-top: 10px; }
+.btn-alt:disabled { opacity: .6; }
 .msg { font-size: 14px; margin-top: 12px; line-height: 1.6; }
 .msg.error { color: #b42318; }
 textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; padding: 12px; border: 1.5px solid #d8dbe6; border-radius: 10px; min-height: 190px; color: #071B5D; resize: vertical; }
@@ -46,7 +48,9 @@ textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; paddin
 
     <label for="email" style="margin-top:12px">อีเมลที่ลูกค้าใช้สั่งซื้อ</label>
     <input id="email" type="email" autocomplete="off" placeholder="customer@email.com"/>
-    <button class="btn-main" id="btn-make" type="button">สร้างลิงก์</button>
+    <button class="btn-main" id="btn-make" type="button" data-action="direct-link">สร้างลิงก์เข้าตรง (แนะนำ · 24 ชม.)</button>
+    <button class="btn-alt" id="btn-make-line" type="button" data-action="line-link">ลิงก์ผูกบัญชี LINE (7 วัน)</button>
+    <p class="note">ลิงก์เข้าตรง: ไม่ต้องเข้าสู่ระบบด้วย LINE ใช้ได้ทุกเครื่อง รวม Android ที่ LINE Login ขึ้น error<br/>ลิงก์ผูก LINE: ลูกค้ากดเข้าสู่ระบบด้วย LINE ครั้งต่อไปกดเมนู "หนังสือของฉัน" ได้จากทุกเครื่องที่มี LINE นี้</p>
     <div class="msg" id="msg"></div>
   </div>
 
@@ -54,7 +58,7 @@ textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; paddin
     <label for="out">ข้อความพร้อมส่งให้ลูกค้า</label>
     <textarea id="out" readonly></textarea>
     <button class="btn-copy" id="btn-copy" type="button">คัดลอกข้อความ</button>
-    <p class="note">ลิงก์ใช้ได้ 7 วัน ผูก LINE ได้ไม่เกิน 3 บัญชีต่ออีเมล ส่งให้ลูกค้าคนนั้นคนเดียวเท่านั้น</p>
+    <p class="note" id="out-note"></p>
   </div>
 </div>
 
@@ -64,7 +68,7 @@ textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; paddin
   var secretEl = document.getElementById('secret');
   var emailEl = document.getElementById('email');
   var msgEl = document.getElementById('msg');
-  var btn = document.getElementById('btn-make');
+  var btns = [document.getElementById('btn-make'), document.getElementById('btn-make-line')];
 
   function saved() { try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; } }
   function showSecretState() {
@@ -84,19 +88,19 @@ textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; paddin
     msgEl.className = 'msg' + (isError ? ' error' : '');
   }
 
-  btn.addEventListener('click', async function () {
+  async function make(action) {
     var secret = saved() || secretEl.value.trim();
     var email = emailEl.value.trim();
     if (!secret) return show('กรุณาใส่รหัสแอดมิน', true);
     if (!email) return show('กรุณาใส่อีเมลลูกค้า', true);
-    btn.disabled = true;
+    btns.forEach(function (b) { b.disabled = true; });
     show('กำลังสร้างลิงก์…');
     document.getElementById('result').hidden = true;
     try {
       var r = await fetch('/api/admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-vinko-admin': secret },
-        body: JSON.stringify({ action: 'line-link', email: email })
+        body: JSON.stringify({ action: action, email: email })
       });
       var d = await r.json().catch(function () { return {}; });
       if (r.status === 401) {
@@ -107,20 +111,33 @@ textarea { width: 100%; font: inherit; font-size: 14px; line-height: 1.6; paddin
       if (!d.ok) return show(d.error || 'สร้างลิงก์ไม่สำเร็จ', true);
       try { localStorage.setItem(KEY, secret); } catch (e) {}
       showSecretState();
-      document.getElementById('out').value =
-        'ลิงก์เข้าชั้นหนังสือของคุณค่ะ 📚\n' +
-        d.url + '\n\n' +
-        '1️⃣ กดลิงก์นี้ในแชท LINE\n' +
-        '2️⃣ กดยืนยัน "เข้าสู่ระบบด้วย LINE"\n' +
-        '3️⃣ จะเห็นหนังสือทุกเล่ม กด "🎧 ฟังเสียงอ่าน · อ่านนิทาน" ได้เลยค่ะ\n\n' +
-        'ครั้งต่อไปกดเมนู "หนังสือของฉัน" ในแชทนี้ได้เลย ไม่ต้องใช้ลิงก์อีกค่ะ 😊';
+      var direct = action === 'direct-link';
+      document.getElementById('out').value = direct
+        ? 'ลิงก์เข้าชั้นหนังสือของคุณค่ะ 📚 (ใช้ได้ 24 ชั่วโมง)\n' +
+          d.url + '\n\n' +
+          '1️⃣ กดลิงก์นี้ จะเข้าชั้นหนังสือทันที ไม่ต้องเข้าสู่ระบบ\n' +
+          '2️⃣ กด "🎧 ฟังเสียงอ่าน · อ่านนิทาน" ที่เล่มที่ต้องการ\n' +
+          '3️⃣ กดปุ่ม ไทย / English บนภาพเพื่อฟัง ปัดจอเพื่อเปลี่ยนหน้าค่ะ\n\n' +
+          'เข้าครั้งแรกแล้ว ครั้งต่อไปกดเมนู "หนังสือของฉัน" ในแชทนี้ได้เลยค่ะ 😊'
+        : 'ลิงก์เข้าชั้นหนังสือของคุณค่ะ 📚\n' +
+          d.url + '\n\n' +
+          '1️⃣ กดลิงก์นี้ในแชท LINE\n' +
+          '2️⃣ กดยืนยัน "เข้าสู่ระบบด้วย LINE"\n' +
+          '3️⃣ จะเห็นหนังสือทุกเล่ม กด "🎧 ฟังเสียงอ่าน · อ่านนิทาน" ได้เลยค่ะ\n\n' +
+          'ครั้งต่อไปกดเมนู "หนังสือของฉัน" ในแชทนี้ได้เลย ไม่ต้องใช้ลิงก์อีกค่ะ 😊';
+      document.getElementById('out-note').textContent = direct
+        ? 'ลิงก์เข้าตรงใช้ได้ 24 ชม. ใครได้ลิงก์ไปก็เข้าชั้นหนังสือนี้ได้ ส่งให้ลูกค้าคนนั้นคนเดียวเท่านั้น'
+        : 'ลิงก์ใช้ได้ 7 วัน ผูก LINE ได้ไม่เกิน 3 บัญชีต่ออีเมล ส่งให้ลูกค้าคนนั้นคนเดียวเท่านั้น';
       document.getElementById('result').hidden = false;
       show('สร้างลิงก์แล้ว (ออเดอร์ที่ชำระแล้ว ' + d.paid_orders + ' รายการ)');
     } catch (e) {
       show('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', true);
     } finally {
-      btn.disabled = false;
+      btns.forEach(function (b) { b.disabled = false; });
     }
+  }
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () { make(b.getAttribute('data-action')); });
   });
 
   document.getElementById('btn-copy').addEventListener('click', function () {

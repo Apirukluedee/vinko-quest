@@ -139,6 +139,24 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
   margin-top: 4px;
 }
 
+/* วิธีฟังเสียงอ่าน — โชว์เฉพาะคนที่มีนิทาน กะทัดรัด ไม่ดันหนังสือลงไปไกล
+   (ลูกค้าเปิด PDF แล้วหาเสียงไม่เจอ ถามแอดมินซ้ำหลายราย ต.ค. 2569) */
+.howto {
+  background: #EEF3FF;
+  border: 1px solid #C9D6F5;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-family: 'Anuphan', sans-serif;
+  color: #071B5D;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.howto b.howto-title { display: block; font-size: 15px; margin-bottom: 4px; }
+.howto ol { margin: 0; padding-left: 20px; }
+.howto li { margin: 2px 0; }
+.howto .howto-pdf { margin: 6px 0 0; color: #4A5578; font-size: 13px; }
+
 .empty-state {
   text-align: center;
   padding: 60px 20px;
@@ -252,6 +270,15 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
 
   <!-- Books grid -->
   <div id="books-section" hidden>
+    <div class="howto" id="howto" hidden>
+      <b class="howto-title">🎧 วิธีฟังเสียงอ่านนิทาน</b>
+      <ol>
+        <li>กดปุ่มสีน้ำเงิน <b>"🎧 ฟังเสียงอ่าน · อ่านนิทาน"</b> ที่เล่มที่ต้องการ</li>
+        <li>กด <b>🇹🇭 ไทย</b> หรือ <b>🇬🇧 English</b> บนภาพ เพื่อฟังเสียงหน้านั้น</li>
+        <li>ปัดจอหรือกด ‹ › เพื่อเปลี่ยนหน้า · กด <b>"ต่อเนื่อง"</b> ให้เล่นเองจนจบเล่ม</li>
+      </ol>
+      <p class="howto-pdf">📄 ปุ่ม "ดาวน์โหลด PDF" คือไฟล์หนังสือเก็บลงเครื่อง ในไฟล์ PDF ไม่มีเสียงอ่าน</p>
+    </div>
     <div class="book-grid" id="book-grid"></div>
   </div>
 
@@ -321,6 +348,7 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
     }
 
     renderBooks(data.books);
+    document.getElementById('howto').hidden = !data.books.some(function (b) { return b.kind === 'story' && b.available; });
     document.getElementById('books-section').hidden = false;
   }
 

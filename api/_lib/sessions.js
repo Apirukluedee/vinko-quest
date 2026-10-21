@@ -23,9 +23,10 @@ function genToken() {
    อีเมล) ถูกเก็บไว้ในแถวนี้ด้วย เพื่อให้ครั้งถัดไป LINE login ตรงๆ (ไม่มี
    อีเมลจาก LINE อีก) หา email เดิมเจอได้เอง ไม่ต้องให้กรอกซ้ำทุกครั้ง —
    ดู findEmailByLineUserId */
-async function createMagicSession(email, line_user_id) {
+// ttlMs: ลิงก์ในอีเมลใช้ 15 นาที (ค่าเริ่มต้น) ลิงก์ที่แอดมินส่งในแชท LINE ใช้ 24 ชม.
+async function createMagicSession(email, line_user_id, ttlMs) {
   const magic_token      = genToken();
-  const magic_expires_at = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const magic_expires_at = new Date(Date.now() + (ttlMs || 15 * 60 * 1000)).toISOString();
 
   const row = { email, magic_token, magic_expires_at, expires_at: sessionExpiresAt() };
   if (line_user_id) row.line_user_id = line_user_id;
