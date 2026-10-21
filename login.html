@@ -338,7 +338,9 @@
         throw new Error(data.error || 'send_failed');
       }
     } catch (e) {
-      showMsg('ส่งไม่สำเร็จ: ' + e.message, 'error');
+      showMsg(e.message === 'rate_limited'
+        ? 'ขอลิงก์บ่อยเกินไป กรุณารอ 10 นาทีแล้วลองใหม่ หรือกดลิงก์ล่าสุดที่ส่งไปในอีเมล (ใช้ได้ 15 นาที)'
+        : 'ส่งไม่สำเร็จ: ' + e.message, 'error');
       btn.disabled = false;
       btn.textContent = 'รับลิงก์เข้าสู่ระบบทางอีเมล';
     }
