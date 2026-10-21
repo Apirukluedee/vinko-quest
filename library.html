@@ -176,7 +176,7 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0,0,0,.08);
   padding: 20px;
-  margin-bottom: 24px;
+  margin-top: 32px;
   display: flex;
   align-items: center;
   gap: 20px;
@@ -250,19 +250,6 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
     กำลังโหลดหนังสือของคุณ…
   </div>
 
-  <!-- LINE connect QR -->
-  <div class="line-connect" id="line-connect" hidden>
-    <div class="line-connect-qr" id="line-connect-qr"></div>
-    <div class="line-connect-body">
-      <h2>📱 เปิดจากมือถือเครื่องอื่นด้วย LINE</h2>
-      <p>ถ้ามือถือเครื่องนี้ใช้ LINE อยู่แต่ไม่มีอีเมลนี้ ให้เปิดแอป LINE แล้วสแกน QR นี้ (หรือใช้กล้องมือถือสแกนก็ได้)
-        ระบบจะผูกบัญชี LINE ให้เข้าหนังสือชุดนี้ได้ทันที ไม่ต้องรออีเมล</p>
-      <button class="btn-copy-line" id="btn-copy-line" type="button">สแกนไม่ได้? คัดลอกลิงก์</button>
-      <p style="margin:8px 0 0">เปิดหน้านี้อยู่บนมือถือที่มี LINE: กดคัดลอก แล้ววางในแชท LINE ของตัวเอง (เช่น Keep Memo) จากนั้นกดลิงก์จากในแชทนั้น</p>
-      <p style="margin:6px 0 0;color:#9a3412;font-size:12.5px">ลิงก์และ QR นี้ผูกกับหนังสือของคุณ ห้ามส่งต่อหรือโพสต์ให้คนอื่น</p>
-    </div>
-  </div>
-
   <!-- Books grid -->
   <div id="books-section" hidden>
     <div class="book-grid" id="book-grid"></div>
@@ -275,6 +262,20 @@ body.premium .lib-title { font-family: 'Fredoka', sans-serif; font-size: clamp(1
     <a href="/" class="btn">ดูหนังสือทั้งหมด</a>
     <br/><br/>
     <a href="/api/auth/logout" style="font-size:13px;color:#888;">ออกจากระบบ / เปลี่ยนอีเมล</a>
+  </div>
+
+  <!-- LINE connect QR — ไว้ล่างสุด: เปิดมาต้องเจอหนังสือก่อน (owner 21 ต.ค. 2569)
+       เดิมอยู่บนสุด กินจอมือถือเกือบทั้งหน้า ลูกค้านึกว่ายังเข้าไม่ได้ -->
+  <div class="line-connect" id="line-connect" hidden>
+    <div class="line-connect-qr" id="line-connect-qr"></div>
+    <div class="line-connect-body">
+      <h2>📱 เปิดจากมือถือเครื่องอื่นด้วย LINE</h2>
+      <p>ถ้ามือถือเครื่องนี้ใช้ LINE อยู่แต่ไม่มีอีเมลนี้ ให้เปิดแอป LINE แล้วสแกน QR นี้ (หรือใช้กล้องมือถือสแกนก็ได้)
+        ระบบจะผูกบัญชี LINE ให้เข้าหนังสือชุดนี้ได้ทันที ไม่ต้องรออีเมล</p>
+      <button class="btn-copy-line" id="btn-copy-line" type="button">สแกนไม่ได้? คัดลอกลิงก์</button>
+      <p style="margin:8px 0 0">เปิดหน้านี้อยู่บนมือถือที่มี LINE: กดคัดลอก แล้ววางในแชท LINE ของตัวเอง (เช่น Keep Memo) จากนั้นกดลิงก์จากในแชทนั้น</p>
+      <p style="margin:6px 0 0;color:#9a3412;font-size:12.5px">ลิงก์และ QR นี้ผูกกับหนังสือของคุณ ห้ามส่งต่อหรือโพสต์ให้คนอื่น</p>
+    </div>
   </div>
 
 </div>
