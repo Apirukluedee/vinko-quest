@@ -480,7 +480,7 @@ async function handleMyLibrary(req, res) {
   }
 
   return json(res, 200, {
-    ok: true, email: user.email, books: labBooks.concat(books),
+    ok: true, email: user.email, books: books.concat(labBooks),  // นิทานก่อน LAB: ปุ่มฟังเสียงอยู่ใต้กล่องวิธีฟังพอดี (owner 23 ต.ค. 2569)
     connect_line_url: connectLineUrl, connect_line_qr_svg: connectLineQrSvg
   });
 }
